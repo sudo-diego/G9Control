@@ -670,7 +670,9 @@ class GamePanel(private val svc: AutoModeService) {
         val id = focusedAppWindow().takeIf { it >= 0 } ?: svc.appWindowId
         // Un launcher (Cocoon, el de ZUI) deja ver el fondo de pantalla, que es otra ventana: con solo la suya el
         // fondo sale negro. Ahí, toda la pantalla (el panel ya se quitó; el puntero puede salir).
-        val launcher = isLauncher(svc.foregroundApp)
+        // Recién arrancado el servicio (al actualizar la app) no sabe qué app está al frente hasta que se cambia de app:
+        // ahí se le pregunta a la ventana con el foco.
+        val launcher = isLauncher(svc.foregroundApp ?: focusedAppPackage())
         if (Build.VERSION.SDK_INT >= 34 && (id >= 0 || launcher)) {
             Log.d(AutoModeService.TAG, if (launcher) "captura de la pantalla (launcher)" else "captura de la ventana $id (del evento: ${svc.appWindowId})")
             val callback = object : AccessibilityService.TakeScreenshotCallback {
@@ -727,6 +729,12 @@ class GamePanel(private val svc: AutoModeService) {
         val apps = all.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
         return (apps.firstOrNull { it.isFocused } ?: apps.firstOrNull { it.isActive } ?: apps.firstOrNull())?.id ?: -1
     }
+
+    /** Paquete de la ventana de app con el foco (null si no se sabe). */
+    private fun focusedAppPackage(): String? = runCatching {
+        val apps = svc.windows.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }
+        (apps.firstOrNull { it.isFocused } ?: apps.firstOrNull { it.isActive })?.root?.packageName?.toString()
+    }.getOrNull()
 
     private fun fullScreenshot() {
         if (!svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_TAKE_SCREENSHOT)) toast(tr("No se pudo sacar la captura.", "Couldn't take the screenshot."))
