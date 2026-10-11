@@ -22,7 +22,7 @@ import kotlin.math.sign
 /**
  * Mouse virtual para las apps que no usan el control: un puntero que se mueve con el stick izquierdo (o la cruceta)
  * y toca con A, con toques de verdad (gestos del servicio de accesibilidad). Mantener A es un toque largo hasta
- * soltarlo; el stick derecho desplaza; B es Atrás. Mientras está encendido los sticks no llegan a las apps.
+ * soltarlo, y moverse mientras tanto arrastra (como con el dedo); el stick derecho desplaza; B es Atrás. Mientras está encendido los sticks no llegan a las apps.
  */
 class VirtualMouse(private val svc: AccessibilityService, private val onChange: (Boolean) -> Unit) {
     private val main = Handler(Looper.getMainLooper())
@@ -183,7 +183,7 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
     }
 
     // A: soltar rápido = toque (un gesto corto y completo, lo más confiable). Mantenerlo = toque largo que dura hasta
-    // soltar A, donde se apretó: tramos cortos encadenados en el mismo punto, el último levanta el dedo.
+    // soltar A y sigue al puntero si se mueve (arrastrar): tramos cortos encadenados, el último levanta el dedo.
     private var aDown = false
     private var holding = false
     private var downX = 0f; private var downY = 0f
@@ -208,8 +208,11 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
     private val startHold = Runnable {
         if (!aDown || holding) return@Runnable
         holding = true
+        gx = downX; gy = downY
         send(GestureDescription.StrokeDescription(Path().apply { moveTo(downX, downY) }, 0, STEP, true))
     }
+    /** Donde va el dedo del toque mantenido: sigue al puntero (mantener y mover = arrastrar, como con el dedo). */
+    private var gx = 0f; private var gy = 0f
 
     private fun send(s: GestureDescription.StrokeDescription) {
         stroke = s
@@ -222,13 +225,15 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         if (!ok) { holding = false; stroke = null }
     }
 
-    /** Tramo siguiente en el mismo punto; el último (A suelto) levanta el dedo. */
+    /** Tramo siguiente, hasta donde está el puntero ahora; el último (A suelto) levanta el dedo. */
     private fun next() {
         val prev = stroke ?: return
         if (!holding) return
         val more = aDown
         if (!more) { holding = false; stroke = null }
-        val s = prev.continueStroke(Path().apply { moveTo(downX, downY) }, 0, STEP, more)
+        val p = Path().apply { moveTo(gx, gy); if (x != gx || y != gy) lineTo(x, y) }
+        gx = x; gy = y
+        val s = prev.continueStroke(p, 0, STEP, more)
         if (more) send(s)
         else runCatching { svc.dispatchGesture(GestureDescription.Builder().addStroke(s).build(), null, null) }
     }

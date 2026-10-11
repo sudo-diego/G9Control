@@ -25,6 +25,15 @@ object ZuiGame {
         val centerY get() = (top + bottom) / 2f
     }
 
+    /**
+     * "Disable navigation bar and gesture" de Game Assistant (Ajustes → Game Assistant): en sus juegos, la barra de
+     * navegación y los gestos de deslizar no hacen nada. Es un ajuste global; se escribe con WRITE_SECURE_SETTINGS.
+     */
+    private const val GESTURE_LOCK = "key_game_assistant_prevent_misoperation"
+    fun gesturesLocked(ctx: Context) = runCatching { Settings.Global.getInt(ctx.contentResolver, GESTURE_LOCK) == 1 }.getOrDefault(false)
+    fun setGesturesLocked(ctx: Context, on: Boolean) =
+        runCatching { Settings.Global.putInt(ctx.contentResolver, GESTURE_LOCK, if (on) 1 else 0) }.isSuccess
+
     fun installed(ctx: Context) =
         runCatching { ctx.packageManager.getApplicationInfo(PACKAGE, 0).enabled }.getOrDefault(false)
 

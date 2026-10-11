@@ -608,12 +608,13 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem("Bluetooth", if (bt) Icons.Outlined.Bluetooth else Icons.Outlined.BluetoothDisabled, PanelRow.SYSTEM, active = bt,
             sub = tr("Dispositivos", "Devices") + if (bt) ySwitch.first else ySwitch.second,
             alt = { radio(!bt, Shell.BT_ON, Shell.BT_OFF) }, run = btList))
-        // Bloquear gestos (con Shizuku): Inicio, Recientes y la barra de notificaciones; Atrás sigue.
-        if (ready) {
-            val locked = svc.gesturesLocked
+        // Bloquear gestos: el "Disable navigation bar and gesture" de Game Assistant (en sus juegos), un ajuste del
+        // sistema que se puede cambiar con el permiso de pantalla.
+        if (ZuiGame.installed(svc) && Aspect.canWrite(svc)) {
+            val locked = ZuiGame.gesturesLocked(svc)
             add(PanelItem(tr("Bloquear gestos", "Lock gestures"), if (locked) Icons.Outlined.Lock else Icons.Outlined.LockOpen, PanelRow.SYSTEM,
-                active = locked, sub = if (locked) tr("Hasta salir de la app", "Until you leave the app") else tr("Inicio y notificaciones", "Home and notifications")) {
-                svc.setGesturesLocked(!locked); refresh()
+                active = locked, sub = if (locked) tr("En juegos", "In games") else tr("Apagado", "Off")) {
+                ZuiGame.setGesturesLocked(svc, !locked); refresh()
             })
         }
         // Mouse virtual: para apps que no usan el control (los sticks dejan de llegar a la app mientras está).
@@ -621,8 +622,8 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem(tr("Mouse", "Mouse"), Icons.Outlined.Mouse, PanelRow.SYSTEM, active = mouseOn,
             sub = if (mouseOn) tr("Encendido", "On") else tr("Stick y A", "Stick and A")) {
             hide(); svc.toggleMouse()
-            if (!mouseOn) toast(tr("Mouse: stick izquierdo mueve, A toca (mantener: toque largo), stick derecho desplaza, B atrás.",
-                "Mouse: left stick moves, A taps (hold: long press), right stick scrolls, B back."))
+            if (!mouseOn) toast(tr("Mouse: stick izquierdo mueve, A toca (mantener: toque largo; mantener y mover: arrastra), stick derecho desplaza, B atrás.",
+                "Mouse: left stick moves, A taps (hold: long press; hold and move: drag), right stick scrolls, B back."))
         })
         val mode = ModeSwitcher.detect()
         if (mode != null) PadMode.entries.filter { it != mode }.forEach { m ->

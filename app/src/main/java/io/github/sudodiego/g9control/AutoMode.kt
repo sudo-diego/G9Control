@@ -260,14 +260,6 @@ class AutoModeService : AccessibilityService() {
     private val mouse by lazy { VirtualMouse(this) { mouseOn = it; applyMotionSources() } }
     private var mouseOn = false
     fun toggleMouse() = mouse.toggle()
-
-    /** Gestos bloqueados (desde el panel): solo para la app al frente; al cambiar de app se desbloquean. */
-    var gesturesLocked = false
-        private set
-    fun setGesturesLocked(on: Boolean) {
-        gesturesLocked = on
-        scope.launch { Shell.run(if (on) Shell.GESTURES_LOCK else Shell.GESTURES_UNLOCK) }
-    }
     val isMouseOn get() = mouseOn
     /** Se salió de una app con regla y el control aún no vuelve a Android. */
     private var returnPending = false
@@ -614,7 +606,6 @@ class AutoModeService : AccessibilityService() {
         lastPackage = pkg
         panel.hide()
         panel.onAppChanged()
-        if (gesturesLocked) setGesturesLocked(false)
         // Bypass automático: otra app, otra decisión ("solo en juegos"). Lo manual sigue valiendo hasta desconectar el
         // cargador. ZUI tarda un momento en decidir si es juego.
         main.removeCallbacks(bypassCheck)
@@ -1100,7 +1091,6 @@ class AutoModeService : AccessibilityService() {
 
     override fun onDestroy() {
         if (mouseOn) mouse.stop()
-        if (gesturesLocked) Thread { kotlinx.coroutines.runBlocking { Shell.run(Shell.GESTURES_UNLOCK) } }.start()
         getSystemService(InputManager::class.java).unregisterInputDeviceListener(inputListener)
         getSystemService(android.hardware.display.DisplayManager::class.java).unregisterDisplayListener(displayListener)
         runCatching { contentResolver.unregisterContentObserver(monitorModeObserver) }
