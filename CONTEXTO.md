@@ -16,6 +16,8 @@ Este archivo junta lo que se sabe del protocolo y del control, lo que se descart
 
 **Consumo 60 contra 120 Hz (medido 10 oct 2026):** Wind Waker en Dolphin (30 FPS), Equilibrado, brillo fijo, desenchufada; 2 rondas de 90 s por frecuencia, watts del monitor de rendimiento (log G9Power). 60 Hz: 5,22 y 5,24 W; 120 Hz: 5,51 y 5,50 W. Diferencia ≈ 0,27 W (~5 %). Es solo el costo de la pantalla: en un juego que dibuje a 120 FPS la diferencia sería mayor (también trabaja la GPU). Script: alterna con `settings put system peak/min_refresh_rate` por adb y promedia descartando 20 s tras cada cambio.
 
+**Rediseño (11 oct 2026):** Tablet = Inicio (mosaicos: batería, temperatura, Hz; rápido: bypass, monitor, 16:9) · Batería · Pantalla · Juego (capturas, monitor, frecuencia, Game Assistant) · Controles (cada atajo del botón guía con su interruptor: prefs `guide_tap_back/guide_hold_panel/guide_rb_shot/guide_lb_back`; L3 + R3, M dos veces, volumen invertido) · Ajustes. G9 = Inicio (con perfiles) · Por juego · Luces · Sticks · Vibración · Botones · Traseros · Ajustes. Pestañas en una píldora: la elegida con nombre, las demás solo ícono. Fondo elegible (degradado animado por defecto, imagen/GIF desenfocado, liso) y tarjetas de vidrio. Panel en grupos Juego / Pantalla y conexión / Android; el botón de accesibilidad (flagRequestAccessibilityButton) abre el panel sin control.
+
 **Shizuku: qué lo necesita y qué no (revisión del 11 oct 2026).** Regla: solo cuando no hay otra vía.
 | Función | Cómo va |
 |---|---|

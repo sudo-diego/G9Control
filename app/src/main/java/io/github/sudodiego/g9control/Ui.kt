@@ -150,7 +150,7 @@ private fun TabBar(s: AppState, a: MainActivity) {
             PadBadge("RT")
             Spacer(Modifier.weight(1f))
             Row(
-                Modifier.weight(6f, fill = false).clip(CircleShape).background(c.surfaceContainerHigh.copy(alpha = 0.85f))
+                Modifier.weight(10f, fill = false).clip(CircleShape).background(c.surfaceContainerHigh.copy(alpha = 0.85f))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -192,7 +192,7 @@ private fun TabBar(s: AppState, a: MainActivity) {
                             .onGloballyPositioned { tabX[item.page] = it.positionInParent().x.toInt() to it.size.width }
                     ) {
                         // Como un carrusel: la elegida con su nombre, las demás solo el ícono (así caben todas).
-                        Row(Modifier.animateContentSize().padding(horizontal = if (sel) 14.dp else 11.dp, vertical = 8.dp),
+                        Row(Modifier.animateContentSize().padding(horizontal = if (sel) 12.dp else 9.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 if (sel) item.selectedIcon else item.icon, item.label, Modifier.size(22.dp),
