@@ -574,6 +574,20 @@ fun SaveStatus(
     }
 }
 
+/**
+ * Botón que borra o reinicia algo: el primer toque pregunta ("¿Seguro? Toca otra vez") y solo el segundo lo hace;
+ * si no se confirma en 4 s vuelve a su estado. Así un toque sin querer (o A apretado de más) no borra nada.
+ */
+@Composable
+fun ConfirmButton(label: String, enabled: Boolean = true, onConfirm: () -> Unit) {
+    var armed by remember { mutableStateOf(false) }
+    LaunchedEffect(armed) { if (armed) { kotlinx.coroutines.delay(4000); armed = false } }
+    TextButton(onClick = { if (armed) { armed = false; onConfirm() } else armed = true }, enabled = enabled) {
+        Text(if (armed) tr("¿Seguro? Toca otra vez", "Sure? Tap again") else label,
+            color = if (armed) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified)
+    }
+}
+
 @Composable
 fun Hint(text: String, icon: ImageVector = Icons.Outlined.Info) {
     Row(verticalAlignment = Alignment.Top) {

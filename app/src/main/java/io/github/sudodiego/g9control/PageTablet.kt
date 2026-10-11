@@ -41,7 +41,7 @@ private fun PowerByAppPanel(a: MainActivity) {
     LaunchedEffect(Unit) { while (true) { delay(10_000); apps = PowerLog.apps(a) } }
     val c = MaterialTheme.colorScheme
     Panel(tr("Consumo por app", "Draw per app"), trailing = {
-        if (apps.isNotEmpty()) TextButton(onClick = { PowerLog.reset(a); apps = emptyList() }) { Text(tr("Reiniciar", "Reset")) }
+        if (apps.isNotEmpty()) ConfirmButton(tr("Reiniciar", "Reset")) { PowerLog.reset(a); apps = emptyList() }
     }) {
         if (apps.isEmpty()) Hint(tr("Se mide a batería con la pantalla encendida: usa la tablet desenchufada un rato y aquí sale el promedio de cada app.",
             "Measured on battery with the screen on: use the tablet unplugged for a while and each app's average shows up here."))
@@ -295,7 +295,7 @@ private fun MonitorPanel(s: AppState, a: MainActivity) {
                             k.name + if (k.key == monitor?.key) tr(" (conectado)", " (connected)") else "",
                             Modifier.weight(1f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        TextButton(onClick = { Monitor.forget(a, k.key); tick++ }) { Text(tr("Olvidar", "Forget")) }
+                        ConfirmButton(tr("Olvidar", "Forget")) { Monitor.forget(a, k.key); tick++ }
                     }
                     ChoiceChips(
                         listOf(Monitor.Fit.ALL to (if (all169) tr("Como todos (16:9)", "Like all (16:9)") else tr("Como todos (16:10)", "Like all (16:10)")),

@@ -312,6 +312,10 @@ private fun PanelLookPanel(a: MainActivity) {
         if (ThemeState.panelBackground == PanelBackground.CLEAR) {
             SliderRow(tr("Relleno", "Fill"), ThemeState.panelFill, 0..100) { ThemeState.panelFill = it; Prefs.setPanelFill(a, it) }
         }
+        if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE) {
+            // Liquid glass: el fondo elegido, pero dejando ver el juego detrás.
+            SliderRow(tr("Transparencia", "Transparency"), ThemeState.panelSee, 0..100) { ThemeState.panelSee = it; Prefs.setPanelSee(a, it) }
+        }
         if (ThemeState.panelBackground == PanelBackground.IMAGE) {
             OutlinedButton(onClick = { a.pickPanelBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
             SliderRow(tr("Desenfoque", "Blur"), ThemeState.panelBlur, 0..100) { ThemeState.panelBlur = it; Prefs.setPanelBlur(a, it) }

@@ -49,6 +49,8 @@ object Prefs {
     fun setPanelLoop(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("panel_loop", v).apply()
     fun panelFill(ctx: Context) = sp(ctx).getInt("panel_fill", 25)
     fun setPanelFill(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_fill", v).apply()
+    fun panelSee(ctx: Context) = sp(ctx).getInt("panel_see", 0)
+    fun setPanelSee(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_see", v).apply()
 
     fun centered(ctx: Context) = sp(ctx).getBoolean("centered", false)
     fun setCentered(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("centered", v).apply()

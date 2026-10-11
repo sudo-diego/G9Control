@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
@@ -53,9 +54,19 @@ fun Backdrop() {
     }
 }
 
-/** Fondo del panel de juego (siempre oscuro, va sobre el juego): el suyo propio, no el de la app. */
+/**
+ * Fondo del panel de juego (siempre oscuro, va sobre el juego): el suyo propio, no el de la app. El degradado y la
+ * imagen pueden ser translúcidos: el juego se ve a través de ellos (liquid glass).
+ */
 @Composable
 fun PanelBackdrop() {
+    val see = if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)
+        ThemeState.panelSee / 100f * 0.85f else 0f
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - see }) { PanelBackdropLayer() }
+}
+
+@Composable
+private fun PanelBackdropLayer() {
     when (ThemeState.panelBackground) {
         PanelBackground.PLAIN -> Box(Modifier.fillMaxSize().background(Color(0xFF0E1424)))
         // Transparente: el juego se ve detrás, con el relleno elegido (un velo oscuro, de nada a casi opaco).

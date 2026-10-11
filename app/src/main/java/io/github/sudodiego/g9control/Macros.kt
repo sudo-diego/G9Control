@@ -172,9 +172,7 @@ fun MacroEditor(s: AppState, a: MainActivity) {
                 Button(onClick = { a.saveMacro() }, enabled = s.connected && m.steps.isNotEmpty() && !s.macroRecording) {
                     Text(tr("Guardar en el control", "Save to the controller"))
                 }
-                if (s.backKeys[k.id] == BACK_MACRO) TextButton(onClick = { a.clearMacro(k) }, enabled = s.connected) {
-                    Text(tr("Quitar macro", "Remove macro"), color = c.error)
-                }
+                if (s.backKeys[k.id] == BACK_MACRO) ConfirmButton(tr("Quitar macro", "Remove macro"), enabled = s.connected) { a.clearMacro(k) }
             }
         }
     }

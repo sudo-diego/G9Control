@@ -97,12 +97,17 @@ object ThemeState {
     var panelLoop by androidx.compose.runtime.mutableStateOf(true)
     /** Transparente: cuánto relleno oscuro lleva (0 = nada, se ve el juego entero detrás). */
     var panelFill by androidx.compose.runtime.mutableIntStateOf(25)
+    /** Degradado o imagen: cuánto se ve el juego a través (0 = nada, el fondo tapa; 100 = casi invisible). */
+    var panelSee by androidx.compose.runtime.mutableIntStateOf(0)
+    /** El panel deja ver el juego detrás: transparente, o un fondo con transparencia. */
+    val panelSeeThrough get() = panelBackground == PanelBackground.CLEAR ||
+        (panelBackground != PanelBackground.PLAIN && panelSee > 0)
 
     /** Lo elegido, desde la app o desde el servicio (el panel se puede abrir sin haber abierto la app). */
     fun load(ctx: android.content.Context) {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
-        panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx)
+        panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
     }
     /** Con fondo (degradado o imagen) las tarjetas son de vidrio: translúcidas con un borde claro. */
     val glass get() = background != AppBackground.PLAIN

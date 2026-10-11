@@ -1079,8 +1079,10 @@ private val GLASS_EDGE = Color(0x24FFFFFF)
 private val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN
 // Transparente: los mosaicos llevan más cuerpo (azul translúcido) para leerse sobre un juego claro.
 private val TILE_CLEAR = Color(0xB8141C30)
-private val tileColor get() = when (ThemeState.panelBackground) {
-    PanelBackground.PLAIN -> TILE; PanelBackground.CLEAR -> TILE_CLEAR; else -> TILE_GLASS
+private val tileColor get() = when {
+    ThemeState.panelBackground == PanelBackground.PLAIN -> TILE
+    ThemeState.panelSeeThrough -> TILE_CLEAR
+    else -> TILE_GLASS
 }
 
 private val TILE_W = 172.dp
@@ -1096,13 +1098,13 @@ private val CARD_PAD = 22.dp
 private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onSet: (Int, Float) -> Unit) {
     val width = TILE_W * COLUMNS + GAP * (COLUMNS - 1)
     val shape = RoundedCornerShape(28.dp)
-    Surface(color = if (ThemeState.panelBackground == PanelBackground.CLEAR) Color.Transparent else PANEL_BG, shape = shape, modifier = modifier,
+    Surface(color = if (ThemeState.panelSeeThrough) Color.Transparent else PANEL_BG, shape = shape, modifier = modifier,
         border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
       Box {
         // Fondo propio del panel (degradado, imagen o GIF) con un velo para que se lea sobre cualquier imagen.
         if (glassPanel) Box(Modifier.matchParentSize().clip(shape)) {
             PanelBackdrop()
-            if (ThemeState.panelBackground != PanelBackground.CLEAR) Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
+            if (!ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
         }
         Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

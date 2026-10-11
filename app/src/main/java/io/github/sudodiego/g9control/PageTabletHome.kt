@@ -285,7 +285,7 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
             if (hist.isNotEmpty()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("Vuelven solas", "Come back by themselves"), Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                    TextButton(onClick = { Memory.clearHistory(a); hist = emptyMap() }) { Text(tr("Borrar", "Clear")) }
+                    ConfirmButton(tr("Borrar", "Clear")) { Memory.clearHistory(a); hist = emptyMap() }
                 }
                 val pm = a.packageManager
                 hist.entries.sortedByDescending { it.value.count }.forEach { (pkg, r) ->
