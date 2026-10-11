@@ -352,7 +352,8 @@ private fun HintBar(s: AppState) {
                 "LT RT" to tr("Secciones", "Sections"), "B" to tr("Mantén 3 s para salir", "Hold 3 s to exit"))
             hints.forEach { (k, v) ->
                 Spacer(Modifier.width(18.dp))
-                if (k == "B") HoldBadge(s.bHold) else if (k.length == 1) PadBadge(k, round = true) else PadBadge(k)
+                // El aro de B es la cuenta atrás de mantener (salir de la app, de la prueba); cerrar la macro es un toque.
+                if (k == "B" && s.editingMacro == null) HoldBadge(s.bHold) else if (k.length == 1) PadBadge(k, round = true) else PadBadge(k)
                 Spacer(Modifier.width(6.dp))
                 Text(v, fontSize = 13.sp, color = c.onSurfaceVariant)
             }

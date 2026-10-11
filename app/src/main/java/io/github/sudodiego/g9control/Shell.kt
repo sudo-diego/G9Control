@@ -73,9 +73,15 @@ object Shell {
     fun touch(action: String, x: Int, y: Int) = "input motionevent $action $x $y"
     private val TOUCH = Regex("input motionevent (DOWN|MOVE|UP) \\d{1,5} \\d{1,5}")
 
+    // Apps activas (con un servicio en primer plano: video, música, descargas), como "Apps activas" de los ajustes
+    // rápidos de Android, y detenerlas como su botón Detener (`am stop-app`: la app y sus servicios).
+    const val PROCESSES = "dumpsys activity processes"
+    fun stopApp(pkg: String) = "am stop-app $pkg"
+    private val STOP_APP = Regex("am stop-app [A-Za-z0-9_.]+")
+
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF) || TOUCH.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

@@ -200,13 +200,19 @@ private fun HelpRow(title: String, desc: String) {
     }
 }
 
-/** Memoria: cuánta RAM queda y liberar (cierra las apps que quedaron en segundo plano). */
+/**
+ * Memoria: cuánta RAM queda, liberar (cierra lo que quedó en segundo plano) y, con Shizuku, las apps activas (con un
+ * video, música o una descarga corriendo) para detenerlas, como "Apps activas" de los ajustes rápidos.
+ */
 @Composable
 private fun MemoryPanel(s: AppState, a: MainActivity) {
     val scope = rememberCoroutineScope()
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(3000); tick++ } }
     val info = remember(tick) { Memory.info(a) }
+    val ready = Shell.state == Shell.State.READY
+    var active by remember { mutableStateOf(listOf<Memory.App>()) }
+    LaunchedEffect(ready, tick / 3) { if (ready) active = Memory.activeApps(a) }
     var busy by remember { mutableStateOf(false) }
     val c = MaterialTheme.colorScheme
     Panel(tr("Memoria", "Memory"), trailing = {
@@ -216,7 +222,7 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
         val used = 1f - info.freeBytes.toFloat() / info.totalBytes.coerceAtLeast(1)
         LinearProgressIndicator({ used }, Modifier.fillMaxWidth().height(8.dp), color = c.secondary, trackColor = c.surfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Cierra las apps que quedaron en segundo plano", "Closes the apps left in the background"), Modifier.weight(1f), fontSize = 14.sp, color = c.onSurfaceVariant)
+            Text(tr("Cierra las apps en segundo plano", "Closes background apps"), Modifier.weight(1f), fontSize = 14.sp, color = c.onSurfaceVariant)
             Button(onClick = {
                 busy = true
                 scope.launch {
@@ -226,5 +232,32 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
                 }
             }, enabled = !busy) { Text(if (busy) tr("Liberando…", "Freeing…") else tr("Liberar memoria", "Free memory")) }
         }
+        // Las activas (con un servicio corriendo) no se cierran así: hay que detenerlas, y eso necesita Shizuku.
+        Text(tr("Apps activas", "Active apps"), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        if (!ready) Hint(tr("Con un video, música o descarga corriendo. Detenerlas desde aquí necesita Shizuku; sin él, en Ajustes rápidos → Apps activas.",
+            "With a video, music or download running. Stopping them here needs Shizuku; without it, in Quick settings → Active apps."))
+        else if (active.isEmpty()) Text(tr("Ninguna.", "None."), fontSize = 14.sp, color = c.onSurfaceVariant)
+        else active.forEach { app ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                app.icon?.let { d ->
+                    androidx.compose.foundation.Image(remember(app.pkg) { androidx.compose.ui.graphics.painter.BitmapPainter(d.toBitmapSafe().asImageBitmap()) },
+                        null, Modifier.size(28.dp))
+                    Spacer(Modifier.width(12.dp))
+                }
+                Text(app.label, Modifier.weight(1f), fontSize = 15.sp, maxLines = 1)
+                OutlinedButton(onClick = {
+                    active = active - app
+                    scope.launch { Memory.stop(app.pkg); tick++ }
+                }) { Text(tr("Detener", "Stop")) }
+            }
+        }
     }
+}
+
+/** Ícono de app como bitmap (los adaptativos no son BitmapDrawable). */
+private fun android.graphics.drawable.Drawable.toBitmapSafe(): android.graphics.Bitmap {
+    (this as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { return it }
+    val b = android.graphics.Bitmap.createBitmap(96, 96, android.graphics.Bitmap.Config.ARGB_8888)
+    setBounds(0, 0, 96, 96); draw(android.graphics.Canvas(b))
+    return b
 }

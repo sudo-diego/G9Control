@@ -20,11 +20,14 @@ object Memory {
         return Info(m.availMem, m.totalMem)
     }
 
+    /** Las pantallas de inicio (Cocoon, la de ZUI): no se cierran ni se detienen. */
+    private fun home(ctx: Context) = ctx.packageManager.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
+        .map { it.activityInfo.packageName }.toSet()
+
     /** Apps que se pueden abrir desde el cajón, sin esta ni las pantallas de inicio (se volverían a abrir solas). */
     private fun closable(ctx: Context): Set<String> {
         val pm = ctx.packageManager
-        val home = pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0)
-            .map { it.activityInfo.packageName }.toSet()
+        val home = home(ctx)
         return pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
             .map { it.activityInfo.packageName }.filter { it !in home && it != ctx.packageName }.toSet()
     }
@@ -38,4 +41,30 @@ object Memory {
     }
 
     fun gb(bytes: Long) = "%.1f GB".format(bytes / 1_073_741_824.0)
+
+    data class App(val pkg: String, val label: String, val icon: android.graphics.drawable.Drawable?)
+
+    /**
+     * Apps activas (con Shizuku): las de usuario con un servicio en primer plano, como "Apps activas" de los ajustes
+     * rápidos. Sale de `dumpsys activity processes` (las líneas "Proc #… FGS … pid:paquete/u0a…"). Sin esta app.
+     */
+    suspend fun activeApps(ctx: Context): List<App> {
+        val out = Shell.run(Shell.PROCESSES) ?: return emptyList()
+        val re = Regex("""Proc #\s*\d+:.*/(?:FGS|BFGS)\s.*\s\d+:([A-Za-z0-9_.]+)(?::[\w.]+)?/u\d+a\d+""")
+        val pm = ctx.packageManager
+        val launchers = home(ctx)
+        return out.lineSequence().mapNotNull { re.find(it)?.groupValues?.get(1) }
+            .filter { it != ctx.packageName }.distinct()
+            .filter { it !in launchers }
+            .mapNotNull { pkg ->
+                val ai = runCatching { pm.getApplicationInfo(pkg, 0) }.getOrNull() ?: return@mapNotNull null
+                // Solo apps que se abren desde el cajón (no servicios del sistema ni de Google, que no conviene detener),
+                // y Game Assistant, que no tiene ícono pero Android también lo muestra en sus apps activas.
+                if (pm.getLaunchIntentForPackage(pkg) == null && pkg != ZuiGame.PACKAGE) return@mapNotNull null
+                App(pkg, pm.getApplicationLabel(ai).toString(), runCatching { pm.getApplicationIcon(ai) }.getOrNull())
+            }.toList()
+    }
+
+    /** Detener una app activa, como el botón Detener de Android (la app y sus servicios). Con Shizuku. */
+    suspend fun stop(pkg: String) = Shell.run(Shell.stopApp(pkg)) != null
 }

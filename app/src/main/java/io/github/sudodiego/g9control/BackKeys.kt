@@ -134,12 +134,12 @@ fun BackPage(s: AppState, a: MainActivity) {
                 // Al cambiar de trasero el contenido se funde: se nota que cambió.
                 androidx.compose.animation.Crossfade(sel, label = "trasero") { k ->
                     val cur = s.backKeys[k.id] ?: 0
-                    Panel(tr("${k.label} copia", "${k.label} copies"), trailing = {
+                    Panel(k.label, trailing = {
                         Text(backTargetName(cur), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = c.primary)
                     }) {
                         // Arriba lo que no es un botón (macro, nada), para verlo sin bajar.
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            PickTile(if (cur == BACK_MACRO) tr("Editar la macro", "Edit the macro") else tr("Macro…", "Macro…"), cur == BACK_MACRO, editable,
+                            PickTile(if (cur == BACK_MACRO) tr("Editar la macro", "Edit the macro") else "Macro", cur == BACK_MACRO, editable,
                                 Modifier.weight(1f)) { a.openMacroEditor(k) }
                             PickTile(tr("Nada", "Nothing"), cur == 0, editable, Modifier.weight(1f)) { pick(0) }
                         }
