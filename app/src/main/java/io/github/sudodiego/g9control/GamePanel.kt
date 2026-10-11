@@ -38,6 +38,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.material.icons.outlined.Mouse
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.BrightnessMedium
 import androidx.compose.material.icons.outlined.Home
@@ -570,6 +571,14 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem(tr("Recientes", "Recents"), Icons.Outlined.Layers, PanelRow.SYSTEM, sub = tr("Apps abiertas", "Open apps")) { hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS) })
         add(PanelItem(tr("Ajustes rápidos", "Quick settings"), Icons.Outlined.ToggleOn, PanelRow.SYSTEM, sub = "Android") {
             hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
+        })
+        // Mouse virtual: para apps que no usan el control (los sticks dejan de llegar a la app mientras está).
+        val mouseOn = svc.isMouseOn
+        add(PanelItem(tr("Mouse", "Mouse"), Icons.Outlined.Mouse, PanelRow.SYSTEM, active = mouseOn,
+            sub = if (mouseOn) tr("Encendido", "On") else tr("Stick y A", "Stick and A")) {
+            hide(); svc.toggleMouse()
+            if (!mouseOn) toast(tr("Mouse: stick izquierdo mueve, A toca (mantener: arrastra), stick derecho desplaza, B atrás.",
+                "Mouse: left stick moves, A taps (hold: drag), right stick scrolls, B back."))
         })
         val mode = ModeSwitcher.detect()
         if (mode != null) PadMode.entries.filter { it != mode }.forEach { m ->

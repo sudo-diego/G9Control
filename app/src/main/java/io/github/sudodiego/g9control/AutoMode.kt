@@ -256,6 +256,11 @@ class AutoModeService : AccessibilityService() {
     private lateinit var guide: ModeGuide
     private lateinit var panel: GamePanel
     private lateinit var perfHud: PerfHud
+    /** Mouse virtual (desde el panel): mientras está encendido se queda con los sticks. */
+    private val mouse by lazy { VirtualMouse(this) { mouseOn = it; applyMotionSources() } }
+    private var mouseOn = false
+    fun toggleMouse() = mouse.toggle()
+    val isMouseOn get() = mouseOn
     /** Se salió de una app con regla y el control aún no vuelve a Android. */
     private var returnPending = false
     /** G9 Control está al frente: tiene su propia franja de modo, así que la guía se quita. */
@@ -710,6 +715,7 @@ class AutoModeService : AccessibilityService() {
         if (legionChord(event)) return true
         if (panel.isOpen && panel.onKey(event)) return true
         if (legionKey(event)) return true
+        if (mouseOn && mouse.onKey(event)) return true
         if (k != KeyEvent.KEYCODE_BUTTON_START && k != KeyEvent.KEYCODE_BUTTON_SELECT) {
             // Guía grande con bloqueo: el resto de los botones del control no llega a las apps.
             val fromPad = KeyEvent.isGamepadButton(k) || event.isFromSource(InputDevice.SOURCE_GAMEPAD) ||
@@ -954,7 +960,7 @@ class AutoModeService : AccessibilityService() {
 
     private fun applyMotionSources() {
         if (android.os.Build.VERSION.SDK_INT < 34) return
-        val sources = (if (touchpadOn) InputDevice.SOURCE_MOUSE else 0) or (if (panelSticks) InputDevice.SOURCE_JOYSTICK else 0)
+        val sources = (if (touchpadOn) InputDevice.SOURCE_MOUSE else 0) or (if (panelSticks || mouseOn) InputDevice.SOURCE_JOYSTICK else 0)
         runCatching { serviceInfo = serviceInfo.apply { motionEventSources = sources } }
             .onFailure { Log.w(TAG, "no se pudieron pedir los eventos de movimiento", it) }
     }
@@ -965,7 +971,10 @@ class AutoModeService : AccessibilityService() {
      * llegan mientras [updateTouchpad] los pidió.
      */
     override fun onMotionEvent(event: MotionEvent) {
-        if (event.isFromSource(InputDevice.SOURCE_JOYSTICK)) { if (panel.isOpen) panel.onStick(event); return }
+        if (event.isFromSource(InputDevice.SOURCE_JOYSTICK)) {
+            if (panel.isOpen) panel.onStick(event) else if (mouseOn) mouse.onMotion(event)
+            return
+        }
         if (!event.isFromSource(InputDevice.SOURCE_MOUSE)) return
         val now = android.os.SystemClock.uptimeMillis()
         val quiet = now - lastTouchpad > 1500
@@ -1081,6 +1090,7 @@ class AutoModeService : AccessibilityService() {
     companion object { internal const val TAG = "G9Auto" }
 
     override fun onDestroy() {
+        if (mouseOn) mouse.stop()
         getSystemService(InputManager::class.java).unregisterInputDeviceListener(inputListener)
         getSystemService(android.hardware.display.DisplayManager::class.java).unregisterDisplayListener(displayListener)
         runCatching { contentResolver.unregisterContentObserver(monitorModeObserver) }
