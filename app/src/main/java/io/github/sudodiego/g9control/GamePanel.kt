@@ -285,11 +285,12 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     /** WiFi o Bluetooth: con Shizuku se cambia y el panel queda abierto mostrando el estado nuevo; sin él, el panel de Android. */
-    private fun radio(on: Boolean, onCmd: String, offCmd: String, noShizuku: () -> Unit) {
-        if (Shell.state == Shell.State.READY) scope.launch {
+    private fun radio(on: Boolean, onCmd: String, offCmd: String) {
+        if (Shell.state != Shell.State.READY) return
+        scope.launch {
             Shell.run(if (on) onCmd else offCmd)
             main.postDelayed({ refresh() }, 700)
-        } else noShizuku()
+        }
     }
 
     private fun openSettings(action: String) {
@@ -372,6 +373,8 @@ class GamePanel(private val svc: AutoModeService) {
             // En un submenú B vuelve al panel.
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> if (e.repeatCount == 0) { if (inPerfMenu) backToMain() else hide() }
             KeyEvent.KEYCODE_BUTTON_MODE -> if (e.repeatCount == 0) hide()
+            // Y: la otra acción del mosaico (WiFi y Bluetooth: encender o apagar sin abrir la lista).
+            KeyEvent.KEYCODE_BUTTON_Y -> if (e.repeatCount == 0 && item?.alt != null && item.adjust == null) { item.alt.invoke(); refresh() }
         }
         return true
     }
@@ -592,18 +595,17 @@ class GamePanel(private val svc: AutoModeService) {
         val cr = svc.contentResolver
         val wifi = android.provider.Settings.Global.getInt(cr, "wifi_on", 0) != 0
         val bt = android.provider.Settings.Global.getInt(cr, "bluetooth_on", 0) != 0
-        // Y abre la lista de Android (redes o dispositivos): elegir una red o conectar un dispositivo solo lo puede
-        // hacer el sistema.
+        // A abre la lista de Android (redes o dispositivos: elegir una red o conectar un dispositivo solo lo puede
+        // hacer el sistema); Y enciende o apaga ahí mismo (con Shizuku).
         val wifiList = { hide(); openSettings(android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY) }
         val btList = { hide(); openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS) }
+        val ySwitch = if (Shell.state == Shell.State.READY) tr(" · Y apagar", " · Y off") to tr(" · Y encender", " · Y on") else "" to ""
         add(PanelItem("WiFi", if (wifi) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, PanelRow.SYSTEM, active = wifi,
-            sub = (if (wifi) tr("Encendido", "On") else tr("Apagado", "Off")) + tr(" · Y redes", " · Y networks"), alt = wifiList) {
-            radio(!wifi, Shell.WIFI_ON, Shell.WIFI_OFF, wifiList)
-        })
+            sub = tr("Redes", "Networks") + if (wifi) ySwitch.first else ySwitch.second,
+            alt = { radio(!wifi, Shell.WIFI_ON, Shell.WIFI_OFF) }, run = wifiList))
         add(PanelItem("Bluetooth", if (bt) Icons.Outlined.Bluetooth else Icons.Outlined.BluetoothDisabled, PanelRow.SYSTEM, active = bt,
-            sub = (if (bt) tr("Encendido", "On") else tr("Apagado", "Off")) + tr(" · Y lista", " · Y list"), alt = btList) {
-            radio(!bt, Shell.BT_ON, Shell.BT_OFF, btList)
-        })
+            sub = tr("Dispositivos", "Devices") + if (bt) ySwitch.first else ySwitch.second,
+            alt = { radio(!bt, Shell.BT_ON, Shell.BT_OFF) }, run = btList))
         // Mouse virtual: para apps que no usan el control (los sticks dejan de llegar a la app mientras está).
         val mouseOn = svc.isMouseOn
         add(PanelItem(tr("Mouse", "Mouse"), Icons.Outlined.Mouse, PanelRow.SYSTEM, active = mouseOn,
