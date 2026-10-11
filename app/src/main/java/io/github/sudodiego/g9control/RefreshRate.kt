@@ -27,6 +27,9 @@ object RefreshRate {
 
     fun canWrite() = Shell.state == Shell.State.READY
 
+    /** Hasta el máximo del sistema (120) va sin Shizuku (con la ventana); más (144, 165) hay que subir el máximo. */
+    fun available(ctx: Context, hz: Int) = hz <= systemPeak(ctx) || canWrite()
+
     /** Frecuencias que admite la pantalla (30 sirve para juegos a 30 FPS). */
     fun supported(ctx: Context): List<Int> =
         display(ctx)?.supportedModes?.map { it.refreshRate.roundToInt() }?.filter { it >= 30 }?.distinct()?.sorted().orEmpty()
@@ -59,11 +62,17 @@ object RefreshRate {
     fun applyFor(ctx: Context, pkg: String?, done: () -> Unit = {}) {
         val want = wanted(ctx, pkg)
         val p = sp(ctx)
-        if (want == null && !p.contains("hz_saved_peak")) return done()
+        // Sin Shizuku (o sin pasar del máximo del sistema): una ventana invisible del servicio que pide ese modo de
+        // pantalla, como hace un reproductor de video. No cambia ningún ajuste; se quita y vuelve todo solo.
+        val peak = systemPeak(ctx)
+        val byWindow = want != null && (want <= peak || !canWrite())
+        main.post { if (byWindow) window(ctx, want!!) else window(ctx, null) }
+        if (byWindow) Log.d(AutoModeService.TAG, "pantalla a $want Hz con la ventana ($pkg)")
+        if ((want == null || byWindow) && !p.contains("hz_saved_peak")) return done()
         val cr = ctx.contentResolver
         scope.launch {
             if (!canWrite()) return@launch done()
-            if (want != null) {
+            if (want != null && !byWindow) {
                 // Lo del usuario se guarda una sola vez (mientras G9 Control tenga la frecuencia cambiada).
                 if (!p.contains("hz_saved_peak")) p.edit()
                     .putFloat("hz_saved_peak", Settings.System.getFloat(cr, PEAK, 120f))
@@ -79,6 +88,36 @@ object RefreshRate {
             }
             done()
         }
+    }
+
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    private var hzView: android.view.View? = null
+
+    /**
+     * La ventana que pide la frecuencia: 1 px transparente que no se toca, de tipo superposición de accesibilidad
+     * (solo desde el servicio). Pide el modo de pantalla con esa frecuencia y la resolución actual. null la quita.
+     */
+    private fun window(ctx: Context, hz: Int?) {
+        val wm = ctx.getSystemService(android.view.WindowManager::class.java)
+        if (hz == null || ctx !is android.accessibilityservice.AccessibilityService) {
+            hzView?.let { runCatching { wm.removeView(it) } }
+            hzView = null
+            return
+        }
+        val d = display(ctx) ?: return
+        val cur = d.mode
+        val mode = d.supportedModes.filter { it.physicalWidth == cur.physicalWidth && it.physicalHeight == cur.physicalHeight }
+            .minByOrNull { kotlin.math.abs(it.refreshRate - hz) } ?: return
+        val lp = (hzView?.layoutParams as? android.view.WindowManager.LayoutParams) ?: android.view.WindowManager.LayoutParams(
+            1, 1, android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            android.graphics.PixelFormat.TRANSLUCENT).apply { gravity = android.view.Gravity.TOP or android.view.Gravity.START }
+        lp.preferredDisplayModeId = mode.modeId
+        val v = hzView
+        if (v == null) {
+            val nv = android.view.View(ctx)
+            if (runCatching { wm.addView(nv, lp) }.isSuccess) hzView = nv
+        } else runCatching { wm.updateViewLayout(v, lp) }
     }
 
     /** Lo que tiene el sistema sin G9 Control (para mostrar "Sistema · 120 Hz"). */

@@ -279,8 +279,10 @@ class GamePanel(private val svc: AutoModeService) {
         val first = if (games != null) PanelItem(tr("Juegos", "Games"), Icons.Outlined.Restore, sub = "$games Hz", active = chosen == null) { pickHz(null) }
             else PanelItem(tr("Sistema", "System"), Icons.Outlined.Restore, sub = "${RefreshRate.systemPeak(svc)} Hz", active = chosen == null) { pickHz(null) }
         ui.items = listOf(first) +
-            RefreshRate.supported(svc).map { hz ->
-                PanelItem("$hz Hz", Icons.Outlined.DisplaySettings, sub = if (hz == chosen) tr("Esta app", "This app") else null, active = hz == chosen) { pickHz(hz) }
+            RefreshRate.supported(svc).filter { RefreshRate.available(svc, it) || Shell.launchIntent(svc) != null }.map { hz ->
+                if (RefreshRate.available(svc, hz))
+                    PanelItem("$hz Hz", Icons.Outlined.DisplaySettings, sub = if (hz == chosen) tr("Esta app", "This app") else null, active = hz == chosen) { pickHz(hz) }
+                else PanelItem("$hz Hz", Icons.Outlined.DisplaySettings, sub = "Shizuku", enabled = false, run = ::fixShizuku)
             }
         ui.sel = ui.items.indexOfFirst { it.active }.coerceAtLeast(0)
         poke()
@@ -503,6 +505,8 @@ class GamePanel(private val svc: AutoModeService) {
         // Sin Shizuku lo que lo necesita sale atenuado, y elegirlo lleva a Shizuku.
         val ready = Shell.state == Shell.State.READY
         val needs = tr("Necesita Shizuku", "Needs Shizuku")
+        // Sin la app de Shizuku instalada no se muestra lo que la necesita (no se puede arreglar desde aquí).
+        val shizukuApp = Shell.launchIntent(svc) != null
         // El juego. La captura toma solo la ventana del juego: no hace falta esperar a que el panel desaparezca.
         add(PanelItem(tr("Captura", "Screenshot"), Icons.Outlined.Screenshot, sub = tr("También: guía + RB", "Also: guide + RB")) { hide(); screenshot() })
         if (ZuiGame.inGame(svc)) {
@@ -520,14 +524,17 @@ class GamePanel(private val svc: AutoModeService) {
                 })
             // Cambiar el modo necesita Shizuku: para mostrar Game Assistant si está oculto y leer su registro. Sin él,
             // atenuado (y elegirlo lleva a Shizuku).
+            // Sin Shizuku y con Game Assistant a la vista: abre su panel, que tiene el botón de modo.
             if (ready)
                 add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed,
                     sub = ZuiGame.knownPerf(svc.foregroundApp)?.label ?: tr("Elegir", "Choose")) { showPerfMenu() })
-            else add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed, sub = needs, enabled = false, run = ::fixShizuku))
+            else if (AutoRules.gaHidden(svc) != true)
+                add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed, sub = tr("En Game Assistant", "In Game Assistant")) { afterHide { openGameAssistant() } })
+            else if (shizukuApp) add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed, sub = needs, enabled = false, run = ::fixShizuku))
         }
         // Bypass (con Shizuku): con la tablet enchufada, o si ya está activo para poder quitarlo.
         val bypassOn = ZuiBattery.bypassNow == true
-        if (!ready && ZuiBattery.plugged(svc))
+        if (!ready && shizukuApp && ZuiBattery.plugged(svc))
             add(PanelItem("Bypass", Icons.Outlined.Power, sub = needs, enabled = false, run = ::fixShizuku))
         if (ready && (bypassOn || ZuiBattery.plugged(svc)))
         {
@@ -564,10 +571,8 @@ class GamePanel(private val svc: AutoModeService) {
         // Frecuencia de la pantalla para esta app (se recuerda por juego).
         val hzNow = RefreshRate.current(svc)
         val hzChosen = RefreshRate.forApp(svc, svc.foregroundApp)
-        if (RefreshRate.canWrite())
-            add(PanelItem(tr("Frecuencia", "Refresh rate"), Icons.Outlined.DisplaySettings, active = hzChosen != null,
-                sub = (hzNow?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { showHzMenu() })
-        else add(PanelItem(tr("Frecuencia", "Refresh rate"), Icons.Outlined.DisplaySettings, sub = needs, enabled = false, run = ::fixShizuku))
+        add(PanelItem(tr("Frecuencia", "Refresh rate"), Icons.Outlined.DisplaySettings, active = hzChosen != null,
+            sub = (hzNow?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { showHzMenu() })
         if (Aspect.available(svc)) {
             val wide = Aspect.is169(svc)
             add(PanelItem(tr("Pantalla 16:9", "16:9 screen"), Icons.Outlined.AspectRatio,
