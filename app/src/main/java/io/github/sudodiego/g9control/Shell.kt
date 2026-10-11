@@ -68,9 +68,14 @@ object Shell {
     const val BT_ON = "svc bluetooth enable"
     const val BT_OFF = "svc bluetooth disable"
 
+    // Arrastrar con el mouse virtual: el dedo inyectado por el shell no lo cancela el stick (los gestos del servicio
+    // de accesibilidad sí: Android los cancela apenas llega un movimiento real del control).
+    fun touch(action: String, x: Int, y: Int) = "input motionevent $action $x $y"
+    private val TOUCH = Regex("input motionevent (DOWN|MOVE|UP) \\d{1,5} \\d{1,5}")
+
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF) || TOUCH.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

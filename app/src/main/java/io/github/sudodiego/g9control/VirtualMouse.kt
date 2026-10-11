@@ -16,6 +16,11 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.sign
 
@@ -32,8 +37,8 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
     var isOn = false
         private set
     private var view: View? = null
-    private var x = 0f
-    private var y = 0f
+    @Volatile private var x = 0f
+    @Volatile private var y = 0f
 
     // Ejes de ahora: stick izquierdo (o cruceta) mueve, derecho desplaza.
     private var lx = 0f; private var ly = 0f
@@ -184,7 +189,7 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
 
     // A: soltar rápido = toque (un gesto corto y completo, lo más confiable). Mantenerlo = toque largo que dura hasta
     // soltar A y sigue al puntero si se mueve (arrastrar): tramos cortos encadenados, el último levanta el dedo.
-    private var aDown = false
+    @Volatile private var aDown = false
     private var holding = false
     private var downX = 0f; private var downY = 0f
     private var stroke: GestureDescription.StrokeDescription? = null
@@ -209,8 +214,26 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         if (!aDown || holding) return@Runnable
         holding = true
         gx = downX; gy = downY
-        send(GestureDescription.StrokeDescription(Path().apply { moveTo(downX, downY) }, 0, STEP, true))
+        if (Shell.state == Shell.State.READY) shellHold()
+        else send(GestureDescription.StrokeDescription(Path().apply { moveTo(downX, downY) }, 0, STEP, true))
     }
+
+    /**
+     * Toque mantenido con Shizuku: el dedo baja, sigue al puntero mientras A esté apretado (arrastrar) y sube al
+     * soltar. Cada comando espera al anterior; si el puntero se movió varias veces mientras tanto, va directo al último.
+     */
+    private fun shellHold() = io.launch {
+        Shell.run(Shell.touch("DOWN", downX.toInt(), downY.toInt()))
+        var lx = downX.toInt(); var ly = downY.toInt()
+        while (aDown && isOn) {
+            val nx = x.toInt(); val ny = y.toInt()
+            if (nx != lx || ny != ly) { Shell.run(Shell.touch("MOVE", nx, ny)); lx = nx; ly = ny }
+            else delay(16)
+        }
+        Shell.run(Shell.touch("UP", x.toInt(), y.toInt()))
+        main.post { holding = false }
+    }
+    private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     /** Donde va el dedo del toque mantenido: sigue al puntero (mantener y mover = arrastrar, como con el dedo). */
     private var gx = 0f; private var gy = 0f
 
@@ -219,7 +242,10 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         val ok = runCatching {
             svc.dispatchGesture(GestureDescription.Builder().addStroke(s).build(), object : AccessibilityService.GestureResultCallback() {
                 override fun onCompleted(g: GestureDescription) = next()
-                override fun onCancelled(g: GestureDescription) { holding = false; stroke = null }
+                override fun onCancelled(g: GestureDescription) {
+                    Log.d(AutoModeService.TAG, "mouse virtual: toque mantenido cancelado en ($gx, $gy), puntero ($x, $y)")
+                    holding = false; stroke = null
+                }
             }, main)
         }.getOrDefault(false)
         if (!ok) { holding = false; stroke = null }
