@@ -39,6 +39,7 @@ import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Mouse
+import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Wifi
@@ -279,10 +280,9 @@ class GamePanel(private val svc: AutoModeService) {
         val first = if (games != null) PanelItem(tr("Juegos", "Games"), Icons.Outlined.Restore, sub = "$games Hz", active = chosen == null) { pickHz(null) }
             else PanelItem(tr("Sistema", "System"), Icons.Outlined.Restore, sub = "${RefreshRate.systemPeak(svc)} Hz", active = chosen == null) { pickHz(null) }
         ui.items = listOf(first) +
-            RefreshRate.supported(svc).filter { RefreshRate.available(svc, it) || Shell.launchIntent(svc) != null }.map { hz ->
-                if (RefreshRate.available(svc, hz))
-                    PanelItem("$hz Hz", Icons.Outlined.DisplaySettings, sub = if (hz == chosen) tr("Esta app", "This app") else null, active = hz == chosen) { pickHz(hz) }
-                else PanelItem("$hz Hz", Icons.Outlined.DisplaySettings, sub = "Shizuku", enabled = false, run = ::fixShizuku)
+            // Sin Shizuku solo hasta el máximo del sistema (144 y 165 no salen).
+            RefreshRate.supported(svc).filter { RefreshRate.available(svc, it) }.map { hz ->
+                PanelItem("$hz Hz", Icons.Outlined.DisplaySettings, sub = if (hz == chosen) tr("Esta app", "This app") else null, active = hz == chosen) { pickHz(hz) }
             }
         ui.sel = ui.items.indexOfFirst { it.active }.coerceAtLeast(0)
         poke()
@@ -502,11 +502,12 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem(tr("Silenciar", "Mute"), Icons.AutoMirrored.Outlined.VolumeOff, PanelRow.SLIDER, active = vol == 0) {
             SystemLevels.toggleMute(svc); refresh()
         })
-        // Sin Shizuku lo que lo necesita sale atenuado, y elegirlo lleva a Shizuku.
+        // Sin Shizuku lo que lo necesita no sale; en su lugar, un solo mosaico resaltado para activarlo (si la app de
+        // Shizuku está instalada y no se apagó ese aviso en Ajustes).
         val ready = Shell.state == Shell.State.READY
-        val needs = tr("Necesita Shizuku", "Needs Shizuku")
-        // Sin la app de Shizuku instalada no se muestra lo que la necesita (no se puede arreglar desde aquí).
-        val shizukuApp = Shell.launchIntent(svc) != null
+        if (!ready && Shell.launchIntent(svc) != null && AutoRules.shizukuTile(svc))
+            add(PanelItem(if (Shell.state == Shell.State.NO_PERMISSION) tr("Dar permiso", "Grant permission") else tr("Activar Shizuku", "Start Shizuku"),
+                Icons.Outlined.PowerSettingsNew, active = true, sub = tr("Bypass, rendimiento y más", "Bypass, performance and more"), run = ::fixShizuku))
         // El juego. La captura toma solo la ventana del juego: no hace falta esperar a que el panel desaparezca.
         add(PanelItem(tr("Captura", "Screenshot"), Icons.Outlined.Screenshot, sub = tr("También: guía + RB", "Also: guide + RB")) { hide(); screenshot() })
         if (ZuiGame.inGame(svc)) {
@@ -522,20 +523,16 @@ class GamePanel(private val svc: AutoModeService) {
                         else AutoRules.setGaHidden(svc, true)
                     }
                 })
-            // Cambiar el modo necesita Shizuku: para mostrar Game Assistant si está oculto y leer su registro. Sin él,
-            // atenuado (y elegirlo lleva a Shizuku).
-            // Sin Shizuku y con Game Assistant a la vista: abre su panel, que tiene el botón de modo.
+            // Cambiar el modo desde aquí necesita Shizuku (mostrar Game Assistant si está oculto y leer su registro).
+            // Sin él y con Game Assistant a la vista: abre su panel, que tiene el botón de modo. Oculto y sin Shizuku: no sale.
             if (ready)
                 add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed,
                     sub = ZuiGame.knownPerf(svc.foregroundApp)?.label ?: tr("Elegir", "Choose")) { showPerfMenu() })
             else if (AutoRules.gaHidden(svc) != true)
                 add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed, sub = tr("En Game Assistant", "In Game Assistant")) { afterHide { openGameAssistant() } })
-            else if (shizukuApp) add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed, sub = needs, enabled = false, run = ::fixShizuku))
         }
         // Bypass (con Shizuku): con la tablet enchufada, o si ya está activo para poder quitarlo.
         val bypassOn = ZuiBattery.bypassNow == true
-        if (!ready && shizukuApp && ZuiBattery.plugged(svc))
-            add(PanelItem("Bypass", Icons.Outlined.Power, sub = needs, enabled = false, run = ::fixShizuku))
         if (ready && (bypassOn || ZuiBattery.plugged(svc)))
         {
             // Con algo automático (bypass automático o límite de carga) son tres estados: Automático → Encendido →

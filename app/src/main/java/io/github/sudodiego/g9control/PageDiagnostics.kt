@@ -252,6 +252,7 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
     var on by remember { mutableStateOf(AutoRules.gamePanel(a)) }
     var guide by remember { mutableStateOf(AutoRules.legionKeys(a)) }
     var burst by remember { mutableStateOf(AutoRules.burstShots(a)) }
+    var shizukuTile by remember { mutableStateOf(AutoRules.shizukuTile(a)) }
     var shotPos by remember { mutableStateOf(AutoRules.shotPos(a)) }
     var shotSound by remember { mutableStateOf(AutoRules.shotSound(a)) }
     var shotAnim by remember { mutableStateOf(AutoRules.shotAnim(a)) }
@@ -272,6 +273,10 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
             SwitchRow(tr("Ráfaga de capturas", "Screenshot burst"), burst,
                 tr("Guía + RB y seguir manteniendo RB: una captura por segundo hasta soltarlo.", "Guide + RB and keep holding RB: one screenshot per second until you let go.")) {
                 burst = it; AutoRules.setBurstShots(a, it)
+            }
+            SwitchRow(tr("Recordar activar Shizuku", "Remind to start Shizuku"), shizukuTile,
+                tr("Si Shizuku está instalado pero apagado, el panel muestra un mosaico para activarlo.", "If Shizuku is installed but off, the panel shows a tile to start it.")) {
+                shizukuTile = it; AutoRules.setShizukuTile(a, it)
             }
             NoticeBox(tr("Aviso de captura", "Screenshot notice"), tr("Miniatura que entra desde el borde.", "Thumbnail that slides in from the edge."),
                 if (s.autoServiceOn) { { AutoRules.preview(a, "shot") } } else null,
