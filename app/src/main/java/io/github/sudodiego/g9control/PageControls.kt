@@ -25,8 +25,6 @@ fun ShortcutsPage(s: AppState, a: MainActivity) {
         second = {
             OtherShortcutsPanel(a)
             TabletButtonsPanel(a)
-            if (!s.autoServiceOn) Hint(tr("Los atajos necesitan el servicio de accesibilidad (Ajustes → Permisos).",
-                "Shortcuts need the accessibility service (Settings → Permissions)."))
         }
     )
 }
@@ -67,15 +65,10 @@ private fun GuidePanel(a: MainActivity) {
 @Composable
 private fun OtherShortcutsPanel(a: MainActivity) {
     var chord by remember { mutableStateOf(AutoRules.gamePanel(a)) }
-    var touchpad by remember { mutableStateOf(AutoRules.touchpadShot(a)) }
     CompositionLocalProvider(LocalEditable provides true) {
-        Panel(tr("Otros atajos", "Other shortcuts")) {
+        Panel(tr("Sin botón guía", "Without a guide button")) {
             ShortcutRow(listOf("L3", "R3"), tr("Tocar · mantener: captura", "Tap · hold: screenshot"), tr("Panel de juego", "Game panel"), chord) {
                 chord = it; AutoRules.setGamePanel(a, it)
-            }
-            // El clic del touchpad del G9 (en DS5 llega como M dos veces).
-            ShortcutRow(listOf("M", "M"), tr("G9 en DS5", "G9 in DS5"), tr("Captura", "Screenshot"), touchpad) {
-                touchpad = it; AutoRules.setTouchpadShot(a, it)
             }
         }
     }
@@ -86,7 +79,7 @@ private fun TabletButtonsPanel(a: MainActivity) {
     var swap by remember { mutableStateOf(AutoRules.swapVolume(a)) }
     CompositionLocalProvider(LocalEditable provides true) {
         Panel(tr("Botones de la tablet", "Tablet buttons")) {
-            SwitchRow(tr("Invertir el volumen", "Swap volume buttons"), swap, tr("El de abajo sube", "The lower one turns it up")) {
+            SwitchRow(tr("Invertir el volumen", "Swap volume buttons"), swap) {
                 swap = it; AutoRules.setSwapVolume(a, it)
             }
         }

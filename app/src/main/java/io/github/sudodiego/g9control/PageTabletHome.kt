@@ -10,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,11 +30,11 @@ fun TabletHomePage(s: AppState, a: MainActivity) {
             ServiceWarning(s, a)
             ShizukuWarning(a)
             TabletNowTiles(a)
-            QuickTiles(a)
         },
         second = {
+            QuickTiles(s, a)
             ControllersPanel(s)
-            ShortcutsHelp(s)
+            ShortcutsHelp(s, a)
         }
     )
 }
@@ -46,32 +48,46 @@ private fun TabletNowTiles(a: MainActivity) {
     val hz = remember(tick) { RefreshRate.current(a) }
     val monitor = remember(tick) { Monitor.current(a) }
     val left = remember(tick) { if (b?.charging == true) ZuiBattery.chargeTimeLeft(a) else null }
-    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        b?.let {
-            val state = when {
-                it.plugged && !it.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else tr("Sin cargar", "Not charging")
-                it.charging -> left?.let { ms -> "⚡ " + ZuiBattery.formatTime(ms) } ?: tr("Cargando", "Charging")
-                else -> tr("Batería", "Battery")
+    // Grilla de 2 × 2: batería y temperatura arriba, Hz y CPU abajo (en una fila no cabían).
+    val cpu = remember(tick) { cpuMhz() }
+    val tile = Modifier.fillMaxHeight()
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            b?.let {
+                val state = when {
+                    it.plugged && !it.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else tr("Sin cargar", "Not charging")
+                    it.charging -> left?.let { ms -> "⚡ " + ZuiBattery.formatTime(ms) } ?: tr("Cargando", "Charging")
+                    else -> tr("Batería", "Battery")
+                }
+                StatTile("${it.level} %", state, tile.weight(1f), big = true)
+                StatTile("${"%.0f".format(it.tempC)} °C", tr("Temperatura", "Temperature"), tile.weight(1f), big = true)
             }
-            StatTile("${it.level} %", state, Modifier.weight(1.3f).fillMaxHeight(), big = true)
-            StatTile("${"%.0f".format(it.tempC)} °C", tr("Batería", "Battery"), Modifier.weight(1f).fillMaxHeight())
         }
-        StatTile(hz?.let { "$it Hz" } ?: "—", monitor?.name ?: tr("Pantalla", "Screen"), Modifier.weight(1f).fillMaxHeight())
+        Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatTile(hz?.let { "$it Hz" } ?: "—", monitor?.name ?: tr("Pantalla", "Screen"), tile.weight(1f))
+            StatTile(cpu?.let { if (it >= 1000) "%.1f GHz".format(it / 1000f) else "$it MHz" } ?: "—", "CPU", tile.weight(1f))
+        }
     }
 }
+/** La frecuencia más alta de la CPU ahora (MHz), de los núcleos que se pueden leer; null si ninguno. */
+private fun cpuMhz(): Int? = (0..9).mapNotNull { i ->
+    runCatching { java.io.File("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq").readText().trim().toInt() / 1000 }.getOrNull()
+}.maxOrNull()
 
 /** Un dato grande con su etiqueta debajo, en una tarjeta de vidrio. */
 @Composable
 private fun StatTile(value: String, label: String, modifier: Modifier, big: Boolean = false) {
     Panel(modifier = modifier) {
-        Text(value, fontSize = if (big) 40.sp else 30.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        // Una sola línea, sin cortar: el valor (y su unidad) no se parten aunque el mosaico sea angosto.
+        Text(value, fontSize = if (big) 38.sp else 26.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
         Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
     }
 }
 
 /** Lo que más se cambia, a un toque y en mosaicos: bypass, monitor de rendimiento y pantalla 16:9. */
 @Composable
-private fun QuickTiles(a: MainActivity) {
+private fun QuickTiles(s: AppState, a: MainActivity) {
+    val service = s.autoServiceOn
     val scope = rememberCoroutineScope()
     val ready = Shell.state == Shell.State.READY
     var bypass by remember { mutableStateOf(ZuiBattery.bypassNow == true) }
@@ -82,8 +98,9 @@ private fun QuickTiles(a: MainActivity) {
         // Sin Shizuku el bypass no se puede cambiar: no sale (el aviso de arriba lo dice).
         if (ready) QuickTile(Icons.Outlined.Power, "Bypass", if (bypass) tr("Encendido", "On") else tr("Apagado", "Off"), bypass,
             Modifier.weight(1f).fillMaxHeight()) { scope.launch { if (ZuiBattery.setBypass(!bypass)) bypass = !bypass } }
-        QuickTile(Icons.Outlined.QueryStats, tr("Monitor", "Monitor"), if (hud) tr("Encendido", "On") else tr("Apagado", "Off"), hud,
-            Modifier.weight(1f).fillMaxHeight()) { hud = !hud; AutoRules.setPerfHud(a, hud) }
+        // El monitor lo dibuja el servicio de accesibilidad: sin él no se puede encender.
+        QuickTile(Icons.Outlined.QueryStats, tr("Monitor", "Monitor"), if (!service) tr("Necesita accesibilidad", "Needs accessibility") else if (hud) tr("Encendido", "On") else tr("Apagado", "Off"),
+            hud && service, Modifier.weight(1f).fillMaxHeight(), enabled = service) { hud = !hud; AutoRules.setPerfHud(a, hud) }
         if (Aspect.available(a)) QuickTile(Icons.Outlined.AspectRatio, "16:9", if (wide) tr("Encendido", "On") else tr("Apagado", "Off"), wide,
             Modifier.weight(1f).fillMaxHeight()) {
             scope.launch {
@@ -97,15 +114,22 @@ private fun QuickTiles(a: MainActivity) {
 
 /** Mosaico que se enciende y apaga, como los del panel de juego: encendido en celeste. */
 @Composable
-private fun QuickTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, state: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun QuickTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, state: String, on: Boolean, modifier: Modifier,
+    enabled: Boolean = true, onClick: () -> Unit) {
     val c = MaterialTheme.colorScheme
     Surface(
-        onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.large,
+        onClick = onClick, enabled = enabled, modifier = modifier.alpha(if (enabled) 1f else 0.5f), shape = MaterialTheme.shapes.large,
         color = if (on) c.secondary else c.surfaceContainer.copy(alpha = if (ThemeState.glass) 0.58f else 1f),
         border = if (ThemeState.glass && !on) androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.1f)) else null
     ) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(icon, null, Modifier.size(28.dp), tint = if (on) c.onSecondary else c.onSurface)
+            // Ícono y, a la derecha, un interruptor: se nota que se toca para encender o apagar.
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, Modifier.size(28.dp), tint = if (on) c.onSecondary else c.onSurface)
+                Spacer(Modifier.weight(1f))
+                Switch(on, null, enabled = enabled, modifier = Modifier.scale(0.8f),
+                    colors = SwitchDefaults.colors(checkedTrackColor = c.onSecondary, checkedThumbColor = c.secondary))
+            }
             Column {
                 Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (on) c.onSecondary else c.onSurface)
                 Text(state, fontSize = 13.sp, color = if (on) c.onSecondary.copy(alpha = 0.8f) else c.onSurfaceVariant)
@@ -144,13 +168,25 @@ private fun ControllersPanel(s: AppState) {
     }
 }
 
-/** Los atajos más usados, en corto; todos (y sus interruptores) en Controles. */
+/** Los atajos que están activados ahora, en corto; todos (y sus interruptores) en Controles. */
 @Composable
-private fun ShortcutsHelp(s: AppState) {
+private fun ShortcutsHelp(s: AppState, a: MainActivity) {
+    val guide = AutoRules.legionKeys(a)
+    fun on(g: AutoRules.Guide) = guide && AutoRules.guide(a, g)
+    val chord = AutoRules.gamePanel(a)
+    val panel = listOfNotNull(if (on(AutoRules.Guide.HOLD_PANEL)) tr("Mantener guía", "Hold guide") else null, if (chord) "L3 + R3" else null)
+    val shot = listOfNotNull(if (on(AutoRules.Guide.RB_SHOT)) tr("Guía + RB", "Guide + RB") else null, if (chord) tr("mantener L3 + R3", "hold L3 + R3") else null)
+    val back = listOfNotNull(if (on(AutoRules.Guide.TAP_BACK)) tr("Tocar guía", "Tap guide") else null)
     Panel(tr("Atajos", "Shortcuts"), trailing = { TextButton(onClick = { s.page = Page.CONTROLS }) { Text(tr("Controles", "Controls")) } }) {
-        HelpRow(tr("Panel de juego", "Game panel"), tr("Mantener guía · L3 + R3", "Hold guide · L3 + R3"))
-        HelpRow(tr("Captura", "Screenshot"), tr("Guía + RB · mantener L3 + R3", "Guide + RB · hold L3 + R3"))
-        HelpRow(tr("Atrás", "Back"), tr("Tocar guía", "Tap guide"))
+        if (!s.autoServiceOn) Text(tr("Apagados: falta el servicio de accesibilidad.", "Off: the accessibility service is missing."),
+            fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else if (panel.isEmpty() && shot.isEmpty() && back.isEmpty()) Text(tr("Ninguno activado.", "None turned on."),
+            fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else {
+            if (panel.isNotEmpty()) HelpRow(tr("Panel de juego", "Game panel"), panel.joinToString(" · "))
+            if (shot.isNotEmpty()) HelpRow(tr("Captura", "Screenshot"), shot.joinToString(" · "))
+            if (back.isNotEmpty()) HelpRow(tr("Atrás", "Back"), back.joinToString(" · "))
+        }
     }
 }
 

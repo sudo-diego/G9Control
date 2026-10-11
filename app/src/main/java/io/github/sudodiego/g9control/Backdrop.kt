@@ -43,7 +43,7 @@ fun Backdrop() {
         AppBackground.GRADIENT -> GradientBackdrop(dark)
         AppBackground.IMAGE -> {
             val uri = ThemeState.backgroundUri
-            if (uri == null) GradientBackdrop(dark) else ImageBackdrop(uri, ThemeState.backgroundBlur, dark)
+            if (uri == null) GradientBackdrop(dark) else ImageBackdrop(uri, ThemeState.backgroundBlur, ThemeState.backgroundLoop, dark)
         }
     }
 }
@@ -67,7 +67,7 @@ private fun GradientBackdrop(dark: Boolean) {
 }
 
 @Composable
-private fun ImageBackdrop(uri: String, blur: Int, dark: Boolean) {
+private fun ImageBackdrop(uri: String, blur: Int, loop: Boolean, dark: Boolean) {
     val ctx = LocalContext.current
     var drawable by remember(uri) { mutableStateOf<Drawable?>(null) }
     LaunchedEffect(uri) {
@@ -81,6 +81,11 @@ private fun ImageBackdrop(uri: String, blur: Int, dark: Boolean) {
         else AndroidView(
             factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.CENTER_CROP } },
             update = { v ->
+                (d as? AnimatedImageDrawable)?.let { gif ->
+                    // Repetir o quedarse en el último cuadro.
+                    val want = if (loop) AnimatedImageDrawable.REPEAT_INFINITE else 0
+                    if (gif.repeatCount != want) { gif.repeatCount = want; gif.stop(); gif.start() }
+                }
                 if (v.drawable !== d) { v.setImageDrawable(d); (d as? AnimatedImageDrawable)?.start() }
                 if (Build.VERSION.SDK_INT >= 31)
                     v.setRenderEffect(if (blur > 0) RenderEffect.createBlurEffect(blur.toFloat(), blur.toFloat(), Shader.TileMode.CLAMP) else null)

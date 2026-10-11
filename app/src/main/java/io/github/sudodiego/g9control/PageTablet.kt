@@ -246,7 +246,6 @@ private fun MonitorPanel(s: AppState, a: MainActivity) {
             if (screen >= Monitor.Screen.NO_LIGHT && !ready) Hint(tr("Sin Shizuku queda oscura.", "Without Shizuku it's just dimmed."))
             if (screen != Monitor.Screen.NORMAL) Hint(tr("Con el monitor en espejo. Si algo falla, el botón de encendido dos veces la enciende.",
                 "With the monitor in mirror mode. If anything goes wrong, pressing power twice turns it on."))
-            if (!s.autoServiceOn) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
             if (known.isNotEmpty() && Aspect.available(a)) {
                 Text(tr("Monitores", "Monitors"), fontSize = 14.sp)
                 known.forEach { k ->
@@ -314,8 +313,7 @@ fun GameAssistantSettings(s: AppState, a: MainActivity) {
         }) {
             CompositionLocalProvider(LocalEditable provides ready) {
                 SwitchRow(
-                    tr("Ocultar Game Assistant", "Hide Game Assistant"), gaHidden == true,
-                    tr("Sin pestaña ni panel", "No side tab or panel")
+                    tr("Ocultar Game Assistant", "Hide Game Assistant"), gaHidden == true
                 ) { want ->
                     if (ready) gaScope.launch { if (ZuiGame.setHidden(want)) { AutoRules.setGaHidden(a, want); gaHidden = want } }
                 }

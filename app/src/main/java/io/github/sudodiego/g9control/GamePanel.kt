@@ -1110,8 +1110,16 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
             val rows = panelRows(ui.items)
             rows.forEachIndexed { r, row ->
                 val section = ui.items[row[0]].section
-                // Un poco más de aire entre secciones (barras, juego, Android) que entre filas.
-                if (r > 0) Spacer(Modifier.height(if (ui.items[rows[r - 1][0]].section != section) 16.dp else GAP))
+                // Un poco más de aire entre secciones (barras, juego, Android) que entre filas, y su nombre chico (no en
+                // los submenús, que tienen una sola sección).
+                val newSection = r == 0 || ui.items[rows[r - 1][0]].section != section
+                if (r > 0) Spacer(Modifier.height(if (newSection) 14.dp else GAP))
+                if (newSection && !ui.sub && section != PanelRow.SLIDER) {
+                    Text(when (section) {
+                        PanelRow.GAME -> tr("Juego", "Game"); PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
+                        else -> "Android"
+                    }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
+                }
                 // Cada fila llena el ancho: los mosaicos se reparten el espacio (sin huecos al final).
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GAP)) {
                     row.forEach { i ->

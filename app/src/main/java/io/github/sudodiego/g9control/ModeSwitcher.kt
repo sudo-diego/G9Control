@@ -28,6 +28,8 @@ object Prefs {
     fun setBackground(ctx: Context, v: AppBackground) = sp(ctx).edit().putString("background", v.name).apply()
     fun backgroundUri(ctx: Context) = sp(ctx).getString("background_uri", null)
     fun setBackgroundUri(ctx: Context, v: String?) = sp(ctx).edit().putString("background_uri", v).apply()
+    fun backgroundLoop(ctx: Context) = sp(ctx).getBoolean("background_loop", true)
+    fun setBackgroundLoop(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("background_loop", v).apply()
     fun backgroundBlur(ctx: Context) = sp(ctx).getInt("background_blur", 24)
     fun setBackgroundBlur(ctx: Context, v: Int) = sp(ctx).edit().putInt("background_blur", v).apply()
 

@@ -76,6 +76,7 @@ object ThemeState {
     var background by androidx.compose.runtime.mutableStateOf(AppBackground.GRADIENT)
     var backgroundUri by androidx.compose.runtime.mutableStateOf<String?>(null)
     var backgroundBlur by androidx.compose.runtime.mutableIntStateOf(24)
+    var backgroundLoop by androidx.compose.runtime.mutableStateOf(true)
     /** Con fondo (degradado o imagen) las tarjetas son de vidrio: translúcidas con un borde claro. */
     val glass get() = background != AppBackground.PLAIN
 }

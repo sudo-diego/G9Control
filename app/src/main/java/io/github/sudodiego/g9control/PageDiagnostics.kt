@@ -21,15 +21,16 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.sp
 
 /**
- * Página "Ajustes": la app y sus permisos en las dos secciones; lo del G9 (dibujo, datos, valores de fábrica, consola)
- * solo dentro de la sección G9, que en la de Tablet no hace falta.
+ * Ajustes (su propia sección): la app (idioma, tema, fondo, avisos) y sus permisos, con lo que necesita cada uno.
+ * Lo del G9 está en sus Preferencias.
  */
 @Composable
 fun DiagnosticsPage(s: AppState, a: MainActivity) {
-    // Detalles técnicos ocultos: como el modo desarrollador de Android, aparecen al tocar la versión 5 veces.
+    // Herramientas de desarrollo: como en Android, aparecen al tocar la versión 5 veces.
     var dev by remember { mutableStateOf(Prefs.devTools(a)) }
     var taps by remember { mutableIntStateOf(0) }
     var anim by remember { mutableStateOf(AutoRules.noticeAnim(a)) }
+    var loop by remember { mutableStateOf(Prefs.backgroundLoop(a)) }
     TwoPane(
         first = {
             Panel(tr("Aplicación", "App")) {
@@ -39,21 +40,21 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                 ChoiceChips(AppTheme.entries.map { it to it.label }, ThemeState.theme) {
                     ThemeState.theme = it; Prefs.setTheme(a, it)
                 }
-                // Fondo: degradado, una imagen o GIF propio (desenfocado) o liso.
                 Text(tr("Fondo", "Background"), fontSize = 14.sp)
                 ChoiceChips(AppBackground.entries.map { it to it.label }, ThemeState.background) {
                     if (it == AppBackground.IMAGE && ThemeState.backgroundUri == null) a.pickBackground()
                     else { ThemeState.background = it; Prefs.setBackground(a, it) }
                 }
                 if (ThemeState.background == AppBackground.IMAGE) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedButton(onClick = { a.pickBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
-                        ChoiceChips(listOf(0 to tr("Nítido", "Sharp"), 24 to tr("Desenfoque", "Blur"), 60 to tr("Muy desenfocado", "Strong blur")), ThemeState.backgroundBlur) {
-                            ThemeState.backgroundBlur = it; Prefs.setBackgroundBlur(a, it)
-                        }
+                    OutlinedButton(onClick = { a.pickBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(tr("Desenfoque", "Blur"), Modifier.width(120.dp), fontSize = 14.sp)
+                        Slider(ThemeState.backgroundBlur.toFloat(), { ThemeState.backgroundBlur = it.toInt() },
+                            Modifier.weight(1f), valueRange = 0f..100f, onValueChangeFinished = { Prefs.setBackgroundBlur(a, ThemeState.backgroundBlur) })
+                        Text("${ThemeState.backgroundBlur}", Modifier.width(44.dp), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
+                    SwitchRow(tr("Repetir el GIF", "Loop the GIF"), loop) { loop = it; ThemeState.backgroundLoop = it; Prefs.setBackgroundLoop(a, it) }
                 }
-                // Una sola animación para todos los avisos (cambio de modo y capturas).
                 Text(tr("Animación de los avisos", "Notice animation"), fontSize = 14.sp)
                 ChoiceChips(NoticeAnim.entries.map { it to it.label }, anim) { anim = it; AutoRules.setNoticeAnim(a, it); AutoRules.setShotAnim(a, it) }
                 OutlinedButton(onClick = { s.showSetup = true }) { Text(tr("Ver la configuración inicial", "Show quick setup")) }
@@ -68,13 +69,30 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                     Text(version, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            // Izquierda: la app; derecha: lo del G9 y las herramientas de desarrollo. En la sección Tablet no sale
-            // nada del G9: los permisos pasan a la derecha.
-            if (s.section == Section.G9) PermissionsPanel(s, a)
         },
         second = {
-            if (s.section == Section.TABLET) PermissionsPanel(s, a)
-            if (s.section == Section.G9) CompositionLocalProvider(LocalEditable provides true) {
+            PermissionsPanel(s, a)
+            if (dev) {
+                Panel(tr("Registro", "Log"), trailing = {
+                    Row {
+                        IconButton(onClick = { s.refreshLog() }) { Icon(Icons.Outlined.Refresh, tr("Actualizar", "Refresh")) }
+                        TextButton(onClick = { dev = false; taps = 0; Prefs.setDevTools(a, false) }) { Text(tr("Ocultar", "Hide")) }
+                    }
+                }) {
+                    Mono(s.logText.ifEmpty { "—" })
+                }
+            }
+        }
+    )
+}
+
+/** Preferencias del G9: cómo se dibuja, abrir la app al conectarlo, sus datos, valores de fábrica y (desarrollo) la consola. */
+@Composable
+fun G9PrefsPage(s: AppState, a: MainActivity) {
+    val dev = Prefs.devTools(a)
+    TwoPane(
+        first = {
+            CompositionLocalProvider(LocalEditable provides true) {
                 Panel(tr("Control G9", "G9 controller")) {
                     Text(tr("Estilo del dibujo", "Drawing style"), fontSize = 14.sp)
                     ChoiceChips(ControllerSkin.entries.map { it to it.label }, SkinState.skin) {
@@ -96,25 +114,17 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                     }
                 }
             }
-            if (s.section == Section.G9) ResetPanel(s, a)
-            if (dev && s.section == Section.G9) {
-                Panel(tr("Detalles técnicos", "Technical details"), trailing = {
-                    TextButton(onClick = { dev = false; taps = 0; Prefs.setDevTools(a, false) }) { Text(tr("Ocultar", "Hide")) }
-                }) {
+            ResetPanel(s, a)
+        },
+        second = {
+            if (dev) {
+                Panel(tr("Detalles técnicos", "Technical details")) {
                     Mono(s.deviceText)
                     s.mode?.let { Mono(tr("Modo leído: ${it.main} (submodo ${it.sub})", "Mode read: ${it.main} (submode ${it.sub})")) }
                     s.inputDevice?.let { Mono(tr("Entrada: $it", "Input: $it")) }
-                    // Solo si hay algo más que el G9 (si no, repite lo de arriba).
                     if (s.allDevicesText.trim() != s.deviceText.trim()) Mono(s.allDevicesText)
                 }
                 ConsolePanel(s, a)
-            }
-            if (dev) {
-                Panel(tr("Registro", "Log"), trailing = {
-                    IconButton(onClick = { s.refreshLog() }) { Icon(Icons.Outlined.Refresh, tr("Actualizar", "Refresh")) }
-                }) {
-                    Mono(s.logText.ifEmpty { "—" })
-                }
             }
         }
     )
@@ -249,7 +259,6 @@ fun NoticesPanel(s: AppState, a: MainActivity) {
             }
             if ((!small && big > 0) || mini > 0)
                 Hint(tr("Para quitar un aviso que bloquea: mantén la pantalla 2 s.", "To dismiss a blocking notice: hold the screen for 2 s."))
-            if (!on) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
         }
     }
 }
@@ -282,7 +291,6 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                 }
             }
         }
-        if (!s.autoServiceOn) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
     }
 }
 

@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
         ThemeState.background = Prefs.background(this)
         ThemeState.backgroundUri = Prefs.backgroundUri(this)
         ThemeState.backgroundBlur = Prefs.backgroundBlur(this)
+        ThemeState.backgroundLoop = Prefs.backgroundLoop(this)
         Lang.load(this)
         state.showSetup = !Prefs.setupDone(this)
         state.status = tr("Conecta el G9 por USB en modo Android.", "Connect the G9 over USB in Android mode.")
@@ -275,11 +276,14 @@ class MainActivity : ComponentActivity() {
             KeyEvent.KEYCODE_BUTTON_START, KeyEvent.KEYCODE_BUTTON_SELECT -> return true
             // L3/R3 no hacen nada en la app (Android por defecto los usa para ir a Inicio).
             KeyEvent.KEYCODE_BUTTON_THUMBL, KeyEvent.KEYCODE_BUTTON_THUMBR -> return true
-            // LT/RT: cambiar entre las secciones Tablet y G9. En Vibración y Sticks no: ahí se usan para probar los
-            // gatillos.
+            // LT/RT: sección anterior o siguiente (Tablet, G9, Ajustes). En Vibración y Sticks no: ahí se usan para
+            // probar los gatillos.
             KeyEvent.KEYCODE_BUTTON_L2, KeyEvent.KEYCODE_BUTTON_R2 -> {
-                if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0 && s.page != Page.VIBRATION && s.page != Page.STICKS)
-                    s.goTo(if (e.keyCode == KeyEvent.KEYCODE_BUTTON_L2) Section.TABLET else Section.G9)
+                if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0 && s.page != Page.VIBRATION && s.page != Page.STICKS) {
+                    val all = Section.entries
+                    val i = all.indexOf(s.section) + if (e.keyCode == KeyEvent.KEYCODE_BUTTON_L2) -1 else 1
+                    all.getOrNull(i)?.let { s.goTo(it) }
+                }
                 return true
             }
             // LB/RB: las pestañas de la sección, de punta a punta (sin pasar a la otra).
@@ -904,15 +908,16 @@ class MainActivity : ComponentActivity() {
  * Páginas. HOME…PROFILES y AUTO son del G9 (HOME = su inicio, AUTO = modo por juego, TEST = "Botones"); TABLET_HOME,
  * BATTERY, SCREEN y GAMEPANEL son de la tablet (sirven sin el G9); DIAGNOSTICS = "Ajustes", en las dos secciones.
  */
-enum class Page { HOME, LIGHTS, STICKS, VIBRATION, TEST, BACK, PROFILES, AUTO, TABLET_HOME, BATTERY, SCREEN, GAMEPANEL, CONTROLS, DIAGNOSTICS }
+enum class Page { HOME, LIGHTS, STICKS, VIBRATION, TEST, BACK, PROFILES, AUTO, G9_PREFS, TABLET_HOME, BATTERY, SCREEN, GAMEPANEL, CONTROLS, DIAGNOSTICS }
 
 /**
- * Las dos partes de la app: la tablet (para cualquiera con la Y700 y cualquier control) y el G9. Cada una con sus
- * pestañas, en el orden del menú y de LB/RB; Ajustes está en las dos.
+ * Las tres partes de la app: la tablet (para cualquiera con la Y700 y cualquier control), el G9 (con sus
+ * preferencias) y los ajustes de la app. Cada una con sus pestañas, en el orden de LB/RB; LT/RT pasan de una a otra.
  */
 enum class Section(val pages: List<Page>) {
-    TABLET(listOf(Page.TABLET_HOME, Page.BATTERY, Page.SCREEN, Page.GAMEPANEL, Page.CONTROLS, Page.DIAGNOSTICS)),
-    G9(listOf(Page.HOME, Page.AUTO, Page.LIGHTS, Page.STICKS, Page.VIBRATION, Page.TEST, Page.BACK, Page.DIAGNOSTICS)),
+    TABLET(listOf(Page.TABLET_HOME, Page.BATTERY, Page.SCREEN, Page.GAMEPANEL, Page.CONTROLS)),
+    G9(listOf(Page.HOME, Page.AUTO, Page.LIGHTS, Page.STICKS, Page.VIBRATION, Page.TEST, Page.BACK, Page.G9_PREFS)),
+    SETTINGS(listOf(Page.DIAGNOSTICS)),
 }
 
 enum class LightTarget { BOTH, LEFT, RIGHT, HOME }

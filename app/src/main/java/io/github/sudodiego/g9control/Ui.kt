@@ -79,6 +79,23 @@ val LocalSliderHeld = compositionLocalOf<(Boolean) -> Unit> { {} }
 /** Páginas cuyos controles escriben en el control. */
 private val EDIT_PAGES = setOf(Page.LIGHTS, Page.STICKS, Page.VIBRATION)
 
+/** Páginas que dependen del servicio de accesibilidad. */
+private val SERVICE_PAGES = setOf(Page.CONTROLS, Page.GAMEPANEL, Page.SCREEN, Page.AUTO)
+
+/** Franja de lo que falta (un permiso, Shizuku): una línea con el ícono en color y el botón para arreglarlo. */
+@Composable
+fun NeedsBanner(text: String, action: String, onAction: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    Surface(color = c.tertiaryContainer.copy(alpha = 0.85f), shape = CircleShape, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Accessibility, null, Modifier.size(20.dp), tint = c.onTertiaryContainer)
+            Spacer(Modifier.width(10.dp))
+            Text(text, Modifier.weight(1f), fontSize = 14.sp, color = c.onTertiaryContainer)
+            Button(onClick = onAction) { Text(action) }
+        }
+    }
+}
+
 private data class NavItem(val page: Page, val es: String, val en: String, val icon: ImageVector, val selectedIcon: ImageVector) {
     val label get() = tr(es, en)
 }
@@ -99,6 +116,7 @@ private val NAV = listOf(
     NavItem(Page.TEST, "Botones", "Buttons", Icons.Outlined.RadioButtonChecked, Icons.Filled.RadioButtonChecked),
     NavItem(Page.BACK, "Traseros", "Paddles", Icons.Outlined.FlipToBack, Icons.Filled.FlipToBack),
     NavItem(Page.PROFILES, "Perfiles", "Profiles", Icons.Outlined.BookmarkBorder, Icons.Filled.Bookmark),
+    NavItem(Page.G9_PREFS, "Preferencias", "Preferences", Icons.Outlined.Tune, Icons.Filled.Tune),
     // Las dos.
     NavItem(Page.DIAGNOSTICS, "Ajustes", "Settings", Icons.Outlined.Settings, Icons.Filled.Settings),
 )
@@ -173,9 +191,6 @@ private fun TabBar(s: AppState, a: MainActivity) {
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 NAV.filter { it.page in s.section.pages }.forEach { item ->
-                    // Ajustes (común a las dos secciones) después de un divisor.
-                    if (item.page == Page.DIAGNOSTICS)
-                        VerticalDivider(Modifier.align(Alignment.CenterVertically).padding(horizontal = 8.dp).height(24.dp), color = c.outlineVariant)
                     val sel = s.page == item.page
                     // El foco del control se marca con un contorno, no con relleno: con relleno parecía otra pestaña
                     // elegida (se veían dos resaltadas a la vez).
@@ -225,7 +240,8 @@ private fun SectionSwitch(s: AppState) {
     val c = MaterialTheme.colorScheme
     Row(Modifier.clip(CircleShape).background(c.surfaceContainerHighest).padding(3.dp)) {
         listOf(Section.TABLET to Pair(tr("Tablet", "Tablet"), Icons.Outlined.TabletAndroid),
-            Section.G9 to Pair("G9", Icons.Outlined.SportsEsports)).forEach { (sec, info) ->
+            Section.G9 to Pair("G9", Icons.Outlined.SportsEsports),
+            Section.SETTINGS to Pair(tr("Ajustes", "Settings"), Icons.Outlined.Settings)).forEach { (sec, info) ->
             val sel = s.section == sec
             Row(
                 Modifier.clip(CircleShape).background(if (sel) c.primary else Color.Transparent)
@@ -315,7 +331,7 @@ private fun HintBar(s: AppState) {
         if (s.padMode != null || s.connected) {
             val hints = if (s.capturing) listOf("B" to tr("Mantén 1 s para salir", "Hold 1 s to exit"))
             else if (s.editingMacro != null) listOf("A" to tr("Elegir", "Select"), "B" to tr("Cerrar macro", "Close macro"), "LB RB" to tr("Pestañas", "Tabs"))
-            else listOf("A" to tr("Elegir", "Select"), "LB RB" to tr("Pestañas", "Tabs"), "LT RT" to tr("Tablet / G9", "Tablet / G9"),
+            else listOf("A" to tr("Elegir", "Select"), "LB RB" to tr("Pestañas", "Tabs"), "LT RT" to tr("Secciones", "Sections"),
                 "B" to tr("Mantén 3 s para salir", "Hold 3 s to exit"))
             hints.forEach { (k, v) ->
                 Spacer(Modifier.width(18.dp))
@@ -343,6 +359,11 @@ private fun PageHost(s: AppState, a: MainActivity, modifier: Modifier) {
                 .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Páginas que no hacen nada sin el servicio de accesibilidad (dibujar sobre los juegos, leer el control en
+            // cualquier app, pedir la frecuencia): lo dicen arriba, con el botón para activarlo.
+            if (page in SERVICE_PAGES && !s.autoServiceOn) NeedsBanner(
+                tr("Esta página necesita el servicio de accesibilidad.", "This page needs the accessibility service."),
+                tr("Activar", "Turn on")) { AutoRules.openServiceSettings(a) }
             val editable = page !in EDIT_PAGES || s.connected
             CompositionLocalProvider(LocalEditable provides editable) {
                 Column(
@@ -363,6 +384,7 @@ private fun PageHost(s: AppState, a: MainActivity, modifier: Modifier) {
                         Page.SCREEN -> ScreenPage(s, a)
                         Page.GAMEPANEL -> GamePanelPage(s, a)
                         Page.CONTROLS -> ShortcutsPage(s, a)
+                        Page.G9_PREFS -> G9PrefsPage(s, a)
                         Page.DIAGNOSTICS -> DiagnosticsPage(s, a)
                     }
                 }

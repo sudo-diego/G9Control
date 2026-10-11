@@ -54,22 +54,9 @@ private object AppCache { @Volatile var apps: List<AppEntry>? = null }
  */
 @Composable
 fun AutoPage(s: AppState, a: MainActivity) {
-    if (!s.autoServiceOn) Panel { ServiceSetup(a) }
     AppPicker(s, a)
     // Cómo avisa al abrir y salir de un juego (antes en Ajustes).
     NoticesPanel(s, a)
-}
-
-/** Sin el servicio de accesibilidad el cambio por juego no funciona. Los pasos completos están en Ajustes → Permisos. */
-@Composable
-private fun ServiceSetup(a: MainActivity) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.WarningAmber, null, tint = MaterialTheme.colorScheme.tertiary)
-        Spacer(Modifier.width(8.dp))
-        Text(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Automatic switching needs the accessibility service (Settings → Permissions)."),
-            Modifier.weight(1f), fontWeight = FontWeight.Medium)
-        Button(onClick = { AutoRules.openServiceSettings(a) }) { Text(tr("Activar", "Turn on")) }
-    }
 }
 
 @Composable
