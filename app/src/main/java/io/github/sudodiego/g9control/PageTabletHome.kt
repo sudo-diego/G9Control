@@ -259,11 +259,14 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
                     Spacer(Modifier.width(12.dp))
                 }
                 // El nombre y sus marcas en pastillas: Activa (algo corriendo) y ↻ si volvió sola después de detenerla.
-                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(task.app.label, Modifier.weight(1f, fill = false), fontSize = 15.sp, maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                    if (task.active) TaskTag(null, tr("Activa", "Active"))
-                    Memory.returnOf(a, task.app.pkg)?.let { r -> TaskTag(Icons.Outlined.Autorenew, tr("Vuelve", "Returns") + " · " + returnDelay(r.lastDelayMs)) }
+                // El nombre entero arriba y las marcas debajo (en la misma línea no cabían).
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(task.app.label, fontSize = 15.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    val ret = Memory.returnOf(a, task.app.pkg)
+                    if (task.active || ret != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (task.active) TaskTag(null, tr("Activa", "Active"))
+                        ret?.let { r -> TaskTag(Icons.Outlined.Autorenew, tr("Vuelve ", "Returns ") + returnDelay(r.lastDelayMs)) }
+                    }
                 }
                 Text("${task.ramMb} MB", Modifier.width(84.dp), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                 Text(if (task.cpu < 10) "%.1f %%".format(task.cpu) else "%.0f %%".format(task.cpu), Modifier.width(72.dp), fontSize = 14.sp, color = c.onSurfaceVariant,
@@ -309,7 +312,7 @@ private fun TaskTag(icon: androidx.compose.ui.graphics.vector.ImageVector?, text
     Row(Modifier.background(c.secondaryContainer, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically) {
         icon?.let { Icon(it, null, Modifier.size(14.dp), tint = c.onSecondaryContainer); Spacer(Modifier.width(4.dp)) }
-        Text(text, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = c.onSecondaryContainer)
+        Text(text, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = c.onSecondaryContainer, maxLines = 1, softWrap = false)
     }
 }
 

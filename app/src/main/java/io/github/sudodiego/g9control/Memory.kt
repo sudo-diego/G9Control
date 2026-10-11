@@ -80,7 +80,16 @@ object Memory {
      */
     data class Return(val count: Int, val lastDelayMs: Long)
 
-    private fun hist(ctx: Context) = ctx.getSharedPreferences("memory_history", Context.MODE_PRIVATE)
+    private fun hist(ctx: Context) = ctx.getSharedPreferences("memory_history", Context.MODE_PRIVATE).also { h ->
+        // La primera versión contaba también las que abrías tú: ese historial no sirve.
+        if (h.getInt("v", 0) < 2) h.edit().clear().putInt("v", 2).apply()
+    }
+
+    /** La abriste tú (estuvo al frente) después de detenerla: si después está corriendo, no volvió sola. */
+    fun openedByUser(ctx: Context, pkg: String) {
+        val h = hist(ctx)
+        if (h.contains("stop_$pkg")) h.edit().remove("stop_$pkg").apply()
+    }
 
     fun returnOf(ctx: Context, pkg: String): Return? = hist(ctx).getString("ret_$pkg", null)?.split('|')?.let {
         Return(it[0].toInt(), it[1].toLong())

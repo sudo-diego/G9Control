@@ -74,8 +74,11 @@ enum class AppBackground { GRADIENT, IMAGE, WALLPAPER, PLAIN;
 }
 
 /** Fondo del panel de juego (aparte del de la app): el fondo de pantalla no se puede, el juego está detrás. */
-enum class PanelBackground { GRADIENT, IMAGE, PLAIN;
-    val label get() = when (this) { GRADIENT -> tr("Degradado", "Gradient"); IMAGE -> tr("Imagen o GIF", "Image or GIF"); PLAIN -> tr("Liso", "Plain") }
+enum class PanelBackground { CLEAR, GRADIENT, IMAGE, PLAIN;
+    val label get() = when (this) {
+        CLEAR -> tr("Transparente", "Clear"); GRADIENT -> tr("Degradado", "Gradient")
+        IMAGE -> tr("Imagen o GIF", "Image or GIF"); PLAIN -> tr("Liso", "Plain")
+    }
 }
 
 /** Tema y fondo elegidos en Ajustes. */
@@ -92,12 +95,14 @@ object ThemeState {
     var panelUri by androidx.compose.runtime.mutableStateOf<String?>(null)
     var panelBlur by androidx.compose.runtime.mutableIntStateOf(24)
     var panelLoop by androidx.compose.runtime.mutableStateOf(true)
+    /** Transparente: cuánto relleno oscuro lleva (0 = nada, se ve el juego entero detrás). */
+    var panelFill by androidx.compose.runtime.mutableIntStateOf(25)
 
     /** Lo elegido, desde la app o desde el servicio (el panel se puede abrir sin haber abierto la app). */
     fun load(ctx: android.content.Context) {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
-        panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx)
+        panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx)
     }
     /** Con fondo (degradado o imagen) las tarjetas son de vidrio: translúcidas con un borde claro. */
     val glass get() = background != AppBackground.PLAIN

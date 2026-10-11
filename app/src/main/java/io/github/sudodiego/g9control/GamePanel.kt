@@ -1077,7 +1077,11 @@ private val SELECTED = Color.White
 private val TILE_GLASS = Color(0x2EFFFFFF)
 private val GLASS_EDGE = Color(0x24FFFFFF)
 private val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN
-private val tileColor get() = if (glassPanel) TILE_GLASS else TILE
+// Transparente: los mosaicos llevan más cuerpo (azul translúcido) para leerse sobre un juego claro.
+private val TILE_CLEAR = Color(0xB8141C30)
+private val tileColor get() = when (ThemeState.panelBackground) {
+    PanelBackground.PLAIN -> TILE; PanelBackground.CLEAR -> TILE_CLEAR; else -> TILE_GLASS
+}
 
 private val TILE_W = 172.dp
 private val TILE_H = 68.dp
@@ -1092,13 +1096,13 @@ private val CARD_PAD = 22.dp
 private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onSet: (Int, Float) -> Unit) {
     val width = TILE_W * COLUMNS + GAP * (COLUMNS - 1)
     val shape = RoundedCornerShape(28.dp)
-    Surface(color = PANEL_BG, shape = shape, modifier = modifier,
+    Surface(color = if (ThemeState.panelBackground == PanelBackground.CLEAR) Color.Transparent else PANEL_BG, shape = shape, modifier = modifier,
         border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
       Box {
         // Fondo propio del panel (degradado, imagen o GIF) con un velo para que se lea sobre cualquier imagen.
         if (glassPanel) Box(Modifier.matchParentSize().clip(shape)) {
             PanelBackdrop()
-            Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
+            if (ThemeState.panelBackground != PanelBackground.CLEAR) Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
         }
         Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1248,7 +1252,7 @@ private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, on
     val fg = if (item.active) ON_TILE_ON else Color.White
     Surface(
         color = if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
-        border = if (selected) BorderStroke(2.5.dp, SELECTED) else null,
+        border = if (selected) BorderStroke(2.5.dp, SELECTED) else if (glassPanel && !item.active) BorderStroke(1.dp, GLASS_EDGE) else null,
         modifier = modifier.height(TILE_H).clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)
             .graphicsLayer { alpha = if (item.enabled) 1f else 0.45f }
     ) {

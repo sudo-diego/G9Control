@@ -309,6 +309,9 @@ private fun PanelLookPanel(a: MainActivity) {
             if (it == PanelBackground.IMAGE && ThemeState.panelUri == null) a.pickPanelBackground()
             else { ThemeState.panelBackground = it; Prefs.setPanelBackground(a, it) }
         }
+        if (ThemeState.panelBackground == PanelBackground.CLEAR) {
+            SliderRow(tr("Relleno", "Fill"), ThemeState.panelFill, 0..100) { ThemeState.panelFill = it; Prefs.setPanelFill(a, it) }
+        }
         if (ThemeState.panelBackground == PanelBackground.IMAGE) {
             OutlinedButton(onClick = { a.pickPanelBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
             SliderRow(tr("Desenfoque", "Blur"), ThemeState.panelBlur, 0..100) { ThemeState.panelBlur = it; Prefs.setPanelBlur(a, it) }

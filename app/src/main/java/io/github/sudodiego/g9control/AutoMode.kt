@@ -516,6 +516,7 @@ class AutoModeService : AccessibilityService() {
         val pkg = runCatching { w.root?.packageName?.toString() }.getOrNull() ?: return
         if (isTransient(pkg)) return
         lastPackage = pkg
+        Memory.openedByUser(this, pkg)
         appWindowId = w.id
         if (pkg in AutoRules.STREAMING) { streaming = !pkg.startsWith("com.limelight") || limelightStreaming(); updatePadWatch() }
         Log.d(TAG, "app al frente al arrancar: $pkg${if (streaming) " (transmitiendo)" else ""}")
@@ -626,6 +627,7 @@ class AutoModeService : AccessibilityService() {
         val wasHidden = hiddenForApp
         hiddenForApp = false
         lastPackage = pkg
+        Memory.openedByUser(this, pkg)
         panel.hide()
         panel.onAppChanged()
         // Bypass automático: otra app, otra decisión ("solo en juegos"). Lo manual sigue valiendo hasta desconectar el
