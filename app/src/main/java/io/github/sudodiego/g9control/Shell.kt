@@ -81,10 +81,13 @@ object Shell {
     const val TOP = "top -b -n 2 -d 2 -m 500 -o USER,%CPU,RES,NAME"
     fun stopApp(pkg: String) = "am stop-app $pkg"
     private val STOP_APP = Regex("am stop-app [A-Za-z0-9_.]+")
+    // ¿Volvió a estar corriendo una app detenida? (si no está corriendo, pidof sale con 1 y run da null).
+    fun pidof(pkg: String) = "pidof -s $pkg"
+    private val PIDOF = Regex("pidof -s [A-Za-z0-9_.]+")
 
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || PIDOF.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

@@ -66,7 +66,15 @@ enum class AppTheme { SYSTEM, LIGHT, DARK;
     val label get() = when (this) { SYSTEM -> tr("Del sistema", "System"); LIGHT -> tr("Claro", "Light"); DARK -> tr("Oscuro", "Dark") }
 }
 
-enum class AppBackground { GRADIENT, IMAGE, PLAIN;
+enum class AppBackground { GRADIENT, IMAGE, WALLPAPER, PLAIN;
+    val label get() = when (this) {
+        GRADIENT -> tr("Degradado", "Gradient"); IMAGE -> tr("Imagen o GIF", "Image or GIF")
+        WALLPAPER -> tr("Fondo de pantalla", "Wallpaper"); PLAIN -> tr("Liso", "Plain")
+    }
+}
+
+/** Fondo del panel de juego (aparte del de la app): el fondo de pantalla no se puede, el juego está detrás. */
+enum class PanelBackground { GRADIENT, IMAGE, PLAIN;
     val label get() = when (this) { GRADIENT -> tr("Degradado", "Gradient"); IMAGE -> tr("Imagen o GIF", "Image or GIF"); PLAIN -> tr("Liso", "Plain") }
 }
 
@@ -77,6 +85,20 @@ object ThemeState {
     var backgroundUri by androidx.compose.runtime.mutableStateOf<String?>(null)
     var backgroundBlur by androidx.compose.runtime.mutableIntStateOf(24)
     var backgroundLoop by androidx.compose.runtime.mutableStateOf(true)
+    /** Con el fondo de pantalla: cuánto se oscurece (0..100) para que el texto se lea. No se puede desenfocar: la
+     *  tablet no tiene desenfoque entre ventanas (ro.surface_flinger.supports_background_blur = 0). */
+    var backgroundDim by androidx.compose.runtime.mutableIntStateOf(45)
+    var panelBackground by androidx.compose.runtime.mutableStateOf(PanelBackground.GRADIENT)
+    var panelUri by androidx.compose.runtime.mutableStateOf<String?>(null)
+    var panelBlur by androidx.compose.runtime.mutableIntStateOf(24)
+    var panelLoop by androidx.compose.runtime.mutableStateOf(true)
+
+    /** Lo elegido, desde la app o desde el servicio (el panel se puede abrir sin haber abierto la app). */
+    fun load(ctx: android.content.Context) {
+        theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
+        backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
+        panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx)
+    }
     /** Con fondo (degradado o imagen) las tarjetas son de vidrio: translúcidas con un borde claro. */
     val glass get() = background != AppBackground.PLAIN
 }

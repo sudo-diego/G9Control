@@ -57,6 +57,8 @@ import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material.icons.outlined.TabletAndroid
 import androidx.compose.material.icons.outlined.Balance
 import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.EnergySavingsLeaf
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Power
@@ -159,6 +161,8 @@ private class PanelUi {
     var status by mutableStateOf("")
     /** Modo del G9 ahora (Android, X-Input, DS5), como recordatorio; null si no está conectado. */
     var mode by mutableStateOf<String?>(null)
+    /** Mini monitor (RAM, W, CPU, temperatura) debajo del encabezado. */
+    var stats by mutableStateOf(true)
     /** En un submenú (rendimiento): encabezado sin batería ni hora, y B vuelve. */
     var sub by mutableStateOf(false)
 }
@@ -230,6 +234,7 @@ class GamePanel(private val svc: AutoModeService) {
     private fun header() {
         ui.sub = false
         ui.title = appLabel(svc.foregroundApp)
+        ui.stats = Prefs.panelStats(svc)
         ui.mode = ModeSwitcher.detect()?.label
         val i = svc.registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         ui.battery = i?.let { it.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / it.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1) } ?: -1
@@ -1068,6 +1073,11 @@ private val ON_TILE_ON = Color(0xFF052238)
 private val PANEL_ACCENT = Color(0xFF5CC8FF)
 private val PANEL_MUTED = Color(0xFF9AA6BF)
 private val SELECTED = Color.White
+// Con fondo (degradado o imagen) los mosaicos son de vidrio: blanco translúcido con un borde claro, como en la app.
+private val TILE_GLASS = Color(0x2EFFFFFF)
+private val GLASS_EDGE = Color(0x24FFFFFF)
+private val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN
+private val tileColor get() = if (glassPanel) TILE_GLASS else TILE
 
 private val TILE_W = 172.dp
 private val TILE_H = 68.dp
@@ -1081,7 +1091,15 @@ private val CARD_PAD = 22.dp
 @Composable
 private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onSet: (Int, Float) -> Unit) {
     val width = TILE_W * COLUMNS + GAP * (COLUMNS - 1)
-    Surface(color = PANEL_BG, shape = RoundedCornerShape(28.dp), modifier = modifier) {
+    val shape = RoundedCornerShape(28.dp)
+    Surface(color = PANEL_BG, shape = shape, modifier = modifier,
+        border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
+      Box {
+        // Fondo propio del panel (degradado, imagen o GIF) con un velo para que se lea sobre cualquier imagen.
+        if (glassPanel) Box(Modifier.matchParentSize().clip(shape)) {
+            PanelBackdrop()
+            Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
+        }
         Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // El nombre ocupa lo que necesita (hasta la mitad); el resto empuja la batería y la hora a la derecha.
@@ -1090,7 +1108,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                 // Modo del control, pequeño, como recordatorio.
                 if (!ui.sub) ui.mode?.let { m ->
                     Spacer(Modifier.width(10.dp))
-                    Row(Modifier.clip(RoundedCornerShape(10.dp)).background(TILE).padding(horizontal = 8.dp, vertical = 3.dp),
+                    Row(Modifier.clip(RoundedCornerShape(10.dp)).background(tileColor).padding(horizontal = 8.dp, vertical = 3.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.SportsEsports, null, Modifier.size(14.dp), tint = PANEL_MUTED)
                         Spacer(Modifier.width(5.dp))
@@ -1106,6 +1124,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                     Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1)
                 }
             }
+            if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
             Spacer(Modifier.height(16.dp))
             val rows = panelRows(ui.items)
             rows.forEachIndexed { r, row ->
@@ -1139,6 +1158,44 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                     else tr("Stick, cruceta o LB / RB mover · A elegir · B cerrar", "Stick, D-pad or LB / RB move · A select · B close"),
                 color = PANEL_MUTED, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally)
             )
+        }
+      }
+    }
+}
+
+/**
+ * Mini monitor del panel: RAM libre, consumo (ahora y el promedio del último minuto), la CPU y la temperatura de la
+ * batería. Se actualiza cada 2 s mientras el panel está abierto.
+ */
+@Composable
+private fun PanelStats() {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(2000); tick++ } }
+    val ram = remember(tick) { Memory.info(ctx) }
+    val w = remember(tick) { ZuiBattery.watts(ctx) }
+    val plugged = remember(tick) { ZuiBattery.plugged(ctx) }
+    val cpu = remember(tick) { Stats.cpuMhz() }
+    val temp = remember(tick) { Stats.batteryTemp(ctx) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+        StatChip(Icons.Outlined.Memory, Memory.gb(ram.freeBytes), tr("RAM libre", "Free RAM"), Modifier.weight(1f))
+        StatChip(Icons.Outlined.Bolt, w?.let { (if (plugged) "+" else "") + "%.1f W".format(it) } ?: "—",
+            PowerLog.recentAvg?.takeIf { !plugged }?.let { tr("prom. %.1f W", "avg %.1f W").format(it) } ?: if (plugged) tr("Entra", "Charging") else tr("Consumo", "Draw"),
+            Modifier.weight(1f))
+        StatChip(Icons.Outlined.Speed, Stats.cpuText(cpu), "CPU", Modifier.weight(1f))
+        StatChip(Icons.Outlined.Thermostat, temp?.let { "%.0f °C".format(it) } ?: "—", tr("Batería", "Battery"), Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun StatChip(icon: ImageVector, value: String, label: String, modifier: Modifier) {
+    Row(modifier.clip(RoundedCornerShape(16.dp)).background(tileColor).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(18.dp), tint = PANEL_ACCENT)
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(label, color = PANEL_MUTED, fontSize = 11.sp, maxLines = 1)
         }
     }
 }
@@ -1177,7 +1234,7 @@ private fun BatteryGlyph(level: Int, charging: Boolean, bypass: Boolean) {
 private fun PanelToggle(item: PanelItem, selected: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(26.dp)
     Box(
-        Modifier.size(52.dp).clip(shape).background(if (item.active) TILE_ON else TILE)
+        Modifier.size(52.dp).clip(shape).background(if (item.active) TILE_ON else tileColor)
             .then(if (selected) Modifier.border(2.5.dp, SELECTED, shape) else Modifier).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -1190,7 +1247,7 @@ private fun PanelToggle(item: PanelItem, selected: Boolean, onClick: () -> Unit)
 private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val fg = if (item.active) ON_TILE_ON else Color.White
     Surface(
-        color = if (item.active) TILE_ON else TILE, shape = RoundedCornerShape(22.dp),
+        color = if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
         border = if (selected) BorderStroke(2.5.dp, SELECTED) else null,
         modifier = modifier.height(TILE_H).clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)
             .graphicsLayer { alpha = if (item.enabled) 1f else 0.45f }
@@ -1218,7 +1275,7 @@ private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, on
 private fun PanelSlider(item: PanelItem, selected: Boolean, editing: Boolean, modifier: Modifier, onSet: (Float) -> Unit) {
     val shape = RoundedCornerShape(26.dp)
     Box(
-        modifier.height(52.dp).clip(shape).background(TILE)
+        modifier.height(52.dp).clip(shape).background(tileColor)
             .then(if (selected) Modifier.border(2.5.dp, SELECTED, shape) else Modifier)
             .pointerInput(Unit) { detectTapGestures { onSet(it.x / size.width) } }
             .pointerInput(Unit) { detectHorizontalDragGestures { change, _ -> onSet(change.position.x / size.width) } }

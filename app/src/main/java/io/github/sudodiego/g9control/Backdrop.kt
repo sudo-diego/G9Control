@@ -45,6 +45,24 @@ fun Backdrop() {
             val uri = ThemeState.backgroundUri
             if (uri == null) GradientBackdrop(dark) else ImageBackdrop(uri, ThemeState.backgroundBlur, ThemeState.backgroundLoop, dark)
         }
+        // El fondo de pantalla lo dibuja Android detrás de la ventana (transparente): aquí solo el velo.
+        AppBackground.WALLPAPER -> {
+            val a = 0.15f + 0.75f * ThemeState.backgroundDim / 100f
+            Box(Modifier.fillMaxSize().background((if (dark) Color(0xFF0A0F1F) else Color(0xFFEAF0FA)).copy(alpha = a)))
+        }
+    }
+}
+
+/** Fondo del panel de juego (siempre oscuro, va sobre el juego): el suyo propio, no el de la app. */
+@Composable
+fun PanelBackdrop() {
+    when (ThemeState.panelBackground) {
+        PanelBackground.PLAIN -> Box(Modifier.fillMaxSize().background(Color(0xFF0E1424)))
+        PanelBackground.GRADIENT -> GradientBackdrop(true)
+        PanelBackground.IMAGE -> {
+            val uri = ThemeState.panelUri
+            if (uri == null) GradientBackdrop(true) else ImageBackdrop(uri, ThemeState.panelBlur, ThemeState.panelLoop, true)
+        }
     }
 }
 

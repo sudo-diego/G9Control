@@ -52,6 +52,11 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                     }
                     SwitchRow(tr("Repetir el GIF", "Loop the GIF"), loop) { loop = it; ThemeState.backgroundLoop = it; Prefs.setBackgroundLoop(a, it) }
                 }
+                if (ThemeState.background == AppBackground.WALLPAPER) {
+                    SliderRow(tr("Oscurecer", "Dim"), ThemeState.backgroundDim, 0..100) {
+                        ThemeState.backgroundDim = it; Prefs.setBackgroundDim(a, it)
+                    }
+                }
                 Text(tr("Animación de los avisos", "Notice animation"), fontSize = 14.sp)
                 ChoiceChips(NoticeAnim.entries.map { it to it.label }, anim) { anim = it; AutoRules.setNoticeAnim(a, it); AutoRules.setShotAnim(a, it) }
                 OutlinedButton(onClick = { s.showSetup = true }) { Text(tr("Ver la configuración inicial", "Show quick setup")) }
@@ -281,6 +286,7 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                 ChoiceChips(ShotSound.entries.map { it to it.label }, shotSound) { shotSound = it; AutoRules.setShotSound(a, it) }
             }
         }
+        PanelLookPanel(a)
         Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }, enabled = LocalGateOk.current) }) {
             NoticeBox(tr("Datos", "Data"), tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery"), null,
                 side = { PosGrid(perfPos) { perfPos = it; AutoRules.setPerfPos(a, it) } }) {
@@ -288,6 +294,28 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                     perfFull = it; AutoRules.setPerfFull(a, it)
                 }
             }
+        }
+    }
+}
+
+/** Cómo se ve el panel de juego: su fondo (aparte del de la app) y el mini monitor. */
+@Composable
+private fun PanelLookPanel(a: MainActivity) {
+    var stats by remember { mutableStateOf(Prefs.panelStats(a)) }
+    var loop by remember { mutableStateOf(ThemeState.panelLoop) }
+    Panel(tr("Panel de juego", "Game panel")) {
+        Text(tr("Fondo", "Background"), fontSize = 14.sp)
+        ChoiceChips(PanelBackground.entries.map { it to it.label }, ThemeState.panelBackground) {
+            if (it == PanelBackground.IMAGE && ThemeState.panelUri == null) a.pickPanelBackground()
+            else { ThemeState.panelBackground = it; Prefs.setPanelBackground(a, it) }
+        }
+        if (ThemeState.panelBackground == PanelBackground.IMAGE) {
+            OutlinedButton(onClick = { a.pickPanelBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
+            SliderRow(tr("Desenfoque", "Blur"), ThemeState.panelBlur, 0..100) { ThemeState.panelBlur = it; Prefs.setPanelBlur(a, it) }
+            SwitchRow(tr("Repetir el GIF", "Loop the GIF"), loop) { loop = it; ThemeState.panelLoop = it; Prefs.setPanelLoop(a, it) }
+        }
+        SwitchRow(tr("Mini monitor", "Mini monitor"), stats, tr("RAM libre, watts, CPU y temperatura arriba del panel", "Free RAM, watts, CPU and temperature at the top of the panel")) {
+            stats = it; Prefs.setPanelStats(a, it)
         }
     }
 }

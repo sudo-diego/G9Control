@@ -27,8 +27,42 @@ fun BatteryPage(s: AppState, a: MainActivity) {
             BatteryPanel(s, a)
             ShizukuHint()
         },
-        second = { BatteryNowPanel(a) }
+        second = { BatteryNowPanel(a); Gate(s.autoServiceOn) { PowerByAppPanel(a) } }
     )
+}
+
+/**
+ * Consumo por app: lo que gastó en promedio cada una a batería con la pantalla encendida (lo mide el servicio cada
+ * 5 s). Sirve para saber más o menos cuánto dura la batería con cada juego o emulador.
+ */
+@Composable
+private fun PowerByAppPanel(a: MainActivity) {
+    var apps by remember { mutableStateOf(PowerLog.apps(a)) }
+    LaunchedEffect(Unit) { while (true) { delay(10_000); apps = PowerLog.apps(a) } }
+    val c = MaterialTheme.colorScheme
+    Panel(tr("Consumo por app", "Draw per app"), trailing = {
+        if (apps.isNotEmpty()) TextButton(onClick = { PowerLog.reset(a); apps = emptyList() }) { Text(tr("Reiniciar", "Reset")) }
+    }) {
+        if (apps.isEmpty()) Hint(tr("Se mide a batería con la pantalla encendida: usa la tablet desenchufada un rato y aquí sale el promedio de cada app.",
+            "Measured on battery with the screen on: use the tablet unplugged for a while and each app's average shows up here."))
+        val pm = a.packageManager
+        val full = remember { ZuiBattery.fullWh(a) }
+        apps.take(10).forEach { u ->
+            val label = remember(u.pkg) { runCatching { pm.getApplicationLabel(pm.getApplicationInfo(u.pkg, 0)).toString() }.getOrDefault(u.pkg) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(label, fontSize = 15.sp, maxLines = 1)
+                    Text(tr("medido ", "measured ") + ZuiBattery.formatTime(u.seconds * 1000), fontSize = 12.sp, color = c.onSurfaceVariant)
+                }
+                Text("%.1f W".format(u.avgWatts), fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                // Cuánto duraría la batería llena solo con esa app.
+                full?.takeIf { u.avgWatts > 0.3 }?.let { wh ->
+                    Text("~" + ZuiBattery.formatTime((wh / u.avgWatts * 3_600_000).toLong()), Modifier.width(110.dp), fontSize = 14.sp,
+                        color = c.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                }
+            }
+        }
+    }
 }
 
 /** Pantalla: 16:9, volumen invertido y el monitor externo. */
@@ -77,6 +111,7 @@ fun BatteryNowPanel(a: MainActivity) {
         InfoRow(tr("Estado", "State"), state)
         InfoRow(tr("Temperatura", "Temperature"), "%.1f °C".format(b.tempC))
         if (!(b.plugged && !b.charging)) watts?.let { InfoRow(if (b.charging) tr("Entra", "Charging at") else tr("Consumo", "Draw"), "%.1f W".format(it)) }
+        if (!b.plugged) PowerLog.recentAvg?.let { InfoRow(tr("Promedio del último minuto", "Last minute average"), "%.1f W".format(it)) }
         if (b.cycles >= 0) InfoRow(tr("Ciclos de carga", "Charge cycles"), "${b.cycles}")
     }
 }

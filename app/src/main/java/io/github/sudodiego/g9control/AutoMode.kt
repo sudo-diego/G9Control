@@ -561,6 +561,8 @@ class AutoModeService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         Lang.load(this)
+        // El fondo del panel (y el tema) aunque no se haya abierto la app.
+        ThemeState.load(this)
         guide = ModeGuide(this)
         panel = GamePanel(this)
         // Sin control: el botón de accesibilidad de la barra (o mantener los dos botones de volumen, si se eligió
@@ -575,6 +577,8 @@ class AutoModeService : AccessibilityService() {
         ZuiBattery.init(this)
         // El límite de carga de ZUI, para el tiempo de carga (queda guardado para cuando Shizuku no esté).
         scope.launch { ZuiBattery.readChargeLimit() }
+        // Consumo por app y apps que vuelven solas (cada 5 s).
+        PowerLog.start(this)
         ZuiGame.initPerf(this)
         updateTouchpad()
         getSharedPreferences("g9", Context.MODE_PRIVATE).registerOnSharedPreferenceChangeListener(prefsListener)
@@ -1114,6 +1118,7 @@ class AutoModeService : AccessibilityService() {
 
     override fun onDestroy() {
         if (mouseOn) mouse.stop()
+        PowerLog.stop()
         getSystemService(InputManager::class.java).unregisterInputDeviceListener(inputListener)
         getSystemService(android.hardware.display.DisplayManager::class.java).unregisterDisplayListener(displayListener)
         runCatching { contentResolver.unregisterContentObserver(monitorModeObserver) }

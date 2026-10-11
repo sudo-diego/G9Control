@@ -3,6 +3,7 @@ package io.github.sudodiego.g9control
 import android.app.ActivityManager
 import android.content.Context
 import android.content.Intent
+import kotlinx.coroutines.launch
 
 /**
  * Memoria de la tablet: cuánta RAM queda y liberarla. Liberar cierra los procesos de las apps que quedaron en segundo
@@ -66,14 +67,59 @@ object Memory {
     }
 
     /** Detener una app, como el botón Detener de Android (la app y sus servicios). Con Shizuku. */
-    suspend fun stop(pkg: String): Boolean {
-        stoppedAt[pkg] = android.os.SystemClock.elapsedRealtime()
-        return Shell.run(Shell.stopApp(pkg)) != null
+    suspend fun stop(ctx: Context, pkg: String): Boolean {
+        val ok = Shell.run(Shell.stopApp(pkg)) != null
+        if (ok) hist(ctx).edit().putLong("stop_$pkg", System.currentTimeMillis()).apply()
+        return ok
     }
 
-    /** Cuándo se detuvo cada app desde aquí: si vuelve a estar corriendo al rato, se reinicia sola. */
-    private val stoppedAt = mutableMapOf<String, Long>()
-    fun restartsByItself(pkg: String) = stoppedAt[pkg]?.let { android.os.SystemClock.elapsedRealtime() - it < 5 * 60_000 } == true
+    /**
+     * Apps que vuelven solas: al detenerla se anota cuándo; si después se la ve corriendo (en la lista o en la
+     * revisión del servicio, cada 30 s con `pidof`), se guarda que volvió y cuánto tardó. Queda guardado: la marca
+     * sigue aunque se cierre la app o pasen días. Se revisa hasta 6 h después de detenerla.
+     */
+    data class Return(val count: Int, val lastDelayMs: Long)
+
+    private fun hist(ctx: Context) = ctx.getSharedPreferences("memory_history", Context.MODE_PRIVATE)
+
+    fun returnOf(ctx: Context, pkg: String): Return? = hist(ctx).getString("ret_$pkg", null)?.split('|')?.let {
+        Return(it[0].toInt(), it[1].toLong())
+    }
+
+    /** Todas las que volvieron alguna vez (paquete → cuántas veces y cuánto tardó la última). */
+    fun returners(ctx: Context): Map<String, Return> = hist(ctx).all.keys.filter { it.startsWith("ret_") }
+        .mapNotNull { k -> k.removePrefix("ret_").let { p -> returnOf(ctx, p)?.let { p to it } } }.toMap()
+
+    fun clearHistory(ctx: Context) = hist(ctx).edit().clear().apply()
+
+    /** Una app detenida desde aquí está corriendo otra vez: anotarlo. */
+    private fun sawRunning(ctx: Context, pkg: String) {
+        val h = hist(ctx)
+        val at = h.getLong("stop_$pkg", 0).takeIf { it > 0 } ?: return
+        val delay = System.currentTimeMillis() - at
+        val prev = returnOf(ctx, pkg)
+        h.edit().remove("stop_$pkg").putString("ret_$pkg", "${(prev?.count ?: 0) + 1}|$delay").apply()
+    }
+
+    private var checking = false
+
+    /** Desde el servicio (cada 30 s): las detenidas hace menos de 6 h, ¿volvieron? Solo con Shizuku y si hay alguna. */
+    fun checkReturns(ctx: Context) {
+        if (checking || Shell.state != Shell.State.READY) return
+        val h = hist(ctx)
+        val now = System.currentTimeMillis()
+        val pending = h.all.filterKeys { it.startsWith("stop_") }.mapNotNull { (k, v) -> (v as? Long)?.let { k.removePrefix("stop_") to it } }
+        if (pending.isEmpty()) return
+        pending.filter { now - it.second > 6 * 3_600_000L }.forEach { h.edit().remove("stop_${it.first}").apply() }
+        checking = true
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            try {
+                pending.filter { now - it.second <= 6 * 3_600_000L }.forEach { (pkg, _) ->
+                    if (!Shell.run(Shell.pidof(pkg)).isNullOrBlank()) sawRunning(ctx, pkg)
+                }
+            } finally { checking = false }
+        }
+    }
 
     /** Una app corriendo: cuánta RAM usa (MB, todos sus procesos), cuánta CPU (% de un núcleo) y si está activa. */
     data class Task(val app: App, val ramMb: Int, val cpu: Float, val active: Boolean)
@@ -97,6 +143,7 @@ object Memory {
             ram[pkg] = (ram[pkg] ?: 0.0) + mb
             cpu[pkg] = (cpu[pkg] ?: 0.0) + c.toDouble()
         }
+        ram.keys.forEach { sawRunning(ctx, it) }
         val active = activeApps(ctx).map { it.pkg }.toSet()
         val pm = ctx.packageManager
         val launchers = home(ctx)

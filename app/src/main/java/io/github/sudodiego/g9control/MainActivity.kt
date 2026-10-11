@@ -61,11 +61,10 @@ class MainActivity : ComponentActivity() {
         state.centered = Prefs.centered(this)
         state.profiles = Profiles.load(this)
         SkinState.skin = Prefs.skin(this)
-        ThemeState.theme = Prefs.theme(this)
-        ThemeState.background = Prefs.background(this)
-        ThemeState.backgroundUri = Prefs.backgroundUri(this)
-        ThemeState.backgroundBlur = Prefs.backgroundBlur(this)
-        ThemeState.backgroundLoop = Prefs.backgroundLoop(this)
+        ThemeState.load(this)
+        // La ventana transparente se decide al crearla: cambiarla después deja restos de los cuadros anteriores.
+        wallpaperWindow = ThemeState.background == AppBackground.WALLPAPER
+        if (wallpaperWindow) showWallpaper(true)
         Lang.load(this)
         state.showSetup = !Prefs.setupDone(this)
         state.status = tr("Conecta el G9 por USB en modo Android.", "Connect the G9 over USB in Android mode.")
@@ -73,6 +72,9 @@ class MainActivity : ComponentActivity() {
             G9Theme {
                 // Íconos de la barra de estado y de navegación acordes al tema elegido (no solo al del sistema).
                 val dark = isDarkTheme()
+                // Fondo de pantalla (el animado de Wallpaper Engine también): Android lo dibuja detrás de la ventana.
+                val wallpaper = ThemeState.background == AppBackground.WALLPAPER
+                androidx.compose.runtime.LaunchedEffect(wallpaper) { if (wallpaper != wallpaperWindow) recreate() }
                 androidx.compose.runtime.LaunchedEffect(dark) {
                     val style = if (dark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                     else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
@@ -858,6 +860,32 @@ class MainActivity : ComponentActivity() {
         ThemeState.backgroundUri = uri.toString(); ThemeState.background = AppBackground.IMAGE
     }
     fun pickBackground() = backgroundLauncher.launch(arrayOf("image/*"))
+
+    /** Fondo del panel de juego: su propia imagen o GIF. */
+    private val panelBackgroundLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        Prefs.setPanelUri(this, uri.toString()); Prefs.setPanelBackground(this, PanelBackground.IMAGE)
+        ThemeState.panelUri = uri.toString(); ThemeState.panelBackground = PanelBackground.IMAGE
+    }
+    fun pickPanelBackground() = panelBackgroundLauncher.launch(arrayOf("image/*"))
+
+    private var wallpaperWindow = false
+
+    /** Ventana transparente con el fondo de pantalla detrás (antes de mostrarla). */
+    private fun showWallpaper(on: Boolean) {
+        val flag = android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER
+        if (on) {
+            window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            window.addFlags(flag)
+        } else {
+            window.clearFlags(flag)
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
+        }
+    }
 
     fun saveProfiles(list: List<Profile>) {
         state.profiles = list

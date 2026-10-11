@@ -71,7 +71,9 @@ private fun TabletNowTiles(a: MainActivity) {
                     it.plugged && !it.charging -> null
                     it.charging -> listOfNotNull(left?.let { ms -> ZuiBattery.formatTime(ms) + ZuiBattery.chargeTarget(a).let { t -> if (t < 100) tr(" a $t %", " to $t %") else "" } },
                         w?.let { x -> "+%.1f W".format(x) }).joinToString(" · ")
-                    else -> listOfNotNull(w?.let { x -> "%.1f W".format(x) }, remember(tick) { ZuiBattery.dischargeTimeLeft(a) }?.let { ms -> "~" + ZuiBattery.formatTime(ms) }).joinToString(" · ")
+                    // A batería: lo de ahora, el promedio del último minuto (si el servicio mide) y cuánto dura a ese ritmo.
+                    else -> listOfNotNull(w?.let { x -> "%.1f W".format(x) }, PowerLog.recentAvg?.let { x -> tr("prom. %.1f W", "avg %.1f W").format(x) },
+                        remember(tick) { ZuiBattery.dischargeTimeLeft(a, PowerLog.recentAvg) }?.let { ms -> "~" + ZuiBattery.formatTime(ms) }).joinToString(" · ")
                 }?.takeIf { s -> s.isNotEmpty() }
                 StatTile("${it.level} %", if (it.charging) tr("Cargando", "Charging") else state, tile.weight(1f), big = true, extra = extra)
                 StatTile("${"%.0f".format(it.tempC)} °C", tr("Temperatura", "Temperature"), tile.weight(1f), big = true)
@@ -84,9 +86,7 @@ private fun TabletNowTiles(a: MainActivity) {
     }
 }
 /** La frecuencia más alta de la CPU ahora (MHz), de los núcleos que se pueden leer; null si ninguno. */
-private fun cpuMhz(): Int? = (0..9).mapNotNull { i ->
-    runCatching { java.io.File("/sys/devices/system/cpu/cpu$i/cpufreq/scaling_cur_freq").readText().trim().toInt() / 1000 }.getOrNull()
-}.maxOrNull()
+private fun cpuMhz(): Int? = Stats.cpuMhz()
 
 /** Un dato grande con su etiqueta debajo, en una tarjeta de vidrio. */
 @Composable
@@ -263,7 +263,7 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
                     Text(task.app.label, Modifier.weight(1f, fill = false), fontSize = 15.sp, maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                     if (task.active) TaskTag(null, tr("Activa", "Active"))
-                    if (Memory.restartsByItself(task.app.pkg)) TaskTag(Icons.Outlined.Autorenew, tr("Vuelve", "Returns"))
+                    Memory.returnOf(a, task.app.pkg)?.let { r -> TaskTag(Icons.Outlined.Autorenew, tr("Vuelve", "Returns") + " · " + returnDelay(r.lastDelayMs)) }
                 }
                 Text("${task.ramMb} MB", Modifier.width(84.dp), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                 Text(if (task.cpu < 10) "%.1f %%".format(task.cpu) else "%.0f %%".format(task.cpu), Modifier.width(72.dp), fontSize = 14.sp, color = c.onSurfaceVariant,
@@ -271,12 +271,37 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
                 Spacer(Modifier.width(8.dp))
                 OutlinedButton(onClick = {
                     tasks = tasks - task
-                    scope.launch { Memory.stop(task.app.pkg); tick++ }
+                    scope.launch { Memory.stop(a, task.app.pkg); tick++ }
                 }) { Text(tr("Detener", "Stop")) }
+            }
+        }
+        // Historial guardado: las que se detuvieron aquí y volvieron solas, aunque ahora no estén corriendo.
+        if (ready) {
+            var hist by remember { mutableStateOf(Memory.returners(a)) }
+            LaunchedEffect(tick) { hist = Memory.returners(a) }
+            if (hist.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Vuelven solas", "Come back by themselves"), Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    TextButton(onClick = { Memory.clearHistory(a); hist = emptyMap() }) { Text(tr("Borrar", "Clear")) }
+                }
+                val pm = a.packageManager
+                hist.entries.sortedByDescending { it.value.count }.forEach { (pkg, r) ->
+                    val label = remember(pkg) { runCatching { pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString() }.getOrDefault(pkg) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.Autorenew, null, Modifier.size(18.dp), tint = c.secondary)
+                        Spacer(Modifier.width(10.dp))
+                        Text(label, Modifier.weight(1f), fontSize = 14.sp, maxLines = 1)
+                        Text(returnDelay(r.lastDelayMs) + if (r.count > 1) tr(" · ${r.count} veces", " · ${r.count} times") else "",
+                            fontSize = 14.sp, color = c.onSurfaceVariant)
+                    }
+                }
             }
         }
     }
 }
+/** Cuánto tardó en volver: "al instante" (menos de 15 s), "en 3 min", "en 1 h 5 min". */
+private fun returnDelay(ms: Long) = if (ms < 15_000) tr("al instante", "instantly") else tr("en ", "in ") + ZuiBattery.formatTime(ms)
+
 /** Una marca de la lista de apps: una pastilla chica con ícono opcional. */
 @Composable
 private fun TaskTag(icon: androidx.compose.ui.graphics.vector.ImageVector?, text: String) {

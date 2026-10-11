@@ -32,6 +32,21 @@ object Prefs {
     fun setBackgroundLoop(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("background_loop", v).apply()
     fun backgroundBlur(ctx: Context) = sp(ctx).getInt("background_blur", 24)
     fun setBackgroundBlur(ctx: Context, v: Int) = sp(ctx).edit().putInt("background_blur", v).apply()
+    fun backgroundDim(ctx: Context) = sp(ctx).getInt("background_dim", 45)
+    fun setBackgroundDim(ctx: Context, v: Int) = sp(ctx).edit().putInt("background_dim", v).apply()
+
+    /** Fondo del panel de juego: degradado (por defecto), una imagen o GIF propia, o liso. */
+    fun panelBackground(ctx: Context) = runCatching { PanelBackground.valueOf(sp(ctx).getString("panel_bg", null)!!) }.getOrDefault(PanelBackground.GRADIENT)
+    fun setPanelBackground(ctx: Context, v: PanelBackground) = sp(ctx).edit().putString("panel_bg", v.name).apply()
+    fun panelUri(ctx: Context) = sp(ctx).getString("panel_uri", null)
+    fun setPanelUri(ctx: Context, v: String?) = sp(ctx).edit().putString("panel_uri", v).apply()
+    fun panelBlur(ctx: Context) = sp(ctx).getInt("panel_blur", 24)
+    fun setPanelBlur(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_blur", v).apply()
+    fun panelLoop(ctx: Context) = sp(ctx).getBoolean("panel_loop", true)
+    /** Mini monitor en el panel (RAM, W, CPU y temperatura), siempre que se abre. */
+    fun panelStats(ctx: Context) = sp(ctx).getBoolean("panel_stats", true)
+    fun setPanelStats(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("panel_stats", v).apply()
+    fun setPanelLoop(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("panel_loop", v).apply()
 
     fun centered(ctx: Context) = sp(ctx).getBoolean("centered", false)
     fun setCentered(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("centered", v).apply()
