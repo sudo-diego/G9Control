@@ -1,54 +1,68 @@
-# Contexto de G9 Control
+# Contexto de TBF Companion (antes G9 Control)
 
-App Android propia (Kotlin + Jetpack Compose, paquete `io.github.sudodiego.g9control`) para configurar el **Legion Gaming Controller G9** por USB, sin la app oficial ("Legion" 2.0.51, analizada con jadx). La tablet es una **Lenovo Legion Y700 Gen 3** (ROM ZUI PRC, Android 15, ZUI 17).
+App Android propia (Kotlin + Jetpack Compose, paquete `io.github.sudodiego.g9control`, que se mantiene) para jugar en la **Lenovo Legion Y700 Gen 3** (ROM ZUI PRC, Android 15, ZUI 17, nombre interno "Kirby") y configurar el **Legion Gaming Controller G9** por USB sin la app oficial ("Legion" 2.0.51, analizada con jadx). Nombre visible: **TBF Companion** (se descartaron Puff y Kirb/Kirby Companion por la marca de Nintendo). Se comparte por GitHub, no en tiendas.
 
-Este archivo junta lo que se sabe del protocolo y del control, lo que se descartó y cómo está hecha la app. Está ordenado por tema; el historial detallado está en git (antes del 9 oct 2026 era un registro por versiones).
+**Misión:** ser la compañera de la tablet para jugar, con cualquier control; lo del G9 es una sección aparte. Regla: **Shizuku solo cuando no hay otra vía** (y se dice qué lo necesita).
 
-**Estado (10 oct 2026):** la app pasó de configurar el G9 a ser una compañera para jugar en la Y700. Plan acordado: renombrarla (**Puff** se descartó; ahora la idea es **Kirb** / Kirb Companion, por el nombre interno de la tablet, "Kirby", sin chocar con la marca de Nintendo; sin mascota, con una paleta inspirada en los fondos de anime de la Y700) (nombre visible; el identificador `io.github.sudodiego.g9control` se mantiene por ahora y quizás cambie después) y separarla en **sección Tablet** (sirve sin el G9 y con cualquier control: SN30 Pro, GameSir X5 Lite, G8 Plus…) y **sección G9**. Orden: pulir y subir lo actual → reestructurar → Hz por juego desde la lista → estadísticas por sesión (batería, W, FPS, temperaturas por modo y Hz) → README nuevo.
+Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detalle día a día está en git.
 
-**Estructura (10 oct 2026, paso 2 hecho):** selector **Tablet | G9** arriba a la izquierda (`Section`, con un punto verde si el G9 está conectado). Tablet: Inicio (avisos, la tablet ahora, Rápido: bypass/monitor/16:9, controles conectados de cualquier marca, atajos), Batería (bypass, automático, límite + "Ahora": estado, temperatura, W, ciclos), Pantalla (16:9, volumen, monitor externo), Juego (panel de juego, capturas, monitor de rendimiento, Game Assistant), Ajustes. G9: Inicio (dibujo, modo, perfiles), Modos (por juego + avisos de cambio de modo), Luces, Sticks, Vibración, Botones, Traseros, Perfiles, Ajustes. Ajustes es la misma en las dos (Aplicación, Permisos, "Control G9": dibujo, abrir al conectar, datos del control, valores de fábrica). LB/RB recorren las pestañas de la sección (dan la vuelta); LT/RT cambian entre Tablet y G9 (no en Vibración ni Sticks, donde prueban los gatillos). La app abre en Tablet; al abrirse por conectar el G9, en G9. La conexión del G9 (píldora) solo se ve en su sección. Falta: renombrar, Juegos por app en Tablet (Hz), estadísticas.
+## Estado (11 oct 2026)
 
-**Paleta (10 oct 2026):** inspirada en los fondos de anime de la Y700 (solo los colores; su arte y su personaje no van en la app): índigo profundo como principal (claro #3A55C8 / oscuro #8FB2FF), celeste brillante para lo encendido (#1E8FD6 / #5CC8FF), lila de detalle, fondos blanco hielo (#EDF2F8) o azul marino (#0D1220). El panel de juego y el monitor en azul marino con lo encendido en celeste.
+**Secciones** (LT/RT cambian, LB/RB recorren pestañas; arriba la píldora de pestañas: la elegida con nombre, las demás solo ícono; la barra tiene alto fijo para no saltar en Ajustes):
+- **Tablet** (sirve sin el G9 y con cualquier control):
+  - Inicio: batería (W ahora, promedio del último minuto y tiempo; cargando, tiempo hasta el límite o 100 % y W que entran), temperatura, Hz, CPU; mosaicos Bypass / Monitor / 16:9; Memoria; controles conectados; atajos.
+  - Batería: límite propio, bypass manual y automático; "Ahora"; **Consumo por app**.
+  - Pantalla: 16:9, monitor externo.
+  - Juego: capturas, **Panel de juego** (fondo, mini monitor), monitor de rendimiento, frecuencia en juegos, Game Assistant.
+  - Controles: botón guía (tocar, mantener, + RB, + LB, ráfaga), **Tocar la guía en…** (por emulador), L3 + R3, volumen invertido.
+  - **Probar control:** botones, gatillos y sticks de cualquier control, controles conectados (nombre, ids, vibración) y sticks en números (deriva).
+- **G9:** Inicio (dibujo, modo, perfiles), Por juego, Luces, Sticks, Vibración, Traseros (grilla con forma de control, macros con sugeridas), Preferencias (dibujo, abrir al conectar, A↔B, cruceta, M dos veces, datos, fábrica, consola).
+- **Ajustes:** idioma, tema, fondo de la app, avisos; Permisos (accesibilidad, Shizuku, permiso de pantalla, con sus avisos).
 
-**Conclusión del G9 (10 oct 2026):** DS5 es su mejor modo en Android (vibración, giroscopio, captura con M dos veces, todo con G9 Control y Artemis). El jack de 3,5 mm del G9 no funciona en Android: se acepta así.
+**Diseño:** paleta de los fondos de la Y700 (índigo #3A55C8/#8FB2FF, celeste #1E8FD6/#5CC8FF, lila, fondos #EDF2F8 / #0D1220), tarjetas de vidrio. Fondo de la app: degradado animado, imagen/GIF (desenfoque, repetir), **fondo de pantalla** (también el animado de Wallpaper Engine: ventana translúcida con `FLAG_SHOW_WALLPAPER`, decidida al crear la Activity; cambiarla después dejaba restos de cuadros viejos; sin desenfoque porque la tablet no tiene blur entre ventanas, `ro.surface_flinger.supports_background_blur = 0`; control "Oscurecer") o liso. Lo que necesita el servicio o Shizuku se ve oscurecido (`Gate`) con su aviso. Acciones que borran piden un segundo toque (`ConfirmButton`).
 
-**Hz en juegos:** en dumpsys display solo hay votos de usuario (peak 120, min 30): ZUI no fuerza nada. SurfaceFlinger elige dentro de 30–120 según lo que dibuja el juego, y en Ahorro (CPU lenta) baja a 30. Con min = max queda fijo; "Frecuencia en juegos" (Tablet → Juego) lo hace para todos los juegos (por app manda la elección del panel).
+**Panel de juego** (mantener la guía, L3 + R3 o el botón de accesibilidad de la barra): grupos Juego / Pantalla y conexión / Android; mini monitor arriba (RAM libre, W y promedio, CPU, temperatura de la batería); fondo propio: transparente (relleno ajustable), degradado o imagen/GIF con **transparencia** (el juego se ve a través: liquid glass) o liso; mosaicos de vidrio. El fondo de pantalla no se puede en el panel: el juego está entre el fondo y el panel.
 
-**Consumo 60 contra 120 Hz (medido 10 oct 2026):** Wind Waker en Dolphin (30 FPS), Equilibrado, brillo fijo, desenchufada; 2 rondas de 90 s por frecuencia, watts del monitor de rendimiento (log G9Power). 60 Hz: 5,22 y 5,24 W; 120 Hz: 5,51 y 5,50 W. Diferencia ≈ 0,27 W (~5 %). Es solo el costo de la pantalla: en un juego que dibuje a 120 FPS la diferencia sería mayor (también trabaja la GPU). Script: alterna con `settings put system peak/min_refresh_rate` por adb y promedia descartando 20 s tras cada cambio.
-
-**Rediseño (11 oct 2026):** Tablet = Inicio (mosaicos: batería, temperatura, Hz; rápido: bypass, monitor, 16:9) · Batería · Pantalla · Juego (capturas, monitor, frecuencia, Game Assistant) · Controles (cada atajo del botón guía con su interruptor: prefs `guide_tap_back/guide_hold_panel/guide_rb_shot/guide_lb_back`; L3 + R3, M dos veces, volumen invertido) · Ajustes. G9 = Inicio (con perfiles) · Por juego · Luces · Sticks · Vibración · Botones · Traseros · Ajustes. Pestañas en una píldora: la elegida con nombre, las demás solo ícono. Fondo elegible (degradado animado por defecto, imagen/GIF desenfocado, liso) y tarjetas de vidrio. Panel en grupos Juego / Pantalla y conexión / Android; el botón de accesibilidad (flagRequestAccessibilityButton) abre el panel sin control.
-
-**Shizuku: qué lo necesita y qué no (revisión del 11 oct 2026).** Regla: solo cuando no hay otra vía.
-| Función | Cómo va |
-|---|---|
-| Frecuencia (todas, 30–165) | Sin Shizuku: ventana invisible del servicio (TYPE_ACCESSIBILITY_OVERLAY, 1 px) con `preferredDisplayModeId` y los campos ocultos `preferredMin/MaxDisplayRefreshRate` iguales (por reflexión): votos `APP_REQUEST_BASE_MODE` y `APP_REQUEST_RENDER_FRAME_RATE_RANGE`. Probado: 60 y 165 Hz con peak 120, y se mantiene con el juego quieto. Solo la base (sin rango) no bastaba: bajaba si el juego dibujaba poco |
-| Bloquear gestos | Sin Shizuku: `key_game_assistant_prevent_misoperation` (Global) = "Disable navigation bar and gesture" de Game Assistant, con WRITE_SECURE_SETTINGS |
-| Rendimiento | Con Shizuku desde el panel; sin él, el mosaico abre Game Assistant (si no está oculto) |
-| Bypass, límite de carga | Shizuku (zuibattery solo acepta al sistema) |
-| Ocultar Game Assistant, leer su modo | Shizuku (appops, logcat) |
-| FPS del monitor | Shizuku (SurfaceFlinger) |
-| Mantener Atrás | Shizuku (respaldo: Atrás normal) |
-| Tablet sin luz / apagada | Shizuku (respaldo: "Oscura") |
-| WiFi/Bluetooth encender | Shizuku (`svc`); las listas abren sin él (panel de Internet, ajustes de Bluetooth) |
-| Arrastrar con el mouse | Shizuku (`input motionevent`): Android cancela los gestos del servicio apenas llega un movimiento real del stick (visto en el registro) |
-| M dos veces en Artemis | Shizuku (getevent); respaldo: L3 + R3 |
-
-**Tiempo de carga (11 oct 2026):** hasta el límite (el propio o el de ZUI, que se lee con Shizuku y queda guardado en `zui_limit`) se estima con la capacidad (charge counter / nivel) y la corriente media; hasta 100 lo da `computeChargeTimeRemaining`. `dumpsys battery` no dice si el límite de ZUI está activo (Charging policy 0).
-
-**Sonido de captura (11 oct 2026):** WAV en `res/raw` con 300 ms de silencio al inicio (el amplificador del parlante en reposo se comía el comienzo) y un MediaPlayer nuevo por captura. El script que los genera debe convertir con `[double]` (con enteros, `[Math]::Min(1, $v)` redondeaba cada muestra a 0 o 1: jingle mudo, obturador roto).
-### Lo aprendido, en corto (10 oct 2026)
+## Lo aprendido, en corto
 
 | Qué | Cómo | Necesita |
 |---|---|---|
-| Saber qué app está al frente, capturar solo la ventana del juego, gestos sobre Game Assistant, botones del control (no sticks), toques del touchpad en DS5 | Servicio de accesibilidad | Servicio activo |
+| App al frente, capturar solo la ventana del juego, botones del control (no sticks), touchpad en DS5 | Servicio de accesibilidad | Servicio |
 | Sticks y cruceta en el panel | `motionEventSources = SOURCE_JOYSTICK` solo con el panel abierto | Servicio, Android 14+ |
-| Uso de GPU, frecuencias de CPU, 86 zonas térmicas, RAM | sysfs (`gpubusy`, `scaling_cur_freq`, `thermal_zone*`): SELinux de las apps los deja leer, al shell no | Nada |
-| Watts, tiempo de batería | `BatteryManager` (corriente, voltaje, carga) | Nada |
-| Brillo, 16:9 (`wm size`), brillo automático en juegos | `Settings.System`/`Global` públicos, `IWindowManager` | Permiso de pantalla (WRITE_SECURE_SETTINGS por adb) |
-| Bypass, límite de carga de ZUI (leer), rendimiento, ocultar Game Assistant, Hz (`peak/min_refresh_rate`, privados), FPS de otra app (SurfaceFlinger), apagar el panel (`SurfaceControl`), mantener Atrás, touchpad crudo (`getevent`) | Shell vía Shizuku | Shizuku |
-| **No se puede:** cambiar el nivel del límite de ZUI (corta en 80), FPS sin Shizuku (`measured_fps` bloqueado), frecuencia de GPU, inyectar teclas o retener y reenviar un botón (por eso el primer stick de L3 + R3 llega al juego), ver botones si una app toma el control por USB (Artemis en X-Input con OK), ver clics del touchpad cuando una app captura el puntero (salvo `getevent` con Shizuku) | — | — |
+| GPU %, frecuencia de CPU, 86 zonas térmicas, RAM | sysfs (`gpubusy`, `scaling_cur_freq`, `thermal_zone*`): el SELinux de las apps los deja leer, al shell no | Nada |
+| Watts, tiempo, consumo por app | `BatteryManager.CURRENT_NOW` × voltaje (la corriente **promedio** de esta tablet da ~0: no usarla) | Nada (por app: servicio) |
+| Hz fijos (30–165) | Ventana de 1 px del servicio con `preferredDisplayModeId` + `preferredMin/MaxDisplayRefreshRate` (reflexión) | Servicio; en Ahorro ZUI vota 30 Hz y hace falta Shizuku (`peak/min_refresh_rate`) |
+| Brillo, 16:9, bloquear gestos (`key_game_assistant_prevent_misoperation`), brillo automático en juegos | Ajustes públicos/Global, `IWindowManager` | Permiso de pantalla (WRITE_SECURE_SETTINGS por adb) |
+| Liberar memoria | `killBackgroundProcesses`: solo lo que quedó en caché; las apps **activas** (servicio en primer plano: video, Game Assistant) no | Nada |
+| Apps corriendo con RAM y CPU, detenerlas | `top -b -n 2 -d 2` (la 2.ª pasada trae CPU; con 1 s mide de a 1 %), `dumpsys activity processes` (FGS) y `am stop-app` (= "Apps activas" de los ajustes rápidos) | Shizuku |
+| Apps que vuelven solas | Se anota al detenerla; `pidof` cada 30 s hasta 6 h; si la abriste tú no cuenta | Shizuku |
+| **Apretar botones como el control** | `KeyInject` (app_process como shell): `InputManagerGlobal.injectInputEvent` con un `KeyEvent` con el **id del G9** y fuente gamepad. RetroArch ignora `input keyevent` (teclado virtual) pero toma estos: Vista + Menú lo cerró. Así lo hace Key Mapper | Shizuku |
+| Bypass, límite de ZUI (leer), ocultar Game Assistant y leer su modo, FPS de otra app, apagar el panel con monitor, mantener Atrás, touchpad crudo, WiFi/BT, arrastrar con el mouse virtual | Shell vía Shizuku | Shizuku |
+| **No se puede:** cambiar el nivel del límite de ZUI (corta en 80), FPS sin Shizuku, frecuencia de GPU, retener un botón y reenviarlo después sin Shizuku (por eso el primer stick de L3 + R3 llega al juego), ver botones si una app toma el control por USB, el fondo de pantalla en el panel, desenfoque entre ventanas, macros con dos botones a la vez (cada paso empieza al soltar el anterior) | — | — |
 
-Modos de rendimiento (medido en RetroArch): ninguno cambia el techo de la CPU (`scaling_max_freq` igual en los tres); Ahorro la mantiene baja (núcleo grande en 672 MHz), Bestia arriba (3,3 GHz), Equilibrado en medio. La GPU no se puede ver. Falta medir batería, temperatura y FPS por sesión.
+**Tiempo de carga:** hasta el límite (propio o el de ZUI, leído con Shizuku y guardado en `zui_limit`) se estima con la capacidad y la corriente de ahora; hasta 100 lo da `computeChargeTimeRemaining`. **Sonido de captura:** WAV en `res/raw` con 300 ms de silencio al inicio (el amplificador en reposo se comía el comienzo).
+
+**Mediciones:** Wind Waker en Dolphin, 60 Hz 5,23 W contra 120 Hz 5,50 W (~5 %, solo la pantalla). Modos de rendimiento: ninguno cambia el techo de la CPU; Ahorro la deja en 672 MHz, Bestia en 3,3 GHz.
+
+**Emuladores (tablet de pruebas):** RetroArch (atajos: Vista habilita; Vista + A menú, Vista + X cargar estado, Vista + Menú salir; guardar estado sin asignar; asignar pide mantener 1 s, `input_bind_hold`), Azahar (atajos: cambiar pantallas, diseño, cerrar, pausa, guardado/cargado rápido, turbo; vienen sin asignar; se guardan dentro de la app), Dolphin y Eden (sin atajos de control en Android; Dolphin sale manteniendo Atrás = Guía + LB), NetherSX2, Cemu, melonDS, Vita3K, GameNative y ports (SoH, 2Ship, Dusk).
+
+## Qué mejora sobre la app oficial de Legion
+
+| | App de Legion (2.0.51) | TBF Companion |
+|---|---|---|
+| Modo DS5 | No lo ofrece (manda 8 = Xbox) | Android / X-Input / **DS5** (el mejor en Android: vibración, giroscopio, touchpad) y cambio automático por juego con guía de Vista + Menú |
+| Guardar | — | Guardado con espera, solo lo que cambió y verificado al releer (cuida la memoria del control) |
+| Botón Legion | No lo usa (no tiene servicio de accesibilidad) | Atrás, panel de juego, Guía + RB captura (ráfaga), Guía + LB Atrás largo, y por emulador botón guía / Vista + Menú enviados como el control |
+| Traseros y macros | Sin Home como destino | Grilla con forma de control, Home como destino, macros con grabación, editor, tiempos y sugeridas |
+| Tablet | — | Panel de juego, capturas limpias de la ventana del juego con aviso y sonido, monitor de rendimiento (FPS con Shizuku), Hz por juego, bypass automático y límite de carga propio, consumo por app, memoria y apps corriendo, 16:9 y monitor externo, mouse virtual, bloquear gestos |
+| Otros controles | Solo el G9 | Todo lo de Tablet y Probar control sirven con cualquier control |
+| Perfiles | — | Perfiles completos (luces, sticks, gatillos, vibración, traseros, macros) con respaldo en archivo |
+
+## Pendientes
+- Probar con el botón de verdad "Tocar la guía" en RetroArch (Vista + Menú y Botón guía).
+- M dos veces en Android sin la captura del sistema.
+- Estadísticas por sesión (batería, W, FPS y temperaturas por juego, modo y Hz).
+- README nuevo con el nombre TBF Companion.
 
 ---
 
@@ -192,14 +206,14 @@ Analizado con jadx el 9 oct 2026 (v2.3.0.4534, `/system/priv-app/ZuiGameHelper`)
 ### Estructura
 - `MainActivity.kt`: estado (`AppState`), lectura y guardado en el control, navegación con el control (A elige, LB/RB pestañas, mantener B 3 s sale; 1 s sale de la prueba o de grabar una macro), respaldo de perfiles.
 - `Ui.kt`: armazón (pestañas, franja de modo, barra inferior con ayudas) y componentes compartidos. En las pestañas, el foco del control es un contorno y la pestaña elegida un relleno (con el relleno del foco se veían dos resaltadas).
-- **Pestañas (10 oct 2026):** las del control (Inicio, Luces, Sticks, Vibración, Controles, Traseros, Perfiles, Juegos), un divisor y **Tablet** (`PageTablet.kt`), y Ajustes. Tablet: Batería (estado, bypass manual y automático, acceso a "Charge optimization", ciclos de carga de `EXTRA_CYCLE_COUNT`), Pantalla y botones (16:9, volumen invertido) y Game Assistant. El botón Legion está en Controles. Ajustes: Aplicación, **Permisos** (servicio de accesibilidad, Shizuku y permiso de pantalla, cada uno con estado, para qué sirve y cómo activarlo; más los interruptores de los avisos de Inicio), Control y Valores de fábrica; Panel de juego y Avisos. Juegos ya no explica el servicio: una línea con "Activar".
+- **Pestañas (10 oct 2026, histórico; lo actual arriba en «Estado»):** las del control (Inicio, Luces, Sticks, Vibración, Controles, Traseros, Perfiles, Juegos), un divisor y **Tablet** (`PageTablet.kt`), y Ajustes. Tablet: Batería (estado, bypass manual y automático, acceso a "Charge optimization", ciclos de carga de `EXTRA_CYCLE_COUNT`), Pantalla y botones (16:9, volumen invertido) y Game Assistant. El botón Legion está en Controles. Ajustes: Aplicación, **Permisos** (servicio de accesibilidad, Shizuku y permiso de pantalla, cada uno con estado, para qué sirve y cómo activarlo; más los interruptores de los avisos de Inicio), Control y Valores de fábrica; Panel de juego y Avisos. Juegos ya no explica el servicio: una línea con "Activar".
 - **Avisos de Inicio:** servicio de accesibilidad apagado (si se usa el panel de juego, el cambio por juego, el botón Legion o el volumen) y Shizuku sin iniciar o sin permiso (si se usa el bypass automático u ocultar Game Assistant). Cada uno con su botón y "No avisar"; se reactivan en Ajustes → Permisos. Sin Shizuku, en Tablet el bypass y ocultar Game Assistant se ven atenuados; ocultarlo a mano sigue disponible.
 - Shizuku se puede caer solo (pasó de madrugada el 10 oct 2026: `FATAL EXCEPTION: process reaper` en `shizuku_server`).
 - **Bypass automático propio** (`AutoModeService.evaluateBypass`, con Shizuku): enchufada, batería ≥ mínimo (20/40/60/80 %), temperatura de la batería ≥ mínimo (sin mínimo/35/38/41 °C) y, si se elige, solo en juegos. Se revisa con cada `ACTION_BATTERY_CHANGED`, 3 s después de cambiar de app y al cambiar las opciones. Margen para no parpadear (se mantiene hasta 2 % / 1 °C bajo el mínimo). Si el usuario cambia el bypass a mano, el automático no lo toca hasta desconectar o cambiar de app; solo apaga lo que él activó. Al activarlo deja el inteligente de Game Assistant en Manual (`intelligent_bypass_charging_value` = 0, con WRITE_SECURE_SETTINGS). Confirmado (se activa solo, también al desconectar y reconectar).
 - **"No carga" con enchufe en la barra sin bypass = límite de carga de ZUI** ("Maximum charge limit", activo en la tablet de pruebas): carga hasta 80 % y no vuelve hasta bajar de ~95 % de eso (~76 %); medido con `service call zuibattery 89` (activo = 1), `48` (nivel = 80), `50` (recarga = 95). Con el mantenimiento V1 se detuvo en 77 %. La tarjeta Batería lo muestra como "Límite 80 %" y avisa si el mínimo del bypass automático no se puede alcanzar por el límite.
 - **Códigos de `zuibattery`** (de `IZuiBatteryManager$Stub` en framework.jar, con dexdump): 1/2 nivel de protección (40–60), 7/8 StopChargingLevel, 17/18 protección, 20/21 bypass, 47/48 nivel máximo de carga, 49/50 porcentaje de recarga, 51 SOH, 5 ciclos, 88/89 límite activado, 106/107 BypassLevel (lee 5020, no es %; no tocar). **El nivel del límite de ZUI NO se puede cambiar (probado 10 oct 2026):** `47 i32 70` lo acepta (48 y 8 leen 70; el servicio se lo pasa al HAL codificado como `100000 + recarga × nivel × 10 + nivel`), pero la carga siguió hasta 80 y ahí paró. Activar el límite (`88 i32 1`) lo vuelve a poner en `MAX_CHARGING_LEVEL_FOR_ECO` (80), y cada N ciclos sube a 100 para calibrar. **Límite propio de G9 Control** (`charge_limit`: apagado/70/75/80/85/90): enchufada y con la batería en el límite, el bypass automático lo activa (se mantiene hasta bajar 3 %); comparte la lógica y el `smartOn` del bypass automático (basta una de las dos razones). Sobre 80 hay que apagar el de ZUI (la tarjeta avisa). Probado: con 75 % y la batería en 80, activó el bypass.
 - Ajustes (1.1.0): ver pestañas arriba. Una línea de texto por opción. En `NoticeBox` la posición va al lado del título y las opciones debajo a todo el ancho (al lado se partían).
-- Páginas: `PageHome`, `PageLights`, `PageSticks`, `PageVibration`, `PageTest` (Controles), `BackKeys` (Traseros) + `Macros`, `PageProfiles`, `PageAuto` (Juegos), `PageDiagnostics` (Ajustes).
+- Páginas: Tablet `PageTabletHome`, `PageTablet` (Batería, Pantalla), `PageDiagnostics` (Juego, Ajustes, Preferencias del G9), `PageControls`, `PageTest` (Probar control); G9 `PageHome`, `PageAuto`, `PageLights`, `PageSticks`, `PageVibration`, `BackKeys` + `Macros`, `PageProfiles`. Otros: `Memory`, `PowerLog`, `Stats`, `Backdrop`, `VirtualMouse`, `RefreshRate`, `KeyInject`, `ScreenPower`.
 - `Gcm.kt` (paquetes), `G9Usb.kt` (USB), `ModeSwitcher.kt` (modo y `Prefs`), `Profiles.kt`, `Theme.kt`, `ControllerArt.kt` (dibujo vectorial del G9).
 - `AutoMode.kt`: `AutoModeService` (accesibilidad): cambio de modo por app, retiene Vista/Menú mientras la guía los pide, bloqueo opcional.
 - `ModeGuide.kt`: guía y avisos de cambio de modo (ventana de accesibilidad con Compose). Su `OverlayOwner` lo comparte el panel de juego.
