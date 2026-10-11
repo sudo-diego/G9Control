@@ -21,8 +21,8 @@ import kotlin.math.sign
 
 /**
  * Mouse virtual para las apps que no usan el control: un puntero que se mueve con el stick izquierdo (o la cruceta)
- * y toca con A, con toques de verdad (gestos del servicio de accesibilidad). Mantener A quieto es un toque largo y
- * moverse con A apretado arrastra; el stick derecho desplaza; B es Atrás. Mientras está encendido los sticks no llegan a las apps.
+ * y toca con A, con toques de verdad (gestos del servicio de accesibilidad). Mantener A es un toque largo hasta
+ * soltarlo; el stick derecho desplaza; B es Atrás. Mientras está encendido los sticks no llegan a las apps.
  */
 class VirtualMouse(private val svc: AccessibilityService, private val onChange: (Boolean) -> Unit) {
     private val main = Handler(Looper.getMainLooper())
@@ -133,11 +133,6 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
                 y = (y + vy * speed * dt).coerceIn(0f, b.height() - 1f)
                 place()
                 wake()
-                // Con A apretado, moverse es arrastrar (ya no es toque ni toque largo).
-                if (aDown && !dragging && Math.hypot((x - downX).toDouble(), (y - downY).toDouble()) > DRAG_DP * dp) {
-                    main.removeCallbacks(startHold)
-                    startHold.run()
-                }
             }
             // Desplazar: un deslizamiento corto desde el puntero, al revés del stick (como arrastrar la página).
             val sx = curve(rx); val sy = curve(ry)
@@ -187,18 +182,16 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         runCatching { svc.dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(p, 0, SCROLL_EVERY - 20)).build(), null, null) }
     }
 
-    // A: soltar rápido = toque (un gesto corto y completo, lo más confiable). Mantenerlo, o moverse con A apretado,
-    // empieza un toque que sigue mientras A esté apretado y acompaña al puntero (toque largo o arrastre): son tramos
-    // cortos encadenados, cada uno empieza donde terminó el anterior.
+    // A: soltar rápido = toque (un gesto corto y completo, lo más confiable). Mantenerlo = toque largo que dura hasta
+    // soltar A, donde se apretó: tramos cortos encadenados en el mismo punto, el último levanta el dedo.
     private var aDown = false
-    private var dragging = false
+    private var holding = false
     private var downX = 0f; private var downY = 0f
     private var stroke: GestureDescription.StrokeDescription? = null
-    private var gx = 0f; private var gy = 0f
 
     private fun pressA() {
         wake()
-        aDown = true; dragging = false
+        aDown = true; holding = false
         downX = x; downY = y
         main.removeCallbacks(startHold)
         main.postDelayed(startHold, LONG_MS)
@@ -208,17 +201,14 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         if (!aDown) return
         aDown = false
         main.removeCallbacks(startHold)
-        // Si el toque mantenido está en curso, el próximo tramo lo termina (ver next()).
-        if (!dragging) gesture(Path().apply { moveTo(x, y) }, TAP_MS)
+        // Si el toque largo está en curso, el próximo tramo lo termina (ver next()).
+        if (!holding) gesture(Path().apply { moveTo(downX, downY) }, TAP_MS)
     }
 
-    /** Empieza el toque mantenido: desde donde se apretó A hasta donde está el puntero ahora. */
     private val startHold = Runnable {
-        if (!aDown || dragging) return@Runnable
-        dragging = true
-        val p = Path().apply { moveTo(downX, downY); if (x != downX || y != downY) lineTo(x, y) }
-        gx = x; gy = y
-        send(GestureDescription.StrokeDescription(p, 0, STEP, true))
+        if (!aDown || holding) return@Runnable
+        holding = true
+        send(GestureDescription.StrokeDescription(Path().apply { moveTo(downX, downY) }, 0, STEP, true))
     }
 
     private fun send(s: GestureDescription.StrokeDescription) {
@@ -226,26 +216,24 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         val ok = runCatching {
             svc.dispatchGesture(GestureDescription.Builder().addStroke(s).build(), object : AccessibilityService.GestureResultCallback() {
                 override fun onCompleted(g: GestureDescription) = next()
-                override fun onCancelled(g: GestureDescription) { dragging = false; stroke = null }
+                override fun onCancelled(g: GestureDescription) { holding = false; stroke = null }
             }, main)
         }.getOrDefault(false)
-        if (!ok) { dragging = false; stroke = null }
+        if (!ok) { holding = false; stroke = null }
     }
 
-    /** Tramo siguiente: hasta donde está el puntero; el último (A suelto) levanta el dedo. */
+    /** Tramo siguiente en el mismo punto; el último (A suelto) levanta el dedo. */
     private fun next() {
         val prev = stroke ?: return
-        if (!dragging) return
-        val p = Path().apply { moveTo(gx, gy); if (x != gx || y != gy) lineTo(x, y) }
-        gx = x; gy = y
+        if (!holding) return
         val more = aDown
-        if (!more) { dragging = false; stroke = null }
-        val s = prev.continueStroke(p, 0, STEP, more)
+        if (!more) { holding = false; stroke = null }
+        val s = prev.continueStroke(Path().apply { moveTo(downX, downY) }, 0, STEP, more)
         if (more) send(s)
         else runCatching { svc.dispatchGesture(GestureDescription.Builder().addStroke(s).build(), null, null) }
     }
 
-    private fun endDrag() { aDown = false; dragging = false; stroke = null; main.removeCallbacks(startHold) }
+    private fun endDrag() { aDown = false; holding = false; stroke = null; main.removeCallbacks(startHold) }
 
     private fun gesture(p: Path, ms: Long) {
         runCatching { svc.dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(p, 0, ms)).build(), null, null) }
@@ -285,10 +273,9 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         const val SCROLL_DP = 220f     // cuánto desplaza cada deslizamiento a fondo
         const val SCROLL_EVERY = 140L
         const val TAP_MS = 40L
-        const val LONG_MS = 250L       // mantener A esto empieza el toque mantenido (toque largo si no se mueve)
-        const val STEP = 80L           // duración de cada tramo del toque mantenido
+        const val LONG_MS = 250L       // mantener A esto empieza el toque largo
+        const val STEP = 80L           // duración de cada tramo del toque largo
         const val FADE_MS = 3000L      // quieto esto, el puntero se desvanece
-        const val DRAG_DP = 10f        // moverse más que esto con A apretado = arrastrar
         const val DEAD = 0.15f
     }
 }

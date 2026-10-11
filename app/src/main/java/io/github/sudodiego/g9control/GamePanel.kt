@@ -621,8 +621,8 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem(tr("Mouse", "Mouse"), Icons.Outlined.Mouse, PanelRow.SYSTEM, active = mouseOn,
             sub = if (mouseOn) tr("Encendido", "On") else tr("Stick y A", "Stick and A")) {
             hide(); svc.toggleMouse()
-            if (!mouseOn) toast(tr("Mouse: stick izquierdo mueve, A toca (mantener: arrastra), stick derecho desplaza, B atrás.",
-                "Mouse: left stick moves, A taps (hold: drag), right stick scrolls, B back."))
+            if (!mouseOn) toast(tr("Mouse: stick izquierdo mueve, A toca (mantener: toque largo), stick derecho desplaza, B atrás.",
+                "Mouse: left stick moves, A taps (hold: long press), right stick scrolls, B back."))
         })
         val mode = ModeSwitcher.detect()
         if (mode != null) PadMode.entries.filter { it != mode }.forEach { m ->
