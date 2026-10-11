@@ -343,13 +343,6 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
                 "16:9, gesture lock and auto brightness in games · once from a computer"), off = tr("Falta", "Missing")) {
             Hint(Aspect.GRANT_COMMAND)
         }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        // Acceso a datos de uso: para ver qué apps cerrar en Memoria (Inicio de Tablet).
-        val usage = Memory.usageAllowed(a)
-        PermRow(tr("Acceso a datos de uso (opcional)", "Usage access (optional)"), usage,
-            tr("Ver las apps usadas hace poco para cerrarlas (Memoria, en Inicio)", "See recently used apps to close them (Memory, on Home)"), off = tr("Falta", "Missing")) {
-            Button(onClick = { runCatching { a.startActivity(Memory.usageSettings()) } }) { Text(tr("Dar acceso", "Grant access")) }
-        }
     }
 }
 /** Un permiso: nombre y estado en una fila, para qué sirve debajo y, si falta, cómo darlo. */

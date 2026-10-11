@@ -73,13 +73,9 @@ object Shell {
     fun touch(action: String, x: Int, y: Int) = "input motionevent $action $x $y"
     private val TOUCH = Regex("input motionevent (DOWN|MOVE|UP) \\d{1,5} \\d{1,5}")
 
-    // Cerrar una app de verdad (Memoria, en Inicio): sin Shizuku solo se cierran los procesos en segundo plano.
-    fun forceStop(pkg: String) = "am force-stop $pkg"
-    private val FORCE_STOP = Regex("am force-stop [A-Za-z0-9_.]+")
-
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF) || TOUCH.matches(cmd) || FORCE_STOP.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF) || TOUCH.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

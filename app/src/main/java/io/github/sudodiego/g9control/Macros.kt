@@ -111,23 +111,8 @@ fun MacroEditor(s: AppState, a: MainActivity) {
     val padOf = MACRO_KEY_BYTE.entries.associate { (kk, v) -> v to kk }
 
     val left: @Composable ColumnScope.() -> Unit = {
-        Panel {
-            // Números de paso sobre cada botón usado.
-            val tags = m.steps.mapIndexedNotNull { i, st -> padOf[st.key]?.let { it to "${i + 1}" } }
-                .groupBy({ it.first }, { it.second })
-            val selPad = m.steps.getOrNull(sel)?.let { padOf[it.key] }
-            ControllerKeyPicker(
-                lit = setOfNotNull(selPad), tags = tags, enabled = canAdd, modifier = Modifier.fillMaxWidth(), lights = s
-            ) { pk -> MACRO_KEY_BYTE[pk]?.let(::add) }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                for (t in listOf(0xBE to "LT", 0xBA to "LB")) AddChip(t.second, canAdd) { add(t.first) }
-                Spacer(Modifier.weight(1f))
-                for (t in listOf(0xBB to "RB", 0xBF to "RT")) AddChip(t.second, canAdd) { add(t.first) }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("Macro de ${k.label}", "${k.label} macro"), Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = { a.closeMacroEditor() }) { Text(tr("Cerrar", "Close")) }
-            }
+        Panel(tr("Macro de ${k.label}", "${k.label} macro"), trailing = { TextButton(onClick = { a.closeMacroEditor() }) { Text(tr("Cerrar", "Close")) } }) {
+            // Grabar: se aprietan los botones en el control y quedan los pasos con sus tiempos.
             if (s.macroRecording) {
                 Surface(color = c.errorContainer, shape = MaterialTheme.shapes.medium) {
                     Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -137,22 +122,15 @@ fun MacroEditor(s: AppState, a: MainActivity) {
                         Button(onClick = { a.stopMacroRecording() }) { Text(tr("Detener", "Stop")) }
                     }
                 }
-            } else Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("Toca un botón para agregarlo", "Tap a button to add it"), Modifier.weight(1f), fontSize = 13.sp, color = c.onSurfaceVariant)
-                OutlinedButton(onClick = { a.startMacroRecording(); sel = -1 }) {
-                    Icon(Icons.Outlined.FiberManualRecord, null, Modifier.size(18.dp), tint = c.error)
-                    Spacer(Modifier.width(6.dp))
-                    Text(tr("Grabar con el control", "Record with the controller"))
-                }
+            } else Button(onClick = { a.startMacroRecording(); sel = -1 }, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Outlined.FiberManualRecord, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(tr("Grabar con el control", "Record with the controller"))
             }
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StickDirChip(tr("Stick izq.", "Left stick"), 0xEF, -1, canAdd, ::add)
-                StickDirChip(tr("Stick der.", "Right stick"), 0xF7, -1, canAdd, ::add)
-            }
+            Text(tr("O agrega pasos uno por uno:", "Or add steps one by one:"), fontSize = 14.sp, color = c.onSurfaceVariant)
+            ButtonGrid(null, canAdd, ::add)
         }
     }
-
     val right: @Composable ColumnScope.() -> Unit = {
         val steps = if (s.macroRecording) s.recordedSteps.toList() else m.steps
         val total = steps.mapIndexed { i, st -> (if (i == 0) 0 else st.waitMs) + st.holdMs }.sum()
@@ -201,7 +179,7 @@ fun MacroEditor(s: AppState, a: MainActivity) {
         }
     }
 
-    DrawingPane(drawing = left, side = right)
+    TwoPane(first = left, second = right)
 }
 
 /**
@@ -244,14 +222,6 @@ private fun shortKey(b: Int): String = when (b) {
     in 0xEF..0xF6 -> "L" + listOf("←", "↖", "↑", "↗", "→", "↘", "↓", "↙")[b - 0xEF]
     in 0xF7..0xFE -> "R" + listOf("←", "↖", "↑", "↗", "→", "↘", "↓", "↙")[b - 0xF7]
     else -> backTargetName(b)
-}
-
-@Composable
-private fun AddChip(label: String, enabled: Boolean, onClick: () -> Unit) {
-    AssistChip(
-        onClick = onClick, enabled = enabled, label = { Text(label) }, modifier = Modifier.padding(horizontal = 2.dp),
-        colors = AssistChipDefaults.assistChipColors(containerColor = MaterialTheme.colorScheme.surface)
-    )
 }
 
 /** Tiempo en ms con − / + de a 5 ms (pasos del firmware) y valores rápidos. */

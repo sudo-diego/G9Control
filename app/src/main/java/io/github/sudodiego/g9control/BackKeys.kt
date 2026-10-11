@@ -47,102 +47,108 @@ val MACRO_KEY_BYTE = mapOf(
     PadKey.UP to 0xB0, PadKey.DOWN to 0xB1, PadKey.LEFT to 0xB2, PadKey.RIGHT to 0xB3,
 )
 
-/** Qué hace un trasero: copia un botón, una dirección de un stick, una macro o nada. */
-private enum class BackKind { BUTTON, STICK, MACRO, NONE;
-    val label get() = when (this) { BUTTON -> tr("Botón", "Button"); STICK -> "Stick"; MACRO -> "Macro"; NONE -> tr("Nada", "Nothing") }
-}
+/** Grilla de botones del control, como están en él: A B X Y · LB RB LT RT · L3 R3 Vista Menú Home · cruceta. */
+private val GRID_ROWS = listOf(
+    listOf(0xB4, 0xB5, 0xB7, 0xB8),
+    listOf(0xBA, 0xBB, 0xBE, 0xBF),
+    listOf(0xC0, 0xC1, 0xBC, 0xBD, 0xC2),
+    listOf(0xB0, 0xB1, 0xB2, 0xB3),
+)
 
-private fun kindOf(b: Int) = when {
-    b == 0 -> BackKind.NONE
-    b == BACK_MACRO -> BackKind.MACRO
-    b in 0xEF..0xFE -> BackKind.STICK
-    else -> BackKind.BUTTON
+private fun gridLabel(b: Int) = when (b) {
+    0xB0 -> "↑"; 0xB1 -> "↓"; 0xB2 -> "←"; 0xB3 -> "→"
+    else -> backTargetName(b)
 }
 
 /**
- * Página "Traseros", en dos pasos: a la derecha se elige el trasero (L4, R4, L5, R5, con lo que copia cada uno) y a la
- * izquierda qué hace: copiar un botón (se toca en el dibujo), una dirección de un stick (las 8 a la vista), una macro
- * o nada. El dibujo solo sale cuando sirve (copiar un botón). Con una macro abierta, la página es el editor.
+ * Elegir un botón con botones grandes (en vez de tocarlo en el dibujo, donde quedaban chicos): la grilla del control y
+ * debajo las dos rosas de 8 direcciones de los sticks. [selected] se marca; [onPick] recibe el byte del firmware.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ButtonGrid(selected: Int?, enabled: Boolean, onPick: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        GRID_ROWS.forEachIndexed { r, row ->
+            if (r == 3) Text(tr("Cruceta", "D-pad"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { b -> PickTile(gridLabel(b), selected == b, enabled, Modifier.weight(1f)) { onPick(b) } }
+            }
+        }
+        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            StickGrid(tr("Stick izquierdo", "Left stick"), 0xEF, selected ?: -1, enabled, onPick)
+            StickGrid(tr("Stick derecho", "Right stick"), 0xF7, selected ?: -1, enabled, onPick)
+        }
+    }
+}
+
+/** Un botón de la grilla: grande, fácil de tocar; el elegido en celeste. */
+@Composable
+internal fun PickTile(label: String, on: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    Surface(onClick = onClick, enabled = enabled, modifier = modifier.height(52.dp), shape = MaterialTheme.shapes.medium,
+        color = if (on) c.secondary else c.surfaceContainerHigh) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, color = if (on) c.onSecondary else c.onSurface)
+        }
+    }
+}
+
+/**
+ * Página "Traseros": a la izquierda los cuatro traseros grandes, como están atrás del control (L4 R4 arriba, L5 R5
+ * abajo); a la derecha qué copia el elegido: un botón de la grilla, una dirección de un stick, una macro o nada. Con
+ * una macro abierta, la página es el editor.
+ */
 @Composable
 fun BackPage(s: AppState, a: MainActivity) {
     if (s.editingMacro != null) { MacroEditor(s, a); return }
     val editable = s.connected && s.appliedBackKeys != null
     var sel by rememberSaveable { mutableStateOf(BackKey.L4) }
-    val cur = s.backKeys[sel.id] ?: 0
-    // Lo que se está viendo (puede ser otro tipo que el guardado: elegir "Stick" no cambia nada hasta tocar una dirección).
-    var kind by remember(sel, cur) { mutableStateOf(kindOf(cur)) }
-    val padOf = MACRO_KEY_BYTE.entries.associate { (k, v) -> v to k }
-    // Lee el valor actual (no "cur"): el dibujo puede llamar a una versión guardada de esta función.
-    fun pick(byte: Int) { if (byte != (s.backKeys[sel.id] ?: 0)) a.setBackKey(sel, byte) }
     val c = MaterialTheme.colorScheme
+    // Lee el valor actual: la grilla puede llamar a una versión guardada de esta función.
+    fun pick(byte: Int) { if (byte != (s.backKeys[sel.id] ?: 0)) a.setBackKey(sel, byte) }
 
-    val editor: @Composable ColumnScope.() -> Unit = {
-        CompositionLocalProvider(LocalEditable provides editable) {
-            Panel(tr("${sel.label}: qué hace", "${sel.label}: what it does"), trailing = {
-                Text(backTargetName(cur), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = c.primary)
-            }) {
-                ChoiceChips(BackKind.entries.map { it to it.label }, kind) { k ->
-                    kind = k
-                    when (k) {
-                        BackKind.NONE -> pick(0)
-                        BackKind.MACRO -> a.openMacroEditor(sel)
-                        else -> Unit   // botón o stick: se elige abajo
-                    }
-                }
-                when (kind) {
-                    BackKind.BUTTON -> {
-                        Text(tr("Toca el botón que copia", "Tap the button it copies"), fontSize = 14.sp, color = c.onSurfaceVariant)
-                        val tags = BackKey.entries.mapNotNull { k -> padOf[s.backKeys[k.id] ?: 0]?.let { it to k.label } }
-                            .groupBy({ it.first }, { it.second })
-                        ControllerKeyPicker(
-                            lit = setOfNotNull(padOf[cur]), tags = tags, enabled = editable, modifier = Modifier.fillMaxWidth(), lights = s
-                        ) { k -> MACRO_KEY_BYTE[k]?.let(::pick) }
-                        // Gatillos y bumpers, que en el dibujo de frente no se ven.
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            for (t in listOf(0xBE to "LT", 0xBA to "LB")) TargetChip(t.second, cur == t.first, editable) { pick(t.first) }
-                            Spacer(Modifier.weight(1f))
-                            for (t in listOf(0xBB to "RB", 0xBF to "RT")) TargetChip(t.second, cur == t.first, editable) { pick(t.first) }
+    TwoPane(
+        first = {
+            CompositionLocalProvider(LocalEditable provides editable) {
+                Panel(tr("Traseros", "Back buttons"), tr("Elige uno", "Pick one")) {
+                    listOf(listOf(BackKey.L4, BackKey.R4), listOf(BackKey.L5, BackKey.R5)).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            row.forEach { k ->
+                                val on = k == sel
+                                val v = s.backKeys[k.id] ?: 0
+                                Surface(onClick = { sel = k }, modifier = Modifier.weight(1f).height(104.dp), shape = MaterialTheme.shapes.large,
+                                    color = if (on) c.secondary else c.surfaceContainerHigh) {
+                                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.Center) {
+                                        Text(k.label, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = if (on) c.onSecondary else c.onSurface)
+                                        Text(backTargetName(v), fontSize = 15.sp, maxLines = 1, color = if (on) c.onSecondary.copy(alpha = 0.85f) else c.onSurfaceVariant)
+                                    }
+                                }
+                            }
                         }
                     }
-                    BackKind.STICK -> Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                        StickGrid(tr("Stick izquierdo", "Left stick"), 0xEF, cur, editable, ::pick)
-                        StickGrid(tr("Stick derecho", "Right stick"), 0xF7, cur, editable, ::pick)
-                    }
-                    BackKind.MACRO -> {
-                        Text(tr("Una secuencia de botones con sus tiempos.", "A sequence of buttons with their timing."), fontSize = 14.sp, color = c.onSurfaceVariant)
-                        Button(onClick = { a.openMacroEditor(sel) }, enabled = editable) {
-                            Text(if (cur == BACK_MACRO) tr("Editar la macro", "Edit the macro") else tr("Crear la macro", "Create the macro"))
-                        }
-                    }
-                    BackKind.NONE -> Text(tr("No hace nada.", "It does nothing."), fontSize = 14.sp, color = c.onSurfaceVariant)
+                    if (!s.connected) Hint(tr("Conecta el control en modo Android para cambiarlos.", "Connect the controller in Android mode to change them."))
                 }
-                if (!s.connected) Hint(tr("Conecta el control en modo Android para cambiarlos.", "Connect the controller in Android mode to change them."))
             }
-        }
-    }
-    val keys: @Composable ColumnScope.() -> Unit = {
-        Panel(tr("Elige un trasero", "Pick a back button")) {
-            // L4/R4 arriba, L5/R5 abajo, como en el control.
-            BackKey.entries.forEach { k ->
-                val on = k == sel
-                val v = s.backKeys[k.id] ?: 0
-                Surface(
-                    onClick = { sel = k }, modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
-                    color = if (on) c.primaryContainer else c.surfaceContainerHigh,
-                    border = if (on) androidx.compose.foundation.BorderStroke(1.5.dp, c.primary) else null
-                ) {
-                    Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(k.label, Modifier.width(56.dp), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(backTargetName(v), Modifier.weight(1f), fontSize = 16.sp, color = if (on) c.onPrimaryContainer else c.onSurfaceVariant)
-                        if (v == BACK_MACRO) Icon(Icons.Outlined.Edit, null, tint = c.onSurfaceVariant)
+        },
+        second = {
+            CompositionLocalProvider(LocalEditable provides editable) {
+                // Al cambiar de trasero el contenido se funde: se nota que cambió.
+                androidx.compose.animation.Crossfade(sel, label = "trasero") { k ->
+                    val cur = s.backKeys[k.id] ?: 0
+                    Panel(tr("${k.label} copia", "${k.label} copies"), trailing = {
+                        Text(backTargetName(cur), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = c.primary)
+                    }) {
+                        // Arriba lo que no es un botón (macro, nada), para verlo sin bajar.
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PickTile(if (cur == BACK_MACRO) tr("Editar la macro", "Edit the macro") else tr("Macro…", "Macro…"), cur == BACK_MACRO, editable,
+                                Modifier.weight(1f)) { a.openMacroEditor(k) }
+                            PickTile(tr("Nada", "Nothing"), cur == 0, editable, Modifier.weight(1f)) { pick(0) }
+                        }
+                        ButtonGrid(cur, editable) { pick(it) }
                     }
                 }
             }
         }
-    }
-    TwoPane(first = editor, second = keys)
+    )
 }
 
 /** Las 8 direcciones de un stick en una cuadrícula de 3 × 3, como se ven en el stick; la elegida, resaltada. */
@@ -151,18 +157,16 @@ private fun StickGrid(name: String, first: Int, cur: Int, enabled: Boolean, onPi
     val dirs = listOf("←", "↖", "↑", "↗", "→", "↘", "↓", "↙")
     val c = MaterialTheme.colorScheme
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(name, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+        Text(name, fontSize = 13.sp, color = c.onSurfaceVariant)
         listOf(listOf(1, 2, 3), listOf(0, -1, 4), listOf(7, 6, 5)).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { d ->
-                    if (d < 0) Box(Modifier.size(52.dp).background(c.surfaceContainerHigh, androidx.compose.foundation.shape.CircleShape))
+                    if (d < 0) Box(Modifier.size(46.dp).background(c.surfaceContainerHigh, androidx.compose.foundation.shape.CircleShape))
                     else {
                         val on = cur == first + d
-                        Surface(onClick = { onPick(first + d) }, enabled = enabled, modifier = Modifier.size(52.dp), shape = MaterialTheme.shapes.medium,
+                        Surface(onClick = { onPick(first + d) }, enabled = enabled, modifier = Modifier.size(46.dp), shape = MaterialTheme.shapes.medium,
                             color = if (on) c.secondary else c.surfaceContainerHigh) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(dirs[d], fontSize = 20.sp, color = if (on) c.onSecondary else c.onSurface)
-                            }
+                            Box(contentAlignment = Alignment.Center) { Text(dirs[d], fontSize = 18.sp, color = if (on) c.onSecondary else c.onSurface) }
                         }
                     }
                 }
@@ -170,45 +174,6 @@ private fun StickGrid(name: String, first: Int, cur: Int, enabled: Boolean, onPi
         }
     }
 }
-@Composable
-private fun TargetChip(label: String, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected, onClick = onClick, enabled = enabled, label = { Text(label) },
-        modifier = Modifier.padding(horizontal = 2.dp),
-        // Fondo sólido: LT/LB/RB/RT van encima del dibujo.
-        colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface)
-    )
-}
-
-/** Dirección de un stick: chip con menú de las 8 direcciones. */
-@Composable
-internal fun StickDirChip(name: String, first: Int, cur: Int, enabled: Boolean, onPick: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    val dirs = listOf("←", "↖", "↑", "↗", "→", "↘", "↓", "↙")
-    val i = cur - first
-    Box {
-        FilterChip(
-            selected = i in dirs.indices, onClick = { open = true }, enabled = enabled,
-            label = { Text(if (i in dirs.indices) "$name ${dirs[i]}" else name) },
-            trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null) }
-        )
-        DropdownMenu(open, { open = false }) {
-            // Las 8 direcciones en una cuadrícula de 3×3, como se ven en el stick.
-            val grid = listOf(listOf(1, 2, 3), listOf(0, -1, 4), listOf(7, 6, 5))
-            grid.forEach { row ->
-                Row {
-                    row.forEach { d ->
-                        if (d < 0) Spacer(Modifier.size(52.dp))
-                        else TextButton(onClick = { open = false; onPick(first + d) }, modifier = Modifier.size(52.dp)) {
-                            Text(dirs[d], fontSize = 20.sp, fontWeight = if (d == i) FontWeight.Bold else FontWeight.Normal)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 /** Opciones del control que no son de un botón en particular. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

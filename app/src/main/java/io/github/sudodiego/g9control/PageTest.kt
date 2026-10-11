@@ -70,7 +70,7 @@ fun pressedNow(s: AppState): Set<PadKey> = buildSet {
 fun ControlsPage(s: AppState, a: MainActivity) {
     val right: @Composable ColumnScope.() -> Unit = {
         ControlOptionsPanel(s, a)
-        TouchpadShotPanel(a)
+        TouchpadShotPanel(s, a)
         if (s.otherKeys.isNotEmpty()) Panel(tr("Otros botones", "Other buttons")) { Text(s.otherKeys.joinToString("\n"), fontSize = 13.sp) }
     }
     DrawingPane(drawing = { TestPanel(s) }, side = right)
@@ -78,13 +78,17 @@ fun ControlsPage(s: AppState, a: MainActivity) {
 
 /** M dos veces en DS5 (el clic del touchpad del G9): captura. Es del G9: otros controles no lo tienen así. */
 @Composable
-private fun TouchpadShotPanel(a: MainActivity) {
+private fun TouchpadShotPanel(s: AppState, a: MainActivity) {
     var on by remember { mutableStateOf(AutoRules.touchpadShot(a)) }
-    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
-        Panel {
-            SwitchRow(tr("M dos veces: captura", "M twice: screenshot"), on, tr("En DS5", "In DS5")) { on = it; AutoRules.setTouchpadShot(a, it) }
+    // La captura la saca el servicio de accesibilidad: sin él, oscurecido y con el recordatorio.
+    Gate(s.autoServiceOn) {
+        CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
+            Panel {
+                SwitchRow(tr("M dos veces: captura", "M twice: screenshot"), on, tr("En DS5", "In DS5")) { on = it; AutoRules.setTouchpadShot(a, it) }
+            }
         }
     }
+    if (!s.autoServiceOn) Hint(tr("M dos veces necesita el servicio de accesibilidad (Ajustes → Permisos).", "M twice needs the accessibility service (Settings → Permissions)."))
 }
 
 @Composable
