@@ -224,9 +224,11 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
         Button(onClick = {
             busy = true
             scope.launch {
-                val freed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.freeAll(a) }
+                val (count, freed) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.freeAll(a) }
                 busy = false; tick++
-                s.status = tr("Memoria liberada: ${Memory.gb(freed)}.", "Memory freed: ${Memory.gb(freed)}.")
+                apps = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.recent(a) }
+                s.status = if (count > 0) tr("Se cerraron $count apps · ${Memory.gb(freed)} más libres.", "Closed $count apps · ${Memory.gb(freed)} more free.")
+                    else tr("Se cerró lo que estaba en segundo plano · ${Memory.gb(freed)} más libres.", "Closed what was in the background · ${Memory.gb(freed)} more free.")
             }
         }, enabled = !busy) { Text(if (busy) tr("Liberando…", "Freeing…") else tr("Liberar memoria", "Free memory")) }
         if (!allowed) TextButton(onClick = { runCatching { a.startActivity(Memory.usageSettings()) } }) {
@@ -241,7 +243,10 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
                     Spacer(Modifier.width(12.dp))
                 }
                 Text(app.label, Modifier.weight(1f), fontSize = 15.sp, maxLines = 1)
-                TextButton(onClick = { Memory.close(a, app.pkg); apps = apps - app; tick++ }) { Text(tr("Cerrar", "Close")) }
+                TextButton(onClick = {
+                    apps = apps - app
+                    scope.launch { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.close(a, app.pkg) }; tick++ }
+                }) { Text(tr("Cerrar", "Close")) }
             }
         }
     }

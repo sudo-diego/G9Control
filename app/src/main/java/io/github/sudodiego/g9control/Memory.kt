@@ -46,7 +46,10 @@ object Memory {
             .map { it.activityInfo.packageName }.filter { it !in skip }.toSet()
     }
 
-    /** Las usadas en las últimas horas, la más reciente primero (con el acceso a datos de uso). */
+    /**
+     * Las usadas en las últimas horas, la más reciente primero (con el acceso a datos de uso). Android no deja ver qué
+     * procesos de otras apps siguen vivos: una app cerrada aquí no vuelve a la lista hasta que se use de nuevo.
+     */
     fun recent(ctx: Context, hours: Int = 6): List<App> {
         if (!usageAllowed(ctx)) return emptyList()
         val now = System.currentTimeMillis()
@@ -56,20 +59,37 @@ object Memory {
         val pm = ctx.packageManager
         return stats.filter { it.packageName in ok && it.lastTimeUsed > now - hours * 3_600_000L && it.totalTimeInForeground > 0 }
             .groupBy { it.packageName }.mapValues { (_, v) -> v.maxOf { it.lastTimeUsed } }
+            .filter { (pkg, last) -> last > (closedAt[pkg] ?: 0L) }
             .entries.sortedByDescending { it.value }
             .mapNotNull { (pkg, _) ->
                 runCatching { pm.getApplicationInfo(pkg, 0) }.getOrNull()?.let { App(pkg, pm.getApplicationLabel(it).toString(), runCatching { pm.getApplicationIcon(it) }.getOrNull()) }
             }
     }
 
-    fun close(ctx: Context, pkg: String) { runCatching { am(ctx).killBackgroundProcesses(pkg) } }
+    /** Cuándo se cerró cada app desde aquí (mientras la app esté viva). */
+    private val closedAt = mutableMapOf<String, Long>()
 
-    /** Cierra todas las que estén en segundo plano; devuelve cuánta memoria quedó libre de más (bytes, puede ser 0). */
-    fun freeAll(ctx: Context): Long {
+    /**
+     * Cierra una app: con Shizuku de verdad (`am force-stop`, también si tiene un servicio corriendo, como un video o
+     * Discord); sin él, solo sus procesos en segundo plano (lo que Android permite a una app). En otro hilo.
+     */
+    fun close(ctx: Context, pkg: String) {
+        closedAt[pkg] = System.currentTimeMillis()
+        if (Shell.state == Shell.State.READY) kotlinx.coroutines.runBlocking { Shell.run(Shell.forceStop(pkg)) }
+        else runCatching { am(ctx).killBackgroundProcesses(pkg) }
+    }
+
+    /**
+     * Liberar: las usadas hace poco (si se sabe cuáles; con Shizuku se cierran de verdad) y, sin Shizuku, también los
+     * procesos en segundo plano de todas las demás. Devuelve cuántas apps se cerraron y cuánta memoria se liberó.
+     */
+    fun freeAll(ctx: Context): Pair<Int, Long> {
         val before = info(ctx).freeBytes
-        closable(ctx).forEach { close(ctx, it) }
-        Thread.sleep(600)
-        return (info(ctx).freeBytes - before).coerceAtLeast(0)
+        val list = recent(ctx).map { it.pkg }
+        list.forEach { close(ctx, it) }
+        if (Shell.state != Shell.State.READY) (closable(ctx) - list.toSet()).forEach { runCatching { am(ctx).killBackgroundProcesses(it) } }
+        Thread.sleep(800)
+        return list.size to (info(ctx).freeBytes - before).coerceAtLeast(0)
     }
 
     fun gb(bytes: Long) = "%.1f GB".format(bytes / 1_073_741_824.0)

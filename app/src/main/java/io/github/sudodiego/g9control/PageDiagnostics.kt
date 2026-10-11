@@ -300,6 +300,10 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
 private fun PermissionsPanel(s: AppState, a: MainActivity) {
     LaunchedEffect(Unit) { Shell.init(a); Shell.refresh() }
     val shizuku = Shell.state
+    // Avisos cuando falta algo: cada interruptor debajo del permiso al que se refiere.
+    var warnService by remember { mutableStateOf(AutoRules.warnService(a)) }
+    var warnShizuku by remember { mutableStateOf(AutoRules.warnShizuku(a)) }
+    var shizukuTile by remember { mutableStateOf(AutoRules.shizukuTile(a)) }
     Panel(tr("Permisos", "Permissions")) {
         PermRow(tr("Servicio de accesibilidad", "Accessibility service"), s.autoServiceOn,
             tr("Panel de juego, atajos, capturas y lo automático", "Game panel, shortcuts, screenshots and automatic features")) {
@@ -307,6 +311,12 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
                 "If “Restricted setting” appears: Settings → Apps → TBF Companion → ⋮ → Allow restricted settings."))
             Button(onClick = { AutoRules.openServiceSettings(a) }) { Text(tr("Abrir accesibilidad", "Open accessibility")) }
         }
+        CompositionLocalProvider(LocalEditable provides true) {
+            SwitchRow(tr("Avisar en el Inicio de Tablet si está apagado", "Warn on the Tablet home if it's off"), warnService) {
+                warnService = it; AutoRules.setWarnService(a, it)
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         PermRow(tr("Shizuku (opcional)", "Shizuku (optional)"), shizuku == Shell.State.READY,
             tr("Bypass y límite de carga, modo de rendimiento, ocultar Game Assistant, FPS, apagar la tablet con un monitor y arrastrar con el mouse",
                 "Bypass and charge limit, performance mode, hiding Game Assistant, FPS, turning the tablet off with a monitor and dragging with the mouse"),
@@ -319,24 +329,29 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
                 else -> Hint(tr("No está instalado (shizuku.rikka.app).", "Not installed (shizuku.rikka.app)."))
             }
         }
+        CompositionLocalProvider(LocalEditable provides true) {
+            SwitchRow(tr("Avisar en el Inicio de Tablet si no está iniciado", "Warn on the Tablet home if it isn't started"), warnShizuku) {
+                warnShizuku = it; AutoRules.setWarnShizuku(a, it)
+            }
+            SwitchRow(tr("Mosaico «Activar Shizuku» en el panel de juego", "“Start Shizuku” tile in the game panel"), shizukuTile) {
+                shizukuTile = it; AutoRules.setShizukuTile(a, it)
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         PermRow(tr("Permiso de pantalla", "Screen permission"), Aspect.canWrite(a),
             tr("16:9, bloquear gestos y brillo automático en juegos · una vez desde un computador",
                 "16:9, gesture lock and auto brightness in games · once from a computer"), off = tr("Falta", "Missing")) {
             Hint(Aspect.GRANT_COMMAND)
         }
-        // Avisos cuando falta algo: en Inicio y en el panel de juego (también se apagan desde el propio aviso).
-        var warnService by remember { mutableStateOf(AutoRules.warnService(a)) }
-        var warnShizuku by remember { mutableStateOf(AutoRules.warnShizuku(a)) }
-        var shizukuTile by remember { mutableStateOf(AutoRules.shizukuTile(a)) }
-        CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
-            Text(tr("Avisar si falta", "Warn when missing"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            SwitchRow(tr("Servicio, en Inicio", "Service, on Home"), warnService) { warnService = it; AutoRules.setWarnService(a, it) }
-            SwitchRow(tr("Shizuku, en Inicio", "Shizuku, on Home"), warnShizuku) { warnShizuku = it; AutoRules.setWarnShizuku(a, it) }
-            SwitchRow(tr("Shizuku, en el panel de juego", "Shizuku, in the game panel"), shizukuTile) { shizukuTile = it; AutoRules.setShizukuTile(a, it) }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // Acceso a datos de uso: para ver qué apps cerrar en Memoria (Inicio de Tablet).
+        val usage = Memory.usageAllowed(a)
+        PermRow(tr("Acceso a datos de uso (opcional)", "Usage access (optional)"), usage,
+            tr("Ver las apps usadas hace poco para cerrarlas (Memoria, en Inicio)", "See recently used apps to close them (Memory, on Home)"), off = tr("Falta", "Missing")) {
+            Button(onClick = { runCatching { a.startActivity(Memory.usageSettings()) } }) { Text(tr("Dar acceso", "Grant access")) }
         }
     }
 }
-
 /** Un permiso: nombre y estado en una fila, para qué sirve debajo y, si falta, cómo darlo. */
 @Composable
 private fun PermRow(title: String, ok: Boolean, desc: String, off: String = tr("Apagado", "Off"), fix: @Composable ColumnScope.() -> Unit) {

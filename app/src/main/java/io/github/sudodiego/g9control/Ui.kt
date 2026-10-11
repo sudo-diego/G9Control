@@ -347,8 +347,9 @@ private fun HintBar(s: AppState) {
         if (s.padMode != null || s.connected) {
             val hints = if (s.capturing) listOf("B" to tr("Mantén 1 s para salir", "Hold 1 s to exit"))
             else if (s.editingMacro != null) listOf("A" to tr("Elegir", "Select"), "B" to tr("Cerrar macro", "Close macro"), "LB RB" to tr("Pestañas", "Tabs"))
-            else listOf("A" to tr("Elegir", "Select"), "LB RB" to tr("Pestañas", "Tabs"), "LT RT" to tr("Secciones", "Sections"),
-                "B" to tr("Mantén 3 s para salir", "Hold 3 s to exit"))
+            // LB RB solo donde hay pestañas (Ajustes tiene una sola página).
+            else listOfNotNull("A" to tr("Elegir", "Select"), if (s.section.pages.size > 1) "LB RB" to tr("Pestañas", "Tabs") else null,
+                "LT RT" to tr("Secciones", "Sections"), "B" to tr("Mantén 3 s para salir", "Hold 3 s to exit"))
             hints.forEach { (k, v) ->
                 Spacer(Modifier.width(18.dp))
                 if (k == "B") HoldBadge(s.bHold) else if (k.length == 1) PadBadge(k, round = true) else PadBadge(k)
