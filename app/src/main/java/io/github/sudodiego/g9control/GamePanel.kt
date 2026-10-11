@@ -39,6 +39,8 @@ import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Mouse
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material.icons.outlined.Bluetooth
@@ -606,6 +608,14 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem("Bluetooth", if (bt) Icons.Outlined.Bluetooth else Icons.Outlined.BluetoothDisabled, PanelRow.SYSTEM, active = bt,
             sub = tr("Dispositivos", "Devices") + if (bt) ySwitch.first else ySwitch.second,
             alt = { radio(!bt, Shell.BT_ON, Shell.BT_OFF) }, run = btList))
+        // Bloquear gestos (con Shizuku): Inicio, Recientes y la barra de notificaciones; Atrás sigue.
+        if (ready) {
+            val locked = svc.gesturesLocked
+            add(PanelItem(tr("Bloquear gestos", "Lock gestures"), if (locked) Icons.Outlined.Lock else Icons.Outlined.LockOpen, PanelRow.SYSTEM,
+                active = locked, sub = if (locked) tr("Hasta salir de la app", "Until you leave the app") else tr("Inicio y notificaciones", "Home and notifications")) {
+                svc.setGesturesLocked(!locked); refresh()
+            })
+        }
         // Mouse virtual: para apps que no usan el control (los sticks dejan de llegar a la app mientras está).
         val mouseOn = svc.isMouseOn
         add(PanelItem(tr("Mouse", "Mouse"), Icons.Outlined.Mouse, PanelRow.SYSTEM, active = mouseOn,

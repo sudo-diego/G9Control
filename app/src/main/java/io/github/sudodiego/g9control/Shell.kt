@@ -68,9 +68,14 @@ object Shell {
     const val BT_ON = "svc bluetooth enable"
     const val BT_OFF = "svc bluetooth disable"
 
+    // Bloquear gestos (como el de Game Assistant): Inicio, Recientes y bajar la barra de estado, botones y gestos.
+    // Atrás no se puede bloquear así. El shell tiene su propio registro: "none" quita solo lo suyo.
+    const val GESTURES_LOCK = "cmd statusbar send-disable-flag home recents statusbar-expansion"
+    const val GESTURES_UNLOCK = "cmd statusbar send-disable-flag none"
+
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, GESTURES_LOCK, GESTURES_UNLOCK) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

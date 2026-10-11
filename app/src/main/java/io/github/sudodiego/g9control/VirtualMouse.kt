@@ -61,6 +61,7 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         isOn = true
         place()
         lastTick = SystemClock.uptimeMillis()
+        wake()
         main.post(tick)
         Log.d(AutoModeService.TAG, "mouse virtual: encendido")
         onChange(true)
@@ -131,6 +132,7 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
                 x = (x + vx * speed * dt).coerceIn(0f, b.width() - 1f)
                 y = (y + vy * speed * dt).coerceIn(0f, b.height() - 1f)
                 place()
+                wake()
                 // Con A apretado, moverse es arrastrar (ya no es toque ni toque largo).
                 if (aDown && !dragging && Math.hypot((x - downX).toDouble(), (y - downY).toDouble()) > DRAG_DP * dp) {
                     main.removeCallbacks(startHold)
@@ -141,10 +143,24 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
             val sx = curve(rx); val sy = curve(ry)
             if (!aDown && (sx != 0f || sy != 0f) && now - lastScroll > SCROLL_EVERY) {
                 lastScroll = now
+                wake()
                 swipe(-sx * SCROLL_DP * dp, -sy * SCROLL_DP * dp)
+            }
+            // Quieto un rato (y sin A apretado): el puntero se desvanece; vuelve al moverlo o tocar.
+            if (!faded && !aDown && now - lastActive > FADE_MS) {
+                faded = true
+                view?.animate()?.alpha(0f)?.setDuration(400)?.start()
             }
             main.postDelayed(this, 16)
         }
+    }
+
+    private var lastActive = 0L
+    private var faded = false
+
+    private fun wake() {
+        lastActive = SystemClock.uptimeMillis()
+        if (faded) { faded = false; view?.animate()?.alpha(1f)?.setDuration(120)?.start() }
     }
 
     /** Zona muerta y curva: suave cerca del centro, rápido a fondo. */
@@ -181,6 +197,7 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
     private var gx = 0f; private var gy = 0f
 
     private fun pressA() {
+        wake()
         aDown = true; dragging = false
         downX = x; downY = y
         main.removeCallbacks(startHold)
@@ -269,7 +286,8 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         const val SCROLL_EVERY = 140L
         const val TAP_MS = 40L
         const val LONG_MS = 250L       // mantener A esto empieza el toque mantenido (toque largo si no se mueve)
-        const val STEP = 50L           // duración de cada tramo del toque mantenido
+        const val STEP = 80L           // duración de cada tramo del toque mantenido
+        const val FADE_MS = 3000L      // quieto esto, el puntero se desvanece
         const val DRAG_DP = 10f        // moverse más que esto con A apretado = arrastrar
         const val DEAD = 0.15f
     }
