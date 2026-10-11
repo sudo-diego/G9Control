@@ -23,6 +23,14 @@ object Prefs {
     fun theme(ctx: Context) = runCatching { AppTheme.valueOf(sp(ctx).getString("theme", null)!!) }.getOrDefault(AppTheme.SYSTEM)
     fun setTheme(ctx: Context, v: AppTheme) = sp(ctx).edit().putString("theme", v.name).apply()
 
+    /** Fondo de la app: degradado (por defecto), una imagen o GIF elegido, o liso; y cuánto se desenfoca la imagen. */
+    fun background(ctx: Context) = runCatching { AppBackground.valueOf(sp(ctx).getString("background", null)!!) }.getOrDefault(AppBackground.GRADIENT)
+    fun setBackground(ctx: Context, v: AppBackground) = sp(ctx).edit().putString("background", v.name).apply()
+    fun backgroundUri(ctx: Context) = sp(ctx).getString("background_uri", null)
+    fun setBackgroundUri(ctx: Context, v: String?) = sp(ctx).edit().putString("background_uri", v).apply()
+    fun backgroundBlur(ctx: Context) = sp(ctx).getInt("background_blur", 24)
+    fun setBackgroundBlur(ctx: Context, v: Int) = sp(ctx).edit().putInt("background_blur", v).apply()
+
     fun centered(ctx: Context) = sp(ctx).getBoolean("centered", false)
     fun setCentered(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("centered", v).apply()
 

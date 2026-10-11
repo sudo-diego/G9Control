@@ -106,8 +106,9 @@ private val NAV = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun App(s: AppState, a: MainActivity) {
+    Box(Modifier.fillMaxSize()) { Backdrop() }
     BoxWithConstraints(
-        Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).safeDrawingPadding()
+        Modifier.fillMaxSize().safeDrawingPadding()
     ) {
         val wide = maxWidth >= 720.dp
         // Foco bien visible para navegar con el control (por defecto Material lo marca muy suave).
@@ -404,10 +405,14 @@ fun Panel(
     trailing: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    // Vidrio sobre el fondo: translúcida con un borde que brilla arriba y se apaga abajo.
+    val glass = ThemeState.glass
+    val dark = isDarkTheme()
     Surface(
         modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        color = if (glass) MaterialTheme.colorScheme.surfaceContainer.copy(alpha = if (dark) 0.58f else 0.66f) else MaterialTheme.colorScheme.surfaceContainer,
+        border = if (glass) BorderStroke(1.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) 0.16f else 0.7f), Color.White.copy(alpha = if (dark) 0.03f else 0.2f)))) else null,
         tonalElevation = 0.dp
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -66,9 +66,18 @@ enum class AppTheme { SYSTEM, LIGHT, DARK;
     val label get() = when (this) { SYSTEM -> tr("Del sistema", "System"); LIGHT -> tr("Claro", "Light"); DARK -> tr("Oscuro", "Dark") }
 }
 
-/** Tema elegido en Ajustes. */
+enum class AppBackground { GRADIENT, IMAGE, PLAIN;
+    val label get() = when (this) { GRADIENT -> tr("Degradado", "Gradient"); IMAGE -> tr("Imagen o GIF", "Image or GIF"); PLAIN -> tr("Liso", "Plain") }
+}
+
+/** Tema y fondo elegidos en Ajustes. */
 object ThemeState {
     var theme by androidx.compose.runtime.mutableStateOf(AppTheme.SYSTEM)
+    var background by androidx.compose.runtime.mutableStateOf(AppBackground.GRADIENT)
+    var backgroundUri by androidx.compose.runtime.mutableStateOf<String?>(null)
+    var backgroundBlur by androidx.compose.runtime.mutableIntStateOf(24)
+    /** Con fondo (degradado o imagen) las tarjetas son de vidrio: translúcidas con un borde claro. */
+    val glass get() = background != AppBackground.PLAIN
 }
 
 @Composable

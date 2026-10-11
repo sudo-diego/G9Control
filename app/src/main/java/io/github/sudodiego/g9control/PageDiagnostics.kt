@@ -39,6 +39,20 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                 ChoiceChips(AppTheme.entries.map { it to it.label }, ThemeState.theme) {
                     ThemeState.theme = it; Prefs.setTheme(a, it)
                 }
+                // Fondo: degradado, una imagen o GIF propio (desenfocado) o liso.
+                Text(tr("Fondo", "Background"), fontSize = 14.sp)
+                ChoiceChips(AppBackground.entries.map { it to it.label }, ThemeState.background) {
+                    if (it == AppBackground.IMAGE && ThemeState.backgroundUri == null) a.pickBackground()
+                    else { ThemeState.background = it; Prefs.setBackground(a, it) }
+                }
+                if (ThemeState.background == AppBackground.IMAGE) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedButton(onClick = { a.pickBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
+                        ChoiceChips(listOf(0 to tr("Nítido", "Sharp"), 24 to tr("Desenfoque", "Blur"), 60 to tr("Muy desenfocado", "Strong blur")), ThemeState.backgroundBlur) {
+                            ThemeState.backgroundBlur = it; Prefs.setBackgroundBlur(a, it)
+                        }
+                    }
+                }
                 // Una sola animación para todos los avisos (cambio de modo y capturas).
                 Text(tr("Animación de los avisos", "Notice animation"), fontSize = 14.sp)
                 ChoiceChips(NoticeAnim.entries.map { it to it.label }, anim) { anim = it; AutoRules.setNoticeAnim(a, it); AutoRules.setShotAnim(a, it) }

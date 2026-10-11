@@ -62,6 +62,9 @@ class MainActivity : ComponentActivity() {
         state.profiles = Profiles.load(this)
         SkinState.skin = Prefs.skin(this)
         ThemeState.theme = Prefs.theme(this)
+        ThemeState.background = Prefs.background(this)
+        ThemeState.backgroundUri = Prefs.backgroundUri(this)
+        ThemeState.backgroundBlur = Prefs.backgroundBlur(this)
         Lang.load(this)
         state.showSetup = !Prefs.setupDone(this)
         state.status = tr("Conecta el G9 por USB en modo Android.", "Connect the G9 over USB in Android mode.")
@@ -840,6 +843,17 @@ class MainActivity : ComponentActivity() {
 
     fun exportProfiles() = exportLauncher.launch(tr("G9Control-perfiles", "G9Control-profiles") + "-${java.time.LocalDate.now()}.json")
     fun importProfiles() = importLauncher.launch(arrayOf("application/json", "application/octet-stream", "text/plain"))
+
+    /** Fondo de la app: una imagen o GIF de la tablet (el permiso de leerlo queda guardado). */
+    private val backgroundLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        Prefs.setBackgroundUri(this, uri.toString()); Prefs.setBackground(this, AppBackground.IMAGE)
+        ThemeState.backgroundUri = uri.toString(); ThemeState.background = AppBackground.IMAGE
+    }
+    fun pickBackground() = backgroundLauncher.launch(arrayOf("image/*"))
 
     fun saveProfiles(list: List<Profile>) {
         state.profiles = list

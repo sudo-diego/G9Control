@@ -2,6 +2,10 @@ package io.github.sudodiego.g9control
 
 import android.view.InputDevice
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AspectRatio
+import androidx.compose.material.icons.outlined.Power
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,8 +17,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Inicio de la sección Tablet: para cualquiera con la Y700, tenga o no el G9. A la izquierda los avisos, cómo está
- * la tablet ahora y accesos rápidos; a la derecha los controles conectados (cualquiera) y los atajos.
+ * Inicio de la sección Tablet: para cualquiera con la Y700, tenga o no el G9. Arriba los avisos y cómo está la tablet
+ * en mosaicos grandes; abajo lo que más se cambia, también en mosaicos (como el panel de juego). A la derecha los
+ * controles conectados y los atajos.
  */
 @Composable
 fun TabletHomePage(s: AppState, a: MainActivity) {
@@ -22,8 +27,8 @@ fun TabletHomePage(s: AppState, a: MainActivity) {
         first = {
             ServiceWarning(s, a)
             ShizukuWarning(a)
-            TabletNowPanel(a)
-            QuickPanel(a)
+            TabletNowTiles(a)
+            QuickTiles(a)
         },
         second = {
             ControllersPanel(s)
@@ -32,58 +37,78 @@ fun TabletHomePage(s: AppState, a: MainActivity) {
     )
 }
 
-/** La tablet ahora: batería, frecuencia de la pantalla y monitor externo. Se actualiza cada pocos segundos. */
+/** La tablet ahora, en mosaicos: batería (con el tiempo de carga), temperatura y Hz. Se actualiza cada pocos segundos. */
 @Composable
-private fun TabletNowPanel(a: MainActivity) {
+private fun TabletNowTiles(a: MainActivity) {
     var tick by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { while (true) { delay(3000); tick++ } }
     val b = remember(tick) { batteryNow(a) }
     val hz = remember(tick) { RefreshRate.current(a) }
     val monitor = remember(tick) { Monitor.current(a) }
-    Panel(tr("La tablet ahora", "The tablet now")) {
+    val left = remember(tick) { if (b?.charging == true) ZuiBattery.chargeTimeLeft(a) else null }
+    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         b?.let {
             val state = when {
-                it.plugged && !it.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else tr("enchufada, sin cargar", "plugged in, not charging")
-                it.charging -> tr("cargando", "charging")
-                else -> tr("con batería", "on battery")
+                it.plugged && !it.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else tr("Sin cargar", "Not charging")
+                it.charging -> left?.let { ms -> "⚡ " + ZuiBattery.formatTime(ms) } ?: tr("Cargando", "Charging")
+                else -> tr("Batería", "Battery")
             }
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("${it.level} %", fontSize = 34.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.width(12.dp))
-                Text("$state · ${"%.0f".format(it.tempC)} °C", fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp))
-            }
+            StatTile("${it.level} %", state, Modifier.weight(1.3f).fillMaxHeight(), big = true)
+            StatTile("${"%.0f".format(it.tempC)} °C", tr("Batería", "Battery"), Modifier.weight(1f).fillMaxHeight())
         }
-        hz?.let { Text(tr("Pantalla a $it Hz", "Screen at $it Hz"), fontSize = 14.sp) }
-        monitor?.let { Text(tr("Monitor: ${it.name}", "Monitor: ${it.name}"), fontSize = 14.sp) }
+        StatTile(hz?.let { "$it Hz" } ?: "—", monitor?.name ?: tr("Pantalla", "Screen"), Modifier.weight(1f).fillMaxHeight())
     }
 }
 
-/** Lo que más se cambia, a un toque: bypass, monitor de rendimiento y pantalla 16:9. */
+/** Un dato grande con su etiqueta debajo, en una tarjeta de vidrio. */
 @Composable
-private fun QuickPanel(a: MainActivity) {
+private fun StatTile(value: String, label: String, modifier: Modifier, big: Boolean = false) {
+    Panel(modifier = modifier) {
+        Text(value, fontSize = if (big) 40.sp else 30.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+    }
+}
+
+/** Lo que más se cambia, a un toque y en mosaicos: bypass, monitor de rendimiento y pantalla 16:9. */
+@Composable
+private fun QuickTiles(a: MainActivity) {
     val scope = rememberCoroutineScope()
     val ready = Shell.state == Shell.State.READY
     var bypass by remember { mutableStateOf(ZuiBattery.bypassNow == true) }
     var hud by remember { mutableStateOf(AutoRules.perfHud(a)) }
     var wide by remember { mutableStateOf(Aspect.is169(a)) }
     LaunchedEffect(ready) { if (ready) ZuiBattery.readBypass()?.let { bypass = it } }
-    CompositionLocalProvider(LocalEditable provides true) {
-        Panel(tr("Rápido", "Quick")) {
-            CompositionLocalProvider(LocalEditable provides ready) {
-                SwitchRow("Bypass", bypass, tr("La batería no carga ni se calienta", "The battery doesn't charge or heat up")) { want ->
-                    if (ready) scope.launch { if (ZuiBattery.setBypass(want)) bypass = want }
-                }
+    Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        // Sin Shizuku el bypass no se puede cambiar: no sale (el aviso de arriba lo dice).
+        if (ready) QuickTile(Icons.Outlined.Power, "Bypass", if (bypass) tr("Encendido", "On") else tr("Apagado", "Off"), bypass,
+            Modifier.weight(1f).fillMaxHeight()) { scope.launch { if (ZuiBattery.setBypass(!bypass)) bypass = !bypass } }
+        QuickTile(Icons.Outlined.QueryStats, tr("Monitor", "Monitor"), if (hud) tr("Encendido", "On") else tr("Apagado", "Off"), hud,
+            Modifier.weight(1f).fillMaxHeight()) { hud = !hud; AutoRules.setPerfHud(a, hud) }
+        if (Aspect.available(a)) QuickTile(Icons.Outlined.AspectRatio, "16:9", if (wide) tr("Encendido", "On") else tr("Apagado", "Off"), wide,
+            Modifier.weight(1f).fillMaxHeight()) {
+            scope.launch {
+                Aspect.toggle(a)
+                delay(500)
+                wide = Aspect.is169(a)
             }
-            SwitchRow(tr("Monitor de rendimiento", "Performance monitor"), hud, tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery")) {
-                hud = it; AutoRules.setPerfHud(a, it)
-            }
-            if (Aspect.available(a)) SwitchRow(tr("Pantalla 16:9", "16:9 screen"), wide, tr("Monitor sin bordes", "Monitor without borders")) { want ->
-                scope.launch {
-                    if (want != Aspect.is169(a)) Aspect.toggle(a)
-                    delay(500)
-                    wide = Aspect.is169(a)
-                }
+        }
+    }
+}
+
+/** Mosaico que se enciende y apaga, como los del panel de juego: encendido en celeste. */
+@Composable
+private fun QuickTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, state: String, on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val c = MaterialTheme.colorScheme
+    Surface(
+        onClick = onClick, modifier = modifier, shape = MaterialTheme.shapes.large,
+        color = if (on) c.secondary else c.surfaceContainer.copy(alpha = if (ThemeState.glass) 0.58f else 1f),
+        border = if (ThemeState.glass && !on) androidx.compose.foundation.BorderStroke(1.dp, androidx.compose.ui.graphics.Color.White.copy(alpha = 0.1f)) else null
+    ) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(icon, null, Modifier.size(28.dp), tint = if (on) c.onSecondary else c.onSurface)
+            Column {
+                Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (on) c.onSecondary else c.onSurface)
+                Text(state, fontSize = 13.sp, color = if (on) c.onSecondary.copy(alpha = 0.8f) else c.onSurfaceVariant)
             }
         }
     }
