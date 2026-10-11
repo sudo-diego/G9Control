@@ -187,16 +187,16 @@ class PerfHud(private val svc: AutoModeService) {
         return currentAvg / 1e6 * mv / 1e3
     }
 
-    /** Tiempo que queda de batería (o para cargarla), "~2 h 10 min". */
+    /** Tiempo que queda de batería, "~2 h 10 min", o para cargar hasta el límite (o 100), "⚡ 40 min → 80 %". */
     private fun remaining(bat: Intent?, charging: Boolean): String? {
-        val ms = if (charging) bm.computeChargeTimeRemaining().takeIf { it > 0 } ?: return null
-        else {
-            val uah = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER).takeIf { it > 0 } ?: return null
-            if (currentAvg < 50_000) return null   // casi sin consumo (enchufada en bypass): no tiene sentido
-            (uah / currentAvg * 3_600_000).toLong()
+        if (charging) {
+            val ms = ZuiBattery.chargeTimeLeft(svc) ?: return null
+            val target = ZuiBattery.chargeTarget(svc)
+            return "⚡ " + ZuiBattery.formatTime(ms) + if (target < 100) " → $target %" else ""
         }
-        val min = ms / 60_000
-        return (if (charging) "⚡ " else "~") + if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
+        val uah = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER).takeIf { it > 0 } ?: return null
+        if (currentAvg < 50_000) return null   // casi sin consumo (enchufada en bypass): no tiene sentido
+        return "~" + ZuiBattery.formatTime((uah / currentAvg * 3_600_000).toLong())
     }
 
     /** Hz de la pantalla ahora. */

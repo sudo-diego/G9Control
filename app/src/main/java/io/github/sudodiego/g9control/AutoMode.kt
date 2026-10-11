@@ -561,6 +561,8 @@ class AutoModeService : AccessibilityService() {
         perfHud = PerfHud(this).also { it.update() }
         Shell.init(this)
         ZuiBattery.init(this)
+        // El límite de carga de ZUI, para el tiempo de carga (queda guardado para cuando Shizuku no esté).
+        scope.launch { ZuiBattery.readChargeLimit() }
         ZuiGame.initPerf(this)
         updateTouchpad()
         getSharedPreferences("g9", Context.MODE_PRIVATE).registerOnSharedPreferenceChangeListener(prefsListener)

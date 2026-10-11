@@ -237,11 +237,11 @@ class GamePanel(private val svc: AutoModeService) {
         ui.bypass = Shell.state == Shell.State.READY && ZuiBattery.bypassNow == true && ZuiBattery.plugged(svc)
         ui.charging = !ui.bypass && i?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) == android.os.BatteryManager.BATTERY_STATUS_CHARGING
         // Lo calcula Android (−1 si todavía no sabe, recién enchufada).
-        ui.chargeLeft = if (!ui.charging) null else svc.getSystemService(android.os.BatteryManager::class.java)
-            .computeChargeTimeRemaining().takeIf { it > 0 }?.let { ms ->
-                val min = (ms / 60_000).coerceAtLeast(1)
-                if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
-            }
+        // Hasta el límite de carga si hay (el de ZUI o el propio), si no hasta 100.
+        ui.chargeLeft = if (!ui.charging) null else ZuiBattery.chargeTimeLeft(svc)?.let {
+            val target = ZuiBattery.chargeTarget(svc)
+            ZuiBattery.formatTime(it) + if (target < 100) tr(" a $target %", " to $target %") else ""
+        }
         val time = android.text.format.DateFormat.getTimeFormat(svc).format(Date())
         ui.status = listOfNotNull(ui.battery.takeIf { it >= 0 }?.let { "$it %" }, time).joinToString(" · ")
     }
@@ -280,8 +280,7 @@ class GamePanel(private val svc: AutoModeService) {
         val first = if (games != null) PanelItem(tr("Juegos", "Games"), Icons.Outlined.Restore, sub = "$games Hz", active = chosen == null) { pickHz(null) }
             else PanelItem(tr("Sistema", "System"), Icons.Outlined.Restore, sub = "${RefreshRate.systemPeak(svc)} Hz", active = chosen == null) { pickHz(null) }
         ui.items = listOf(first) +
-            // Sin Shizuku solo hasta el máximo del sistema (144 y 165 no salen).
-            RefreshRate.supported(svc).filter { RefreshRate.available(svc, it) }.map { hz ->
+            RefreshRate.supported(svc).map { hz ->
                 PanelItem("$hz Hz", Icons.Outlined.DisplaySettings, sub = if (hz == chosen) tr("Esta app", "This app") else null, active = hz == chosen) { pickHz(hz) }
             }
         ui.sel = ui.items.indexOfFirst { it.active }.coerceAtLeast(0)

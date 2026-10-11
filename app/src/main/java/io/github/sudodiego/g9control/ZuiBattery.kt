@@ -56,8 +56,42 @@ object ZuiBattery {
      * de ese nivel; Android dice "no carga" y la barra muestra un enchufe (no es el bypass).
      */
     suspend fun readChargeLimit(): Int? {
-        if (Shell.run(Shell.LIMIT_GET)?.let { parse(it) } != true) return null
-        return Shell.run(Shell.LIMIT_LEVEL)?.let { parseInt(it) }?.takeIf { it in 1..99 }
+        val on = Shell.run(Shell.LIMIT_GET)?.let { parse(it) } ?: return null
+        val level = if (on) Shell.run(Shell.LIMIT_LEVEL)?.let { parseInt(it) }?.takeIf { it in 1..99 } else null
+        // Se recuerda (0 = apagado) para el tiempo de carga cuando Shizuku no está.
+        prefs?.edit()?.putInt("zui_limit", level ?: 0)?.apply()
+        return level
+    }
+
+    /**
+     * Hasta dónde va a cargar: el límite propio, el de ZUI (lo último que se leyó) o 100. El tiempo que falta se
+     * calcula hasta ahí: hasta 100 lo da Android; hasta un límite, con lo que entra ahora y la capacidad de la batería.
+     */
+    fun chargeTarget(ctx: Context): Int {
+        val zui = ctx.getSharedPreferences("g9", Context.MODE_PRIVATE).getInt("zui_limit", 0).takeIf { it in 1..99 }
+        return listOfNotNull(ownLimit(ctx), zui, 100).min()
+    }
+
+    /** Milisegundos para llegar a [chargeTarget] cargando; null si no se sabe o ya llegó. */
+    fun chargeTimeLeft(ctx: Context): Long? {
+        val i = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return null
+        val level = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) * 100 / i.getIntExtra(BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val target = chargeTarget(ctx)
+        if (level < 0 || level >= target) return null
+        val bm = ctx.getSystemService(BatteryManager::class.java)
+        if (target >= 100) return bm.computeChargeTimeRemaining().takeIf { it > 0 }
+        val uah = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER).takeIf { it > 0 } ?: return null
+        val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE).takeIf { it != 0 && it != Int.MIN_VALUE }
+            ?: bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).takeIf { it != 0 && it != Int.MIN_VALUE } ?: return null
+        val current = kotlin.math.abs(ua.toDouble()).takeIf { it > 50_000 } ?: return null
+        val capacity = uah * 100.0 / level.coerceAtLeast(1)
+        return ((target - level) / 100.0 * capacity / current * 3_600_000).toLong()
+    }
+
+    /** "1 h 20 min" o "35 min". */
+    fun formatTime(ms: Long): String {
+        val min = (ms / 60_000).coerceAtLeast(1)
+        return if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
     }
 
     /** Niveles para el límite propio de G9 Control. */

@@ -178,19 +178,15 @@ fun GamePanelPage(s: AppState, a: MainActivity) {
 @Composable
 private fun GamesHzPanel(a: MainActivity) {
     var hz by remember { mutableIntStateOf(RefreshRate.forGames(a) ?: 0) }
-    // Hasta 120 Hz sin Shizuku; 144 y 165 solo con él (hay que subir el máximo del sistema).
-    val (ok, locked) = RefreshRate.supported(a).partition { RefreshRate.available(a, it) || it == hz }
     CompositionLocalProvider(LocalEditable provides true) {
         Panel(tr("Frecuencia en juegos", "Refresh rate in games"),
             tr("Fija la pantalla en todos los juegos. Cada juego puede tener la suya desde el panel.", "Locks the screen in every game. Each game can have its own from the panel.")) {
-            ChoiceChips(listOf(0 to tr("Sistema", "System")) + ok.map { it to "$it Hz" }, hz) {
+            ChoiceChips(listOf(0 to tr("Sistema", "System")) + RefreshRate.supported(a).map { it to "$it Hz" }, hz) {
                 hz = it; RefreshRate.setForGames(a, it.takeIf { v -> v > 0 })
             }
             Text(if (hz == 0) tr("Sistema: entre 30 y 120 Hz según el juego y el modo (en Ahorro baja a 30).", "System: 30 to 120 Hz depending on the game and mode (Saver drops to 30).")
-                else tr("Siempre $hz Hz, en cualquier modo.", "Always $hz Hz, in any mode."),
+                else tr("Siempre $hz Hz en los juegos.", "Always $hz Hz in games."),
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (locked.isNotEmpty()) Hint(tr("${locked.joinToString(" y ")} Hz necesitan Shizuku (pasan del máximo del sistema).",
-                "${locked.joinToString(" and ")} Hz need Shizuku (above the system maximum)."))
         }
     }
 }
@@ -321,8 +317,8 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
         }
         PermRow(
             tr("Shizuku (opcional)", "Shizuku (optional)"), shizuku == Shell.State.READY,
-            tr("Lo demás funciona sin él. Solo para: bypass y límite de carga, cambiar el modo desde el panel, ocultar Game Assistant, FPS del monitor, 144 y 165 Hz, apagar la tablet con un monitor y arrastrar con el mouse. Hay que iniciarlo tras cada reinicio.",
-                "Everything else works without it. Only for: bypass and charge limit, changing the mode from the panel, hiding Game Assistant, monitor FPS, 144 and 165 Hz, turning the tablet off with a monitor and dragging with the mouse. Start it after every reboot."),
+            tr("Lo demás funciona sin él. Solo para: bypass y límite de carga, cambiar el modo desde el panel, ocultar Game Assistant, FPS del monitor, apagar la tablet con un monitor y arrastrar con el mouse. Hay que iniciarlo tras cada reinicio.",
+                "Everything else works without it. Only for: bypass and charge limit, changing the mode from the panel, hiding Game Assistant, monitor FPS, turning the tablet off with a monitor and dragging with the mouse. Start it after every reboot."),
             off = if (shizuku == Shell.State.NO_PERMISSION) tr("Falta el permiso", "Permission missing") else tr("No está iniciado", "Not started")
         ) {
             val launch = remember { Shell.launchIntent(a) }

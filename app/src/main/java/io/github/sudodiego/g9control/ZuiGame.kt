@@ -89,7 +89,7 @@ object ZuiGame {
      */
     enum class PerfMode(val status: Int) {
         SAVER(1), BALANCED(0), BEAST(2);
-        val label get() = when (this) { SAVER -> tr("Ahorro", "Power saving"); BALANCED -> tr("Equilibrado", "Balanced"); BEAST -> tr("Bestia", "Beast") }
+        val label get() = when (this) { SAVER -> tr("Ahorro de energía", "Power saving"); BALANCED -> tr("Equilibrado", "Balanced"); BEAST -> tr("Alto rendimiento", "High performance") }
     }
 
     /** Última línea del registro de Game Assistant que dice el modo (o null si ya no está en el registro). */

@@ -2,7 +2,6 @@ package io.github.sudodiego.g9control
 
 import android.content.Context
 import android.hardware.display.DisplayManager
-import android.provider.Settings
 import android.util.Log
 import android.view.Display
 import kotlinx.coroutines.CoroutineScope
@@ -13,22 +12,17 @@ import kotlin.math.roundToInt
 
 /**
  * Frecuencia de la pantalla por juego: un juego a 60 FPS se ve igual a 60 Hz (y gasta menos), y RetroArch con
- * inserción de cuadros negros quiere 120. Se fija con los ajustes del sistema `peak_refresh_rate` y
- * `min_refresh_rate` iguales (probado: 60 → 60 Hz, 165 → 165 Hz). Son privados del sistema: una app no los puede
- * escribir (ni con WRITE_SECURE_SETTINGS), así que va con Shizuku. La elección se guarda por app; al pasar a una app
- * sin elección se vuelve a lo que había antes (guardado al aplicar la primera vez).
+ * inserción de cuadros negros quiere 120. Sin Shizuku ni ajustes: una ventana invisible del servicio pide ese modo de
+ * pantalla con mínimo y máximo iguales, como un reproductor de video (votos APP_REQUEST del sistema). Probado: 60 Hz y
+ * 165 Hz con el máximo del sistema en 120, y se mantiene con el juego quieto. Al quitar la ventana todo vuelve solo.
+ * La elección se guarda por app.
+ *
+ * Antes se cambiaban `peak/min_refresh_rate` con Shizuku: si quedaron cambiados (hz_saved_*), se devuelven una vez.
  */
 object RefreshRate {
-    private const val PEAK = "peak_refresh_rate"
-    private const val MIN = "min_refresh_rate"
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private fun sp(ctx: Context) = ctx.getSharedPreferences("g9", Context.MODE_PRIVATE)
-
-    fun canWrite() = Shell.state == Shell.State.READY
-
-    /** Hasta el máximo del sistema (120) va sin Shizuku (con la ventana); más (144, 165) hay que subir el máximo. */
-    fun available(ctx: Context, hz: Int) = hz <= systemPeak(ctx) || canWrite()
 
     /** Frecuencias que admite la pantalla (30 sirve para juegos a 30 FPS). */
     fun supported(ctx: Context): List<Int> =
@@ -56,37 +50,19 @@ object RefreshRate {
 
     /**
      * Aplica la frecuencia de esa app (al cambiar de app, cuando ZUI dice que es un juego, o al elegirla en el
-     * panel). Sin elección, vuelve a lo que había antes de la primera vez que G9 Control la cambió. [done] se llama
-     * al terminar (en otro hilo).
+     * panel); sin elección quita la ventana. [done] se llama al terminar.
      */
     fun applyFor(ctx: Context, pkg: String?, done: () -> Unit = {}) {
         val want = wanted(ctx, pkg)
+        main.post { window(ctx, want); done() }
+        if (want != null) Log.d(AutoModeService.TAG, "pantalla a $want Hz ($pkg)")
+        // Lo que dejaron las versiones con Shizuku: se devuelve una vez, cuando se pueda.
         val p = sp(ctx)
-        // Sin Shizuku (o sin pasar del máximo del sistema): una ventana invisible del servicio que pide ese modo de
-        // pantalla, como hace un reproductor de video. No cambia ningún ajuste; se quita y vuelve todo solo.
-        val peak = systemPeak(ctx)
-        val byWindow = want != null && (want <= peak || !canWrite())
-        main.post { if (byWindow) window(ctx, want!!) else window(ctx, null) }
-        if (byWindow) Log.d(AutoModeService.TAG, "pantalla a $want Hz con la ventana ($pkg)")
-        if ((want == null || byWindow) && !p.contains("hz_saved_peak")) return done()
-        val cr = ctx.contentResolver
-        scope.launch {
-            if (!canWrite()) return@launch done()
-            if (want != null && !byWindow) {
-                // Lo del usuario se guarda una sola vez (mientras G9 Control tenga la frecuencia cambiada).
-                if (!p.contains("hz_saved_peak")) p.edit()
-                    .putFloat("hz_saved_peak", Settings.System.getFloat(cr, PEAK, 120f))
-                    .putFloat("hz_saved_min", Settings.System.getFloat(cr, MIN, 30f)).commit()
-                Shell.run(Shell.refreshRate(PEAK, want.toFloat()))
-                Shell.run(Shell.refreshRate(MIN, want.toFloat()))
-                Log.d(AutoModeService.TAG, "pantalla a $want Hz ($pkg)")
-            } else {
-                Shell.run(Shell.refreshRate(PEAK, p.getFloat("hz_saved_peak", 120f)))
-                Shell.run(Shell.refreshRate(MIN, p.getFloat("hz_saved_min", 30f)))
-                p.edit().remove("hz_saved_peak").remove("hz_saved_min").commit()
-                Log.d(AutoModeService.TAG, "pantalla a su frecuencia de siempre")
-            }
-            done()
+        if (p.contains("hz_saved_peak") && Shell.state == Shell.State.READY) scope.launch {
+            Shell.run(Shell.refreshRate("peak_refresh_rate", p.getFloat("hz_saved_peak", 120f)))
+            Shell.run(Shell.refreshRate("min_refresh_rate", p.getFloat("hz_saved_min", 30f)))
+            p.edit().remove("hz_saved_peak").remove("hz_saved_min").commit()
+            Log.d(AutoModeService.TAG, "frecuencia del sistema devuelta a la de siempre")
         }
     }
 
@@ -113,6 +89,13 @@ object RefreshRate {
             android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
             android.graphics.PixelFormat.TRANSLUCENT).apply { gravity = android.view.Gravity.TOP or android.view.Gravity.START }
         lp.preferredDisplayModeId = mode.modeId
+        // El modo solo es la base: dentro del rango 30–120 el sistema igual baja si el juego dibuja poco. Mínimo y
+        // máximo iguales lo fijan (campos ocultos del SDK; si Android no los deja, queda solo la base).
+        runCatching {
+            val c = android.view.WindowManager.LayoutParams::class.java
+            c.getField("preferredMinDisplayRefreshRate").setFloat(lp, mode.refreshRate)
+            c.getField("preferredMaxDisplayRefreshRate").setFloat(lp, mode.refreshRate)
+        }.onFailure { Log.w(AutoModeService.TAG, "frecuencia: sin rango mínimo/máximo ($it)") }
         val v = hzView
         if (v == null) {
             val nv = android.view.View(ctx)
@@ -124,6 +107,6 @@ object RefreshRate {
     fun systemPeak(ctx: Context): Int {
         val p = sp(ctx)
         return (if (p.contains("hz_saved_peak")) p.getFloat("hz_saved_peak", 120f)
-        else runCatching { Settings.System.getFloat(ctx.contentResolver, PEAK) }.getOrDefault(120f)).roundToInt()
+        else runCatching { android.provider.Settings.System.getFloat(ctx.contentResolver, "peak_refresh_rate") }.getOrDefault(120f)).roundToInt()
     }
 }

@@ -19,8 +19,7 @@ Este archivo junta lo que se sabe del protocolo y del control, lo que se descart
 **Shizuku: qué lo necesita y qué no (revisión del 11 oct 2026).** Regla: solo cuando no hay otra vía.
 | Función | Cómo va |
 |---|---|
-| Frecuencia hasta el máximo del sistema (120) | Sin Shizuku: ventana invisible del servicio (TYPE_ACCESSIBILITY_OVERLAY, 1 px) con `preferredDisplayModeId`; sale como voto `PRIORITY_APP_REQUEST_BASE_MODE_REFRESH_RATE` (probado: 60 Hz con peak 120) |
-| 144 y 165 Hz | Shizuku (`peak/min_refresh_rate` son privados; `extremeRefresh_<pkg>`/`highRefresh_<pkg>` de ZUI tampoco se pueden escribir) |
+| Frecuencia (todas, 30–165) | Sin Shizuku: ventana invisible del servicio (TYPE_ACCESSIBILITY_OVERLAY, 1 px) con `preferredDisplayModeId` y los campos ocultos `preferredMin/MaxDisplayRefreshRate` iguales (por reflexión): votos `APP_REQUEST_BASE_MODE` y `APP_REQUEST_RENDER_FRAME_RATE_RANGE`. Probado: 60 y 165 Hz con peak 120, y se mantiene con el juego quieto. Solo la base (sin rango) no bastaba: bajaba si el juego dibujaba poco |
 | Bloquear gestos | Sin Shizuku: `key_game_assistant_prevent_misoperation` (Global) = "Disable navigation bar and gesture" de Game Assistant, con WRITE_SECURE_SETTINGS |
 | Rendimiento | Con Shizuku desde el panel; sin él, el mosaico abre Game Assistant (si no está oculto) |
 | Bypass, límite de carga | Shizuku (zuibattery solo acepta al sistema) |
@@ -31,6 +30,8 @@ Este archivo junta lo que se sabe del protocolo y del control, lo que se descart
 | WiFi/Bluetooth encender | Shizuku (`svc`); las listas abren sin él (panel de Internet, ajustes de Bluetooth) |
 | Arrastrar con el mouse | Shizuku (`input motionevent`): Android cancela los gestos del servicio apenas llega un movimiento real del stick (visto en el registro) |
 | M dos veces en Artemis | Shizuku (getevent); respaldo: L3 + R3 |
+
+**Tiempo de carga (11 oct 2026):** hasta el límite (el propio o el de ZUI, que se lee con Shizuku y queda guardado en `zui_limit`) se estima con la capacidad (charge counter / nivel) y la corriente media; hasta 100 lo da `computeChargeTimeRemaining`. `dumpsys battery` no dice si el límite de ZUI está activo (Charging policy 0).
 
 **Sonido de captura (11 oct 2026):** WAV en `res/raw` con 300 ms de silencio al inicio (el amplificador del parlante en reposo se comía el comienzo) y un MediaPlayer nuevo por captura. El script que los genera debe convertir con `[double]` (con enteros, `[Math]::Min(1, $v)` redondeaba cada muestra a 0 o 1: jingle mudo, obturador roto).
 ### Lo aprendido, en corto (10 oct 2026)
