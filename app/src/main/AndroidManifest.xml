@@ -13,6 +13,13 @@
         android:name="android.permission.WRITE_SECURE_SETTINGS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- Liberar memoria desde Inicio: cerrar las apps que quedaron en segundo plano (permiso normal, sin pedirlo). -->
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+    <!-- Ver qué apps se usaron hace poco (para cerrarlas una por una): "Acceso a datos de uso", lo da el usuario. -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
     <!-- Para listar las apps instaladas en la página de cambio automático. -->
     <queries>
         <intent>

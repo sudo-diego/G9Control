@@ -37,7 +37,7 @@ fun ProfilesPage(s: AppState, a: MainActivity) {
     ) {
         if (!known) Hint(tr("Conecta el control en modo Android.", "Connect the controller in Android mode."))
         // Respaldo en un archivo: sirve para no perder los perfiles al desinstalar o cambiar de tablet.
-        CompositionLocalProvider(LocalEditable provides true) {
+        CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(onClick = { a.exportProfiles() }, enabled = s.profiles.isNotEmpty()) { Text(tr("Exportar respaldo", "Export backup")) }
                 OutlinedButton(onClick = { a.importProfiles() }) { Text(tr("Importar respaldo", "Import backup")) }

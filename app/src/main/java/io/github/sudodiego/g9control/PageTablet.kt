@@ -35,8 +35,9 @@ fun BatteryPage(s: AppState, a: MainActivity) {
 @Composable
 fun ScreenPage(s: AppState, a: MainActivity) {
     TwoPane(
-        first = { ScreenButtonsPanel(s, a) },
-        second = { MonitorPanel(s, a); ShizukuHint() }
+        // 16:9 a mano: permiso de pantalla o Shizuku. El monitor lo aplica el servicio de accesibilidad.
+        first = { Gate(Aspect.available(a)) { ScreenButtonsPanel(s, a) } },
+        second = { Gate(s.autoServiceOn) { MonitorPanel(s, a) }; ShizukuHint() }
     )
 }
 
@@ -132,7 +133,7 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
             delay(3000)
         }
     }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Batería", "Battery"), trailing = {
             now?.let { b ->
                 // Enchufada y sin cargar: el bypass, el límite de carga de ZUI o algo más (la batería decide).
@@ -146,8 +147,9 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
                 Text("${b.level} % · ${"%.0f".format(b.tempC)} °C · $state", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }) {
-            // Sin Shizuku todo el bypass se ve atenuado (no haría nada); la tarjeta Shizuku dice qué falta.
-            CompositionLocalProvider(LocalEditable provides ready) {
+            // Lo que no se puede usar se ve oscurecido: el bypass a mano necesita Shizuku; el límite y el automático,
+            // además, el servicio de accesibilidad (que los vigila).
+            Gate(ready && s.autoServiceOn) {
                 // Límite propio: al llegar, bypass (la batería deja de cargar). El de ZUI corta siempre en 80 %.
                 Text(tr("Límite de carga", "Charge limit"), fontSize = 14.sp)
                 ChoiceChips(listOf(0 to tr("Apagado", "Off")) + ZuiBattery.LIMITS.map { it to "$it %" }, own) { lv ->
@@ -159,12 +161,16 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 if (own > 80 && limit != null) Hint(tr("Apaga el límite de ZUI para llegar a $own %.", "Turn ZUI's limit off to reach $own %."))
+            }
+            Gate(ready) {
                 SwitchRow(
                     tr("Bypass", "Bypass"), bypass == true,
                     tr("El cargador alimenta la tablet y la batería no carga.", "The charger powers the tablet; the battery doesn't charge.")
                 ) { want ->
                     if (ready) scope.launch { if (ZuiBattery.setBypass(want)) bypass = want }
                 }
+            }
+            Gate(ready && s.autoServiceOn) {
                 // Automático: un resumen de cuándo se activa, que cambia con lo que se elija.
                 val summary = listOfNotNull(
                     tr("Enchufada", "Plugged in"),
@@ -178,7 +184,6 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
                     if (it && Aspect.canWrite(a)) runCatching { Settings.Global.putInt(a.contentResolver, "intelligent_bypass_charging_value", 0) }
                 }
                 if (smart) {
-                    if (!s.autoServiceOn) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
                     Text(tr("Cuándo", "When"), fontSize = 14.sp)
                     ChoiceChips(listOf(true to tr("En juegos", "In games"), false to tr("Siempre", "Always")), games) { games = it; AutoRules.setSmartBypassGames(a, it) }
                     Text(tr("Batería desde", "Battery from"), fontSize = 14.sp)
@@ -209,7 +214,7 @@ private fun MonitorPanel(s: AppState, a: MainActivity) {
     var screen by remember { mutableStateOf(Monitor.screen(a)) }
     val known = remember(tick) { Monitor.known(a) }
     val ready = Shell.state == Shell.State.READY
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Monitor", "Monitor"), trailing = {
             val m = monitor
             Text(
@@ -271,7 +276,7 @@ private fun MonitorPanel(s: AppState, a: MainActivity) {
 @Composable
 private fun ScreenButtonsPanel(s: AppState, a: MainActivity) {
     // Invertir el volumen pasó a Controles (botones de la tablet).
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Pantalla", "Screen")) {
             ScreenRow(a)
         }
@@ -307,11 +312,11 @@ fun GameAssistantSettings(s: AppState, a: MainActivity) {
     // (copiar el estado actual a la preferencia hacía que no se volviera a ocultar). Solo la primera vez, sin
     // preferencia guardada, se toma de cómo está.
     LaunchedEffect(ready) { if (ready && gaHidden == null) ZuiGame.hidden()?.let { gaHidden = it; AutoRules.setGaHidden(a, it) } }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel("Game Assistant", trailing = {
             Text(if (game) tr("En un juego", "In a game") else tr("Sin juego", "No game"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }) {
-            CompositionLocalProvider(LocalEditable provides ready) {
+            CompositionLocalProvider(LocalEditable provides (ready && LocalGateOk.current)) {
                 SwitchRow(
                     tr("Ocultar Game Assistant", "Hide Game Assistant"), gaHidden == true
                 ) { want ->
@@ -327,7 +332,7 @@ fun GameAssistantSettings(s: AppState, a: MainActivity) {
             var autoInGames by remember {
                 mutableStateOf(runCatching { Settings.Global.getInt(a.contentResolver, GA_NO_AUTO_BRIGHTNESS) == 0 }.getOrDefault(false))
             }
-            CompositionLocalProvider(LocalEditable provides canWrite) {
+            CompositionLocalProvider(LocalEditable provides (canWrite && LocalGateOk.current)) {
                 SwitchRow(
                     tr("Brillo automático en juegos", "Auto brightness in games"), autoInGames,
                     tr("Que Game Assistant no lo apague", "Keep Game Assistant from turning it off")

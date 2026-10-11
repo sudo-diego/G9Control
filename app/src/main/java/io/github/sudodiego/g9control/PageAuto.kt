@@ -54,9 +54,11 @@ private object AppCache { @Volatile var apps: List<AppEntry>? = null }
  */
 @Composable
 fun AutoPage(s: AppState, a: MainActivity) {
-    AppPicker(s, a)
-    // Cómo avisa al abrir y salir de un juego (antes en Ajustes).
-    NoticesPanel(s, a)
+    // El cambio por juego y sus avisos los hace el servicio de accesibilidad.
+    Gate(s.autoServiceOn) {
+        AppPicker(s, a)
+        NoticesPanel(s, a)
+    }
 }
 
 @Composable

@@ -20,6 +20,12 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun ShortcutsPage(s: AppState, a: MainActivity) {
+    // Todos los atajos los hace el servicio de accesibilidad: sin él, oscurecidos.
+    Gate(s.autoServiceOn) { ShortcutsContent(s, a) }
+}
+
+@Composable
+private fun ShortcutsContent(s: AppState, a: MainActivity) {
     TwoPane(
         first = { GuidePanel(a) },
         second = {
@@ -34,10 +40,10 @@ private fun GuidePanel(a: MainActivity) {
     var on by remember { mutableStateOf(AutoRules.legionKeys(a)) }
     val states = remember { AutoRules.Guide.entries.associateWith { mutableStateOf(AutoRules.guide(a, it)) } }
     var burst by remember { mutableStateOf(AutoRules.burstShots(a)) }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Botón guía", "Guide button"), tr("Legion en el G9 · Xbox, PS u Home en otros", "Legion on the G9 · Xbox, PS or Home on others"),
-            trailing = { Switch(on, { on = it; AutoRules.setLegionKeys(a, it) }) }) {
-            CompositionLocalProvider(LocalEditable provides on) {
+            trailing = { Switch(on, { on = it; AutoRules.setLegionKeys(a, it) }, enabled = LocalGateOk.current) }) {
+            CompositionLocalProvider(LocalEditable provides (on && LocalGateOk.current)) {
                 fun row(g: AutoRules.Guide) = states.getValue(g)
                 ShortcutRow(listOf(tr("Guía", "Guide")), tr("Tocar", "Tap"), tr("Atrás", "Back"), row(AutoRules.Guide.TAP_BACK).value) {
                     row(AutoRules.Guide.TAP_BACK).value = it; AutoRules.setGuide(a, AutoRules.Guide.TAP_BACK, it)
@@ -65,7 +71,7 @@ private fun GuidePanel(a: MainActivity) {
 @Composable
 private fun OtherShortcutsPanel(a: MainActivity) {
     var chord by remember { mutableStateOf(AutoRules.gamePanel(a)) }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Sin botón guía", "Without a guide button")) {
             ShortcutRow(listOf("L3", "R3"), tr("Tocar · mantener: captura", "Tap · hold: screenshot"), tr("Panel de juego", "Game panel"), chord) {
                 chord = it; AutoRules.setGamePanel(a, it)
@@ -77,7 +83,7 @@ private fun OtherShortcutsPanel(a: MainActivity) {
 @Composable
 private fun TabletButtonsPanel(a: MainActivity) {
     var swap by remember { mutableStateOf(AutoRules.swapVolume(a)) }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Botones de la tablet", "Tablet buttons")) {
             SwitchRow(tr("Invertir el volumen", "Swap volume buttons"), swap) {
                 swap = it; AutoRules.setSwapVolume(a, it)

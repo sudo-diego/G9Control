@@ -80,7 +80,7 @@ fun ControlsPage(s: AppState, a: MainActivity) {
 @Composable
 private fun TouchpadShotPanel(a: MainActivity) {
     var on by remember { mutableStateOf(AutoRules.touchpadShot(a)) }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel {
             SwitchRow(tr("M dos veces: captura", "M twice: screenshot"), on, tr("En DS5", "In DS5")) { on = it; AutoRules.setTouchpadShot(a, it) }
         }

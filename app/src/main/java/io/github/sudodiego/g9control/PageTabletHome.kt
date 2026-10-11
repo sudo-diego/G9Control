@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.font.FontWeight
@@ -33,6 +34,7 @@ fun TabletHomePage(s: AppState, a: MainActivity) {
         },
         second = {
             QuickTiles(s, a)
+            MemoryPanel(s, a)
             ControllersPanel(s)
             ShortcutsHelp(s, a)
         }
@@ -196,4 +198,61 @@ private fun HelpRow(title: String, desc: String) {
         Text(title, fontSize = 15.sp, fontWeight = FontWeight.Medium)
         Text(desc, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/**
+ * Memoria: cuánta RAM queda, liberar (cierra lo que quedó en segundo plano) y, con el acceso a datos de uso, las apps
+ * usadas hace poco para cerrarlas una por una.
+ */
+@Composable
+private fun MemoryPanel(s: AppState, a: MainActivity) {
+    val scope = rememberCoroutineScope()
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { delay(3000); tick++ } }
+    val info = remember(tick) { Memory.info(a) }
+    val allowed = remember(tick) { Memory.usageAllowed(a) }
+    var apps by remember { mutableStateOf(listOf<Memory.App>()) }
+    var busy by remember { mutableStateOf(false) }
+    LaunchedEffect(allowed, tick / 5) { apps = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.recent(a) } }
+    val c = MaterialTheme.colorScheme
+    Panel(tr("Memoria", "Memory"), trailing = {
+        Text(tr("${Memory.gb(info.freeBytes)} libres de ${Memory.gb(info.totalBytes)}", "${Memory.gb(info.freeBytes)} free of ${Memory.gb(info.totalBytes)}"),
+            fontSize = 14.sp, color = c.onSurfaceVariant)
+    }) {
+        val used = 1f - info.freeBytes.toFloat() / info.totalBytes.coerceAtLeast(1)
+        LinearProgressIndicator({ used }, Modifier.fillMaxWidth().height(8.dp), color = c.secondary, trackColor = c.surfaceVariant)
+        Button(onClick = {
+            busy = true
+            scope.launch {
+                val freed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Memory.freeAll(a) }
+                busy = false; tick++
+                s.status = tr("Memoria liberada: ${Memory.gb(freed)}.", "Memory freed: ${Memory.gb(freed)}.")
+            }
+        }, enabled = !busy) { Text(if (busy) tr("Liberando…", "Freeing…") else tr("Liberar memoria", "Free memory")) }
+        if (!allowed) TextButton(onClick = { runCatching { a.startActivity(Memory.usageSettings()) } }) {
+            Text(tr("Ver las apps abiertas (acceso a datos de uso)", "See open apps (usage access)"))
+        }
+        apps.take(6).forEach { app ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                app.icon?.let { d ->
+                    androidx.compose.foundation.Image(
+                        remember(app.pkg) { androidx.compose.ui.graphics.painter.BitmapPainter(d.toBitmapSafe().asImageBitmap()) },
+                        null, Modifier.size(28.dp))
+                    Spacer(Modifier.width(12.dp))
+                }
+                Text(app.label, Modifier.weight(1f), fontSize = 15.sp, maxLines = 1)
+                TextButton(onClick = { Memory.close(a, app.pkg); apps = apps - app; tick++ }) { Text(tr("Cerrar", "Close")) }
+            }
+        }
+    }
+}
+
+/** Ícono de app como bitmap (los adaptativos no son BitmapDrawable). */
+private fun android.graphics.drawable.Drawable.toBitmapSafe(): android.graphics.Bitmap {
+    (this as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { return it }
+    val size = 96
+    val b = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+    val canvas = android.graphics.Canvas(b)
+    setBounds(0, 0, size, size); draw(canvas)
+    return b
 }

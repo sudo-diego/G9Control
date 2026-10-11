@@ -47,11 +47,8 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                 }
                 if (ThemeState.background == AppBackground.IMAGE) {
                     OutlinedButton(onClick = { a.pickBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(tr("Desenfoque", "Blur"), Modifier.width(120.dp), fontSize = 14.sp)
-                        Slider(ThemeState.backgroundBlur.toFloat(), { ThemeState.backgroundBlur = it.toInt() },
-                            Modifier.weight(1f), valueRange = 0f..100f, onValueChangeFinished = { Prefs.setBackgroundBlur(a, ThemeState.backgroundBlur) })
-                        Text("${ThemeState.backgroundBlur}", Modifier.width(44.dp), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    SliderRow(tr("Desenfoque", "Blur"), ThemeState.backgroundBlur, 0..100) {
+                        ThemeState.backgroundBlur = it; Prefs.setBackgroundBlur(a, it)
                     }
                     SwitchRow(tr("Repetir el GIF", "Loop the GIF"), loop) { loop = it; ThemeState.backgroundLoop = it; Prefs.setBackgroundLoop(a, it) }
                 }
@@ -92,7 +89,7 @@ fun G9PrefsPage(s: AppState, a: MainActivity) {
     val dev = Prefs.devTools(a)
     TwoPane(
         first = {
-            CompositionLocalProvider(LocalEditable provides true) {
+            CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
                 Panel(tr("Control G9", "G9 controller")) {
                     Text(tr("Estilo del dibujo", "Drawing style"), fontSize = 14.sp)
                     ChoiceChips(ControllerSkin.entries.map { it to it.label }, SkinState.skin) {
@@ -197,8 +194,9 @@ private fun ConsolePanel(s: AppState, a: MainActivity) {
 @Composable
 fun GamePanelPage(s: AppState, a: MainActivity) {
     TwoPane(
-        first = { GamePanelSettings(s, a) },
-        second = { GamesHzPanel(a); GameAssistantSettings(s, a) }
+        // Capturas, monitor y frecuencia los hace el servicio de accesibilidad; Game Assistant tiene sus propios permisos.
+        first = { Gate(s.autoServiceOn) { GamePanelSettings(s, a) } },
+        second = { Gate(s.autoServiceOn) { GamesHzPanel(a) }; GameAssistantSettings(s, a) }
     )
 }
 
@@ -206,7 +204,7 @@ fun GamePanelPage(s: AppState, a: MainActivity) {
 @Composable
 private fun GamesHzPanel(a: MainActivity) {
     var hz by remember { mutableIntStateOf(RefreshRate.forGames(a) ?: 0) }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Frecuencia en juegos", "Refresh rate in games"),
             tr("Cada juego puede tener la suya desde el panel", "Each game can have its own from the panel")) {
             ChoiceChips(listOf(0 to tr("Sistema", "System")) + RefreshRate.supported(a).map { it to "$it Hz" }, hz) {
@@ -230,7 +228,7 @@ fun NoticesPanel(s: AppState, a: MainActivity) {
     var guidePos by remember { mutableStateOf(AutoRules.guidePos(a)) }
     val on = s.autoServiceOn
     // Estas opciones son de la app, no del control: siempre se pueden cambiar.
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Avisos de cambio de modo", "Mode change notices")) {
             NoticeBox(tr("Al abrir un juego", "When opening a game"), tr("Si el juego usa otro modo", "If the game uses another mode"),
                 if (on) { { AutoRules.preview(a, if (small) "mini" else "big") } } else null) {
@@ -274,7 +272,7 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
     var perfHud by remember { mutableStateOf(AutoRules.perfHud(a)) }
     var perfPos by remember { mutableStateOf(AutoRules.perfPos(a)) }
     var perfFull by remember { mutableStateOf(AutoRules.perfFull(a)) }
-    CompositionLocalProvider(LocalEditable provides true) {
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Capturas", "Screenshots")) {
             NoticeBox(tr("Aviso", "Notice"), tr("Miniatura en la esquina", "Thumbnail in the corner"),
                 if (s.autoServiceOn) { { AutoRules.preview(a, "shot") } } else null,
@@ -283,7 +281,7 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                 ChoiceChips(ShotSound.entries.map { it to it.label }, shotSound) { shotSound = it; AutoRules.setShotSound(a, it) }
             }
         }
-        Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }) }) {
+        Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }, enabled = LocalGateOk.current) }) {
             NoticeBox(tr("Datos", "Data"), tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery"), null,
                 side = { PosGrid(perfPos) { perfPos = it; AutoRules.setPerfPos(a, it) } }) {
                 SwitchRow(tr("Más datos", "More data"), perfFull, tr("Watts, tiempo, Hz y calor", "Watts, time, Hz and heat")) {
@@ -330,7 +328,7 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
         var warnService by remember { mutableStateOf(AutoRules.warnService(a)) }
         var warnShizuku by remember { mutableStateOf(AutoRules.warnShizuku(a)) }
         var shizukuTile by remember { mutableStateOf(AutoRules.shizukuTile(a)) }
-        CompositionLocalProvider(LocalEditable provides true) {
+        CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
             Text(tr("Avisar si falta", "Warn when missing"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SwitchRow(tr("Servicio, en Inicio", "Service, on Home"), warnService) { warnService = it; AutoRules.setWarnService(a, it) }
             SwitchRow(tr("Shizuku, en Inicio", "Shizuku, on Home"), warnShizuku) { warnShizuku = it; AutoRules.setWarnShizuku(a, it) }

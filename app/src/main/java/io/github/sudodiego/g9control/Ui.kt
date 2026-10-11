@@ -79,8 +79,23 @@ val LocalSliderHeld = compositionLocalOf<(Boolean) -> Unit> { {} }
 /** Páginas cuyos controles escriben en el control. */
 private val EDIT_PAGES = setOf(Page.LIGHTS, Page.STICKS, Page.VIBRATION)
 
-/** Páginas que dependen del servicio de accesibilidad. */
-private val SERVICE_PAGES = setOf(Page.CONTROLS, Page.GAMEPANEL, Page.SCREEN, Page.AUTO)
+/** Páginas que dependen del servicio de accesibilidad (toda o una parte). */
+private val SERVICE_PAGES = setOf(Page.CONTROLS, Page.GAMEPANEL, Page.SCREEN, Page.AUTO, Page.BATTERY)
+
+/** false dentro de un [Gate] cerrado: lo de adentro no se puede usar (ni aunque un panel diga editable). */
+val LocalGateOk = compositionLocalOf { true }
+
+/**
+ * Lo que depende de un permiso (el servicio de accesibilidad, Shizuku): sin él se ve oscurecido y no responde. Así se
+ * nota qué no se puede usar ahora; la franja de arriba de la página dice qué falta.
+ */
+@Composable
+fun Gate(ok: Boolean, content: @Composable ColumnScope.() -> Unit) {
+    val open = ok && LocalGateOk.current
+    Column(Modifier.alpha(if (open) 1f else 0.4f), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        CompositionLocalProvider(LocalEditable provides (open && LocalEditable.current), LocalGateOk provides open) { content() }
+    }
+}
 
 /** Franja de lo que falta (un permiso, Shizuku): una línea con el ícono en color y el botón para arreglarlo. */
 @Composable
@@ -167,8 +182,9 @@ private fun TabBar(s: AppState, a: MainActivity) {
             Spacer(Modifier.width(6.dp))
             PadBadge("RT")
             Spacer(Modifier.weight(1f))
-            Row(
-                Modifier.weight(10f, fill = false).clip(CircleShape).background(c.surfaceContainerHigh.copy(alpha = 0.85f))
+            // Con una sola página (Ajustes) no hay pestañas ni LB/RB.
+            if (s.section.pages.size > 1) Row(
+                Modifier.weight(30f, fill = false).clip(CircleShape).background(c.surfaceContainerHigh.copy(alpha = 0.85f))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -215,7 +231,7 @@ private fun TabBar(s: AppState, a: MainActivity) {
                             )
                             if (sel) {
                                 Spacer(Modifier.width(8.dp))
-                                Text(item.label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = c.onPrimaryContainer)
+                                Text(item.label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = c.onPrimaryContainer, maxLines = 1, softWrap = false)
                             }
                         }
                     }
@@ -362,7 +378,8 @@ private fun PageHost(s: AppState, a: MainActivity, modifier: Modifier) {
             // Páginas que no hacen nada sin el servicio de accesibilidad (dibujar sobre los juegos, leer el control en
             // cualquier app, pedir la frecuencia): lo dicen arriba, con el botón para activarlo.
             if (page in SERVICE_PAGES && !s.autoServiceOn) NeedsBanner(
-                tr("Esta página necesita el servicio de accesibilidad.", "This page needs the accessibility service."),
+                if (page == Page.BATTERY) tr("Lo automático de esta página necesita el servicio de accesibilidad.", "The automatic features here need the accessibility service.")
+                else tr("Esta página necesita el servicio de accesibilidad.", "This page needs the accessibility service."),
                 tr("Activar", "Turn on")) { AutoRules.openServiceSettings(a) }
             val editable = page !in EDIT_PAGES || s.connected
             CompositionLocalProvider(LocalEditable provides editable) {
