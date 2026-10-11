@@ -145,6 +145,8 @@ private class PanelUi {
     var battery by mutableIntStateOf(-1)
     var charging by mutableStateOf(false)
     var bypass by mutableStateOf(false)
+    /** Cargando: lo que falta para la carga completa ("1 h 20 min"), a la izquierda de la batería. */
+    var chargeLeft by mutableStateOf<String?>(null)
     var status by mutableStateOf("")
     /** Modo del G9 ahora (Android, X-Input, DS5), como recordatorio; null si no está conectado. */
     var mode by mutableStateOf<String?>(null)
@@ -226,6 +228,12 @@ class GamePanel(private val svc: AutoModeService) {
         // Sin Shizuku no se puede leer: lo último que se supo puede ser viejo (se detuvo Shizuku, lo apagó otro).
         ui.bypass = Shell.state == Shell.State.READY && ZuiBattery.bypassNow == true && ZuiBattery.plugged(svc)
         ui.charging = !ui.bypass && i?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) == android.os.BatteryManager.BATTERY_STATUS_CHARGING
+        // Lo calcula Android (−1 si todavía no sabe, recién enchufada).
+        ui.chargeLeft = if (!ui.charging) null else svc.getSystemService(android.os.BatteryManager::class.java)
+            .computeChargeTimeRemaining().takeIf { it > 0 }?.let { ms ->
+                val min = (ms / 60_000).coerceAtLeast(1)
+                if (min >= 60) "${min / 60} h ${min % 60} min" else "$min min"
+            }
         val time = android.text.format.DateFormat.getTimeFormat(svc).format(Date())
         ui.status = listOfNotNull(ui.battery.takeIf { it >= 0 }?.let { "$it %" }, time).joinToString(" · ")
     }
@@ -1027,6 +1035,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                 // En un submenú solo el título: lo demás ya se vio en el panel.
                 if (!ui.sub) {
                     if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
+                    ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1); Spacer(Modifier.width(6.dp)) }
                     if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass); Spacer(Modifier.width(8.dp)) }
                     Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1)
                 }
@@ -1490,12 +1499,13 @@ private class ShotFlash(private val svc: AccessibilityService) {
 }
 
 /**
- * Sonido de la captura, generado al vuelo (sin archivos de audio): un obturador (dos chasquidos) o un jingle
- * corto de dos notas. Los dos van por el volumen multimedia, el mismo del juego (el obturador del sistema,
- * `MediaActionSound`, usa el volumen del sistema y en esta tablet no se oye).
+ * Sonido de la captura: un obturador (dos chasquidos) o un jingle corto de dos notas, archivos en `res/raw`. Van por
+ * el volumen multimedia, el mismo del juego (el obturador del sistema, `MediaActionSound`, usa el volumen del sistema
+ * y en esta tablet no se oye). Cada captura usa un reproductor nuevo: uno guardado (antes un `AudioTrack` fijo) queda
+ * mudo sin avisar si Android reinicia el audio o cambia la salida (audífonos, Bluetooth, monitor).
  */
-private class ShotSounds(ctx: android.content.Context) {
-    private val tracks = mutableMapOf<ShotSound, android.media.AudioTrack>()
+private class ShotSounds(private val ctx: android.content.Context) {
+    private var player: android.media.MediaPlayer? = null
     private val audio = ctx.getSystemService(android.media.AudioManager::class.java)
     private val main = Handler(Looper.getMainLooper())
     private val attrs = android.media.AudioAttributes.Builder()
@@ -1512,63 +1522,23 @@ private class ShotSounds(ctx: android.content.Context) {
 
     fun play(s: ShotSound) {
         if (s == ShotSound.NONE) return
+        val res = if (s == ShotSound.SHUTTER) R.raw.shot_shutter else R.raw.shot_jingle
         runCatching {
-            val t = tracks.getOrPut(s) { track(if (s == ShotSound.SHUTTER) shutter() else jingle()) }
+            player?.release()
+            val p = android.media.MediaPlayer.create(ctx, res, attrs, audio.generateAudioSessionId()) ?: error("MediaPlayer.create devolvió null")
+            player = p
             main.removeCallbacks(unfocus)
             audio.requestAudioFocus(focus)
-            t.stop(); t.reloadStaticData(); t.play()
-            // El sonido dura lo que sus muestras; un poco más para que el juego no vuelva de golpe.
-            main.postDelayed(unfocus, (t.bufferSizeInFrames * 1000L / RATE) + 250)
+            // Al terminar se suelta (un poco después, para que el juego no vuelva de golpe).
+            p.setOnCompletionListener { it.release(); if (player === it) player = null; main.postDelayed(unfocus, 250) }
+            p.start()
         }.onFailure { Log.w(AutoModeService.TAG, "no se pudo reproducir el sonido de captura", it) }
     }
 
     fun release() {
         main.removeCallbacks(unfocus)
         audio.abandonAudioFocusRequest(focus)
-        tracks.values.forEach { it.release() }
-        tracks.clear()
+        player?.release()
+        player = null
     }
-
-    /** Do6 y Sol6 que se solapan apenas, cada uno con un ataque corto y una caída suave. */
-    private fun jingle() = pcm(0.36) { t ->
-        tone(t, 1046.5, 0.0, 0.045) + tone(t, 1568.0, 0.075, 0.09)
-    }
-
-    /** Dos chasquidos (cortina que abre y cierra): ruido suavizado con un golpe grave, el segundo más suave. */
-    private fun shutter(): DoubleArray {
-        val rnd = java.util.Random(9)
-        var low = 0.0
-        return pcm(0.14) { t ->
-            low += 0.35 * (rnd.nextDouble() * 2 - 1 - low)
-            fun click(start: Double, gain: Double, decay: Double): Double {
-                val u = t - start
-                return if (u < 0) 0.0 else gain * Math.exp(-u / decay) * (low * 1.6 + 0.5 * Math.sin(2 * Math.PI * 190 * u))
-            }
-            click(0.0, 0.9, 0.008) + click(0.065, 0.6, 0.014)
-        }
-    }
-
-    private fun tone(t: Double, freq: Double, start: Double, decay: Double): Double {
-        val u = t - start
-        if (u < 0) return 0.0
-        val w = 2 * Math.PI * freq * u
-        return minOf(1.0, u / 0.005) * Math.exp(-u / decay) * 0.3 * (Math.sin(w) + 0.25 * Math.sin(2 * w))
-    }
-
-    private fun pcm(seconds: Double, f: (Double) -> Double) = DoubleArray((RATE * seconds).toInt()) { f(it.toDouble() / RATE) }
-
-    private fun track(samples: DoubleArray): android.media.AudioTrack {
-        val pcm = ShortArray(samples.size) { (samples[it].coerceIn(-1.0, 1.0) * Short.MAX_VALUE).toInt().toShort() }
-        return android.media.AudioTrack.Builder()
-            .setAudioAttributes(attrs)
-            .setAudioFormat(android.media.AudioFormat.Builder()
-                .setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT)
-                .setSampleRate(RATE).setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO).build())
-            .setTransferMode(android.media.AudioTrack.MODE_STATIC)
-            .setBufferSizeInBytes(pcm.size * 2)
-            .build()
-            .also { it.write(pcm, 0, pcm.size) }
-    }
-
-    private companion object { const val RATE = 44100 }
 }
