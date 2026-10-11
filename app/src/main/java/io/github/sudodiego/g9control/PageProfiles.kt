@@ -26,7 +26,7 @@ fun ProfilesPage(s: AppState, a: MainActivity) {
     val known = s.configKnown && s.connected
 
     Panel(
-        tr("Configuración actual", "Current settings"),
+        tr("Perfiles", "Profiles"),
         trailing = {
             Button(onClick = { dialog = ProfileDialog.New }, enabled = known) {
                 Icon(Icons.Outlined.BookmarkAdd, null, Modifier.size(18.dp))
@@ -45,11 +45,7 @@ fun ProfilesPage(s: AppState, a: MainActivity) {
         }
     }
 
-    if (s.profiles.isEmpty()) {
-        Panel {
-            Hint(tr("Todavía no tienes perfiles.", "You don't have any profiles yet."))
-        }
-    } else {
+    if (s.profiles.isNotEmpty()) {
         s.profiles.forEach { p ->
             ProfileCard(
                 p, active = known && p.matches(s), canApply = known && !s.busy,

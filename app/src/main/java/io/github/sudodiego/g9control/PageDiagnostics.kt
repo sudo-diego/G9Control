@@ -240,15 +240,11 @@ fun NoticesPanel(s: AppState, a: MainActivity) {
 }
 
 /**
- * Panel de juego: el botón guía (cualquier control: Legion en el G9, Xbox, PS, Home…) y L3 + R3, cómo se ve el aviso
- * de captura y el monitor de rendimiento. Sirve con cualquier control; lo propio del G9 (M dos veces) está en su sección.
+ * Capturas y monitor de rendimiento: cómo se ven. Los atajos para sacarlas están en Controles; el panel de juego se
+ * abre con el botón guía o L3 + R3.
  */
 @Composable
 private fun GamePanelSettings(s: AppState, a: MainActivity) {
-    var on by remember { mutableStateOf(AutoRules.gamePanel(a)) }
-    var guide by remember { mutableStateOf(AutoRules.legionKeys(a)) }
-    var burst by remember { mutableStateOf(AutoRules.burstShots(a)) }
-    var shizukuTile by remember { mutableStateOf(AutoRules.shizukuTile(a)) }
     var shotPos by remember { mutableStateOf(AutoRules.shotPos(a)) }
     var shotSound by remember { mutableStateOf(AutoRules.shotSound(a)) }
     var shotAnim by remember { mutableStateOf(AutoRules.shotAnim(a)) }
@@ -256,25 +252,8 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
     var perfPos by remember { mutableStateOf(AutoRules.perfPos(a)) }
     var perfFull by remember { mutableStateOf(AutoRules.perfFull(a)) }
     CompositionLocalProvider(LocalEditable provides true) {
-        Panel(tr("Panel de juego", "Game panel"), tr("Un menú para usar en cualquier app sin soltar el control, con cualquier control.",
-            "A menu to use in any app without letting go of the controller, with any controller.")) {
-            SwitchRow(tr("Botón guía", "Guide button"), guide,
-                tr("El del centro del control (Legion en el G9, Xbox, PS u Home). Tocar: Atrás. Mantener: panel de juego. Con RB: captura. Con LB: mantener Atrás (con Shizuku). Transmitiendo desde el PC (Artemis, Moonlight…) pasa al PC.",
-                    "The one in the middle of the controller (Legion on the G9, Xbox, PS or Home). Tap: Back. Hold: game panel. With RB: screenshot. With LB: hold Back (with Shizuku). While streaming from a PC (Artemis, Moonlight…) it goes to the PC.")) {
-                guide = it; AutoRules.setLegionKeys(a, it)
-            }
-            SwitchRow(tr("L3 + R3", "L3 + R3"), on, tr("Para controles sin botón guía. Tocar: abre el panel. Mantener: captura.", "For controllers without a guide button. Tap: opens the panel. Hold: screenshot.")) {
-                on = it; AutoRules.setGamePanel(a, it)
-            }
-            SwitchRow(tr("Ráfaga de capturas", "Screenshot burst"), burst,
-                tr("Guía + RB y seguir manteniendo RB: una captura por segundo hasta soltarlo.", "Guide + RB and keep holding RB: one screenshot per second until you let go.")) {
-                burst = it; AutoRules.setBurstShots(a, it)
-            }
-            SwitchRow(tr("Recordar activar Shizuku", "Remind to start Shizuku"), shizukuTile,
-                tr("Si Shizuku está instalado pero apagado, el panel muestra un mosaico para activarlo.", "If Shizuku is installed but off, the panel shows a tile to start it.")) {
-                shizukuTile = it; AutoRules.setShizukuTile(a, it)
-            }
-            NoticeBox(tr("Aviso de captura", "Screenshot notice"), tr("Miniatura que entra desde el borde.", "Thumbnail that slides in from the edge."),
+        Panel(tr("Capturas", "Screenshots")) {
+            NoticeBox(tr("Aviso", "Notice"), tr("Miniatura en la esquina", "Thumbnail in the corner"),
                 if (s.autoServiceOn) { { AutoRules.preview(a, "shot") } } else null,
                 side = { PosGrid(shotPos) { shotPos = it; AutoRules.setShotPos(a, it) } }) {
                 Text(tr("Sonido", "Sound"), fontSize = 14.sp)
@@ -282,18 +261,16 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                 Text(tr("Animación", "Animation"), fontSize = 14.sp)
                 ChoiceChips(NoticeAnim.entries.map { it to it.label }, shotAnim) { shotAnim = it; AutoRules.setShotAnim(a, it) }
             }
-            // Monitor de rendimiento: se enciende desde el panel; aquí también, y su posición.
-            NoticeBox(tr("Monitor de rendimiento", "Performance monitor"),
-                tr("Barra con FPS, CPU, GPU y batería sobre el juego. Los FPS necesitan Shizuku.", "Bar with FPS, CPU, GPU and battery over the game. FPS needs Shizuku."),
-                null, side = { PosGrid(perfPos) { perfPos = it; AutoRules.setPerfPos(a, it) } }) {
-                SwitchRow(tr("Mostrar", "Show"), perfHud) { perfHud = it; AutoRules.setPerfHud(a, it) }
-                SwitchRow(tr("Más datos", "More data"), perfFull,
-                    tr("Segunda línea: watts, tiempo de batería, Hz y aviso de calor.", "Second line: watts, battery time, Hz and heat warning.")) {
+        }
+        Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }) }) {
+            NoticeBox(tr("Datos", "Data"), tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery"), null,
+                side = { PosGrid(perfPos) { perfPos = it; AutoRules.setPerfPos(a, it) } }) {
+                SwitchRow(tr("Más datos", "More data"), perfFull, tr("Watts, tiempo, Hz y calor", "Watts, time, Hz and heat")) {
                     perfFull = it; AutoRules.setPerfFull(a, it)
                 }
             }
-            if (!s.autoServiceOn) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
         }
+        if (!s.autoServiceOn) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
     }
 }
 
@@ -306,46 +283,38 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
     LaunchedEffect(Unit) { Shell.init(a); Shell.refresh() }
     val shizuku = Shell.state
     Panel(tr("Permisos", "Permissions")) {
-        PermRow(
-            tr("Servicio de accesibilidad", "Accessibility service"), s.autoServiceOn,
-            tr("Cambio automático por juego, panel de juego, capturas, botón guía, volumen invertido, bypass automático y el monitor.",
-                "Automatic switching per game, game panel, screenshots, guide button, swapped volume, automatic bypass and the monitor.")
-        ) {
-            Hint(tr("Busca «TBF Companion» en la lista y actívalo. Si sale «Ajuste restringido»: Ajustes → Apps → TBF Companion → ⋮ → Permitir ajustes restringidos.",
-                "Find “TBF Companion” in the list and turn it on. If “Restricted setting” appears: Settings → Apps → TBF Companion → ⋮ → Allow restricted settings."))
+        PermRow(tr("Servicio de accesibilidad", "Accessibility service"), s.autoServiceOn,
+            tr("Panel de juego, atajos, capturas y lo automático", "Game panel, shortcuts, screenshots and automatic features")) {
+            Hint(tr("Si sale «Ajuste restringido»: Ajustes → Apps → TBF Companion → ⋮ → Permitir ajustes restringidos.",
+                "If “Restricted setting” appears: Settings → Apps → TBF Companion → ⋮ → Allow restricted settings."))
             Button(onClick = { AutoRules.openServiceSettings(a) }) { Text(tr("Abrir accesibilidad", "Open accessibility")) }
         }
-        PermRow(
-            tr("Shizuku (opcional)", "Shizuku (optional)"), shizuku == Shell.State.READY,
-            tr("Lo demás funciona sin él. Solo para: bypass y límite de carga, cambiar el modo desde el panel, ocultar Game Assistant, FPS del monitor, apagar la tablet con un monitor y arrastrar con el mouse. Hay que iniciarlo tras cada reinicio.",
-                "Everything else works without it. Only for: bypass and charge limit, changing the mode from the panel, hiding Game Assistant, monitor FPS, turning the tablet off with a monitor and dragging with the mouse. Start it after every reboot."),
+        PermRow(tr("Shizuku (opcional)", "Shizuku (optional)"), shizuku == Shell.State.READY,
+            tr("Bypass y límite de carga, modo de rendimiento, ocultar Game Assistant, FPS, apagar la tablet con un monitor y arrastrar con el mouse",
+                "Bypass and charge limit, performance mode, hiding Game Assistant, FPS, turning the tablet off with a monitor and dragging with the mouse"),
             off = if (shizuku == Shell.State.NO_PERMISSION) tr("Falta el permiso", "Permission missing") else tr("No está iniciado", "Not started")
         ) {
             val launch = remember { Shell.launchIntent(a) }
             when {
-                shizuku == Shell.State.NO_PERMISSION -> Button(onClick = { Shell.requestPermission() }) { Text(tr("Dar permiso a TBF Companion", "Grant permission to TBF Companion")) }
+                shizuku == Shell.State.NO_PERMISSION -> Button(onClick = { Shell.requestPermission() }) { Text(tr("Dar permiso", "Grant permission")) }
                 launch != null -> Button(onClick = { runCatching { a.startActivity(launch) } }) { Text(tr("Abrir Shizuku", "Open Shizuku")) }
-                else -> Hint(tr("Shizuku no está instalado (shizuku.rikka.app).", "Shizuku isn't installed (shizuku.rikka.app)."))
+                else -> Hint(tr("No está instalado (shizuku.rikka.app).", "Not installed (shizuku.rikka.app)."))
             }
         }
-        PermRow(
-            tr("Permiso de pantalla", "Screen permission"), Aspect.canWrite(a),
-            tr("Pantalla 16:9, bloquear gestos y el brillo automático en juegos. Se da una vez desde un computador.",
-                "16:9 screen, gesture lock and auto brightness in games. Granted once from a computer."),
-            off = tr("Falta", "Missing")
-        ) {
+        PermRow(tr("Permiso de pantalla", "Screen permission"), Aspect.canWrite(a),
+            tr("16:9, bloquear gestos y brillo automático en juegos · una vez desde un computador",
+                "16:9, gesture lock and auto brightness in games · once from a computer"), off = tr("Falta", "Missing")) {
             Hint(Aspect.GRANT_COMMAND)
         }
-        // Avisos de Inicio si falta algo (también se apagan con "No avisar" en el propio aviso).
+        // Avisos cuando falta algo: en Inicio y en el panel de juego (también se apagan desde el propio aviso).
         var warnService by remember { mutableStateOf(AutoRules.warnService(a)) }
         var warnShizuku by remember { mutableStateOf(AutoRules.warnShizuku(a)) }
+        var shizukuTile by remember { mutableStateOf(AutoRules.shizukuTile(a)) }
         CompositionLocalProvider(LocalEditable provides true) {
-            SwitchRow(tr("Avisar en Inicio si el servicio está apagado", "Warn on Home if the service is off"), warnService) {
-                warnService = it; AutoRules.setWarnService(a, it)
-            }
-            SwitchRow(tr("Avisar en Inicio si Shizuku no está iniciado", "Warn on Home if Shizuku isn't started"), warnShizuku) {
-                warnShizuku = it; AutoRules.setWarnShizuku(a, it)
-            }
+            Text(tr("Avisar si falta", "Warn when missing"), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            SwitchRow(tr("Servicio, en Inicio", "Service, on Home"), warnService) { warnService = it; AutoRules.setWarnService(a, it) }
+            SwitchRow(tr("Shizuku, en Inicio", "Shizuku, on Home"), warnShizuku) { warnShizuku = it; AutoRules.setWarnShizuku(a, it) }
+            SwitchRow(tr("Shizuku, en el panel de juego", "Shizuku, in the game panel"), shizukuTile) { shizukuTile = it; AutoRules.setShizukuTile(a, it) }
         }
     }
 }

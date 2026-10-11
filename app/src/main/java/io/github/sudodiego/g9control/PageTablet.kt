@@ -271,15 +271,10 @@ private fun MonitorPanel(s: AppState, a: MainActivity) {
 /** Pantalla 16:9 y volumen invertido. */
 @Composable
 private fun ScreenButtonsPanel(s: AppState, a: MainActivity) {
-    var swapVol by remember { mutableStateOf(AutoRules.swapVolume(a)) }
+    // Invertir el volumen pasó a Controles (botones de la tablet).
     CompositionLocalProvider(LocalEditable provides true) {
-        Panel(tr("Pantalla y botones", "Screen and buttons")) {
+        Panel(tr("Pantalla", "Screen")) {
             ScreenRow(a)
-            SwitchRow(
-                tr("Invertir el volumen", "Swap volume buttons"), swapVol,
-                tr("El botón de abajo sube y el de arriba baja. Los del control no cambian.", "The lower button turns it up and the upper one down. The controller's don't change.")
-            ) { swapVol = it; AutoRules.setSwapVolume(a, it) }
-            if (!s.autoServiceOn) Hint(tr("El volumen invertido necesita el servicio de accesibilidad (Ajustes → Permisos).", "Swapped volume needs the accessibility service (Settings → Permissions)."))
         }
     }
 }

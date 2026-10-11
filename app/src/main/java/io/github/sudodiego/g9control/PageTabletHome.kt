@@ -27,7 +27,7 @@ fun TabletHomePage(s: AppState, a: MainActivity) {
         },
         second = {
             ControllersPanel(s)
-            ShortcutsHelp()
+            ShortcutsHelp(s)
         }
     )
 }
@@ -119,20 +119,13 @@ private fun ControllersPanel(s: AppState) {
     }
 }
 
-/** Atajos dentro de los juegos: cuáles hay con el G9 y cuáles con cualquier control. */
+/** Los atajos más usados, en corto; todos (y sus interruptores) en Controles. */
 @Composable
-private fun ShortcutsHelp() {
-    Panel(tr("Atajos en los juegos", "In-game shortcuts")) {
-        // El botón guía es el del centro de cualquier control (Legion en el G9, Xbox, PS, Home).
-        HelpRow(tr("Panel de juego", "Game panel"), tr("Mantener el botón guía, o tocar L3 + R3", "Hold the guide button, or tap L3 + R3"))
-        HelpRow(tr("Captura", "Screenshot"), tr("Botón guía + RB, o mantener L3 + R3 · En el G9 en DS5, también M dos veces",
-            "Guide button + RB, or hold L3 + R3 · On the G9 in DS5, also M twice"))
-        HelpRow(tr("Atrás", "Back"), tr("Tocar el botón guía · Mantener Atrás: guía + LB", "Tap the guide button · Hold Back: guide + LB"))
-        // Transmitiendo, el botón guía es del PC: la captura tiene que ir por otro lado.
-        HelpRow(tr("Transmitiendo (Artemis, Moonlight)", "Streaming (Artemis, Moonlight)"),
-            tr("El botón guía va al PC. Captura: mantener L3 + R3, o M dos veces en el G9 en DS5", "The guide button goes to the PC. Screenshot: hold L3 + R3, or M twice on the G9 in DS5"))
-        Text(tr("Botón guía: el del centro del control (Legion en el G9, Xbox, PS u Home).", "Guide button: the one in the middle of the controller (Legion on the G9, Xbox, PS or Home)."),
-            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun ShortcutsHelp(s: AppState) {
+    Panel(tr("Atajos", "Shortcuts"), trailing = { TextButton(onClick = { s.page = Page.CONTROLS }) { Text(tr("Controles", "Controls")) } }) {
+        HelpRow(tr("Panel de juego", "Game panel"), tr("Mantener guía · L3 + R3", "Hold guide · L3 + R3"))
+        HelpRow(tr("Captura", "Screenshot"), tr("Guía + RB · mantener L3 + R3", "Guide + RB · hold L3 + R3"))
+        HelpRow(tr("Atrás", "Back"), tr("Tocar guía", "Tap guide"))
     }
 }
 

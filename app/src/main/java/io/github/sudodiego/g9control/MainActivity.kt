@@ -890,15 +890,15 @@ class MainActivity : ComponentActivity() {
  * Páginas. HOME…PROFILES y AUTO son del G9 (HOME = su inicio, AUTO = modo por juego, TEST = "Botones"); TABLET_HOME,
  * BATTERY, SCREEN y GAMEPANEL son de la tablet (sirven sin el G9); DIAGNOSTICS = "Ajustes", en las dos secciones.
  */
-enum class Page { HOME, LIGHTS, STICKS, VIBRATION, TEST, BACK, PROFILES, AUTO, TABLET_HOME, BATTERY, SCREEN, GAMEPANEL, DIAGNOSTICS }
+enum class Page { HOME, LIGHTS, STICKS, VIBRATION, TEST, BACK, PROFILES, AUTO, TABLET_HOME, BATTERY, SCREEN, GAMEPANEL, CONTROLS, DIAGNOSTICS }
 
 /**
  * Las dos partes de la app: la tablet (para cualquiera con la Y700 y cualquier control) y el G9. Cada una con sus
  * pestañas, en el orden del menú y de LB/RB; Ajustes está en las dos.
  */
 enum class Section(val pages: List<Page>) {
-    TABLET(listOf(Page.TABLET_HOME, Page.BATTERY, Page.SCREEN, Page.GAMEPANEL, Page.DIAGNOSTICS)),
-    G9(listOf(Page.HOME, Page.AUTO, Page.LIGHTS, Page.STICKS, Page.VIBRATION, Page.TEST, Page.BACK, Page.PROFILES, Page.DIAGNOSTICS)),
+    TABLET(listOf(Page.TABLET_HOME, Page.BATTERY, Page.SCREEN, Page.GAMEPANEL, Page.CONTROLS, Page.DIAGNOSTICS)),
+    G9(listOf(Page.HOME, Page.AUTO, Page.LIGHTS, Page.STICKS, Page.VIBRATION, Page.TEST, Page.BACK, Page.DIAGNOSTICS)),
 }
 
 enum class LightTarget { BOTH, LEFT, RIGHT, HOME }

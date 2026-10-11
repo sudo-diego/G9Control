@@ -70,31 +70,9 @@ fun pressedNow(s: AppState): Set<PadKey> = buildSet {
 fun ControlsPage(s: AppState, a: MainActivity) {
     val right: @Composable ColumnScope.() -> Unit = {
         ControlOptionsPanel(s, a)
-        LegionPanel(s, a)
         if (s.otherKeys.isNotEmpty()) Panel(tr("Otros botones", "Other buttons")) { Text(s.otherKeys.joinToString("\n"), fontSize = 13.sp) }
     }
     DrawingPane(drawing = { TestPanel(s) }, side = right)
-}
-
-/**
- * Lo propio del G9 en los juegos: M dos veces (su clic de touchpad en DS5) saca la captura, y el botón Legion (que es
- * el botón guía: se configura en Tablet → Juego, junto con los demás controles).
- */
-@Composable
-private fun LegionPanel(s: AppState, a: MainActivity) {
-    var shot by remember { mutableStateOf(AutoRules.touchpadShot(a)) }
-    CompositionLocalProvider(LocalEditable provides true) {
-        Panel {
-            SwitchRow(
-                tr("M dos veces en DS5: captura", "M twice in DS5: screenshot"), shot,
-                tr("Es el clic del touchpad del G9. Solo el juego, sin el puntero; también transmitiendo (con Shizuku). Apágalo si un juego usa el clic del touchpad.",
-                    "It's the G9's touchpad click. Only the game, without the pointer; also while streaming (with Shizuku). Turn it off if a game uses the touchpad click.")
-            ) { shot = it; AutoRules.setTouchpadShot(a, it) }
-            Hint(tr("El botón Legion es el botón guía: se configura en Tablet → Juego. Mantenerlo 5 s apaga el G9.",
-                "The Legion button is the guide button: set it up in Tablet → In game. Holding it 5 s turns the G9 off."))
-            if (!s.autoServiceOn) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
-        }
-    }
 }
 
 @Composable

@@ -153,6 +153,11 @@ object AutoRules {
     /** Botón Legion (Home del control): tocar = Atrás, mantener = panel de juego. */
     fun legionKeys(ctx: Context) = sp(ctx).getBoolean("legion_keys", true)
 
+    /** Cada atajo del botón guía, por separado (con el botón guía activado). */
+    enum class Guide(val key: String) { TAP_BACK("guide_tap_back"), HOLD_PANEL("guide_hold_panel"), RB_SHOT("guide_rb_shot"), LB_BACK("guide_lb_back") }
+    fun guide(ctx: Context, g: Guide) = sp(ctx).getBoolean(g.key, true)
+    fun setGuide(ctx: Context, g: Guide, v: Boolean) = sp(ctx).edit().putBoolean(g.key, v).apply()
+
     /**
      * Apps de streaming de PC o consola: ahí el botón Legion pasa normal (es el botón guía del PC: modo Xbox, Game
      * Bar). En Moonlight y Artemis solo durante la transmisión ([STREAM_ACTIVITY]); en su lista de PCs sigue siendo
@@ -830,6 +835,8 @@ class AutoModeService : AccessibilityService() {
         }
         if (e.repeatCount > 0) return k in chordSwallow
         if (!legionChording && !(legionOwned && legionPending)) return false
+        // Ese atajo apagado: RB o LB llegan normal.
+        if (!AutoRules.guide(this, if (k == KeyEvent.KEYCODE_BUTTON_R1) AutoRules.Guide.RB_SHOT else AutoRules.Guide.LB_BACK)) return false
         legionPending = false
         legionChording = true
         main.removeCallbacks(legionHold)
@@ -876,14 +883,17 @@ class AutoModeService : AccessibilityService() {
                     if (now != streaming) { streaming = now; Log.d(TAG, "transmitiendo (al apretar Legion): $now"); updatePadWatch() }
                 }
                 legionOwned = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming
-                if (legionOwned) { legionPending = true; main.postDelayed(legionHold, 500) }
+                if (legionOwned) { legionPending = true; if (AutoRules.guide(this, AutoRules.Guide.HOLD_PANEL)) main.postDelayed(legionHold, 500) }
                 return legionOwned
             }
             KeyEvent.ACTION_UP -> {
                 if (legionChording) { legionOwned = false; return true }
                 if (!legionOwned) return false
                 legionOwned = false
-                if (legionPending) { legionPending = false; main.removeCallbacks(legionHold); performGlobalAction(GLOBAL_ACTION_BACK) }
+                if (legionPending) {
+                    legionPending = false; main.removeCallbacks(legionHold)
+                    if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK)
+                }
                 return true
             }
         }

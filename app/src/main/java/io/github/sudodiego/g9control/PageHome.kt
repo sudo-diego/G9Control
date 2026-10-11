@@ -49,7 +49,8 @@ fun HomePage(s: AppState, a: MainActivity) {
                 }
             }
         },
-        side = { ServiceWarning(s, a); ModePanel(s, a); QuickProfiles(s, a); ShortcutsPanel() }
+        // Los perfiles viven aquí (antes tenían su propia pestaña).
+        side = { ServiceWarning(s, a); ModePanel(s, a); ProfilesPage(s, a); ShortcutsPanel() }
     )
 }
 

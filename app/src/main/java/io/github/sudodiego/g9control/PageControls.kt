@@ -1,0 +1,125 @@
+package io.github.sudodiego.g9control
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+/**
+ * Controles: los atajos de la app con cualquier control, cada uno con su interruptor. El botón guía (Legion en el
+ * G9, Xbox, PS, Home) con lo que hace tocarlo, mantenerlo y combinarlo; L3 + R3 para controles sin él; lo propio del
+ * G9 y los botones de la tablet.
+ */
+@Composable
+fun ShortcutsPage(s: AppState, a: MainActivity) {
+    TwoPane(
+        first = { GuidePanel(a) },
+        second = {
+            OtherShortcutsPanel(a)
+            TabletButtonsPanel(a)
+            if (!s.autoServiceOn) Hint(tr("Los atajos necesitan el servicio de accesibilidad (Ajustes → Permisos).",
+                "Shortcuts need the accessibility service (Settings → Permissions)."))
+        }
+    )
+}
+
+@Composable
+private fun GuidePanel(a: MainActivity) {
+    var on by remember { mutableStateOf(AutoRules.legionKeys(a)) }
+    val states = remember { AutoRules.Guide.entries.associateWith { mutableStateOf(AutoRules.guide(a, it)) } }
+    var burst by remember { mutableStateOf(AutoRules.burstShots(a)) }
+    CompositionLocalProvider(LocalEditable provides true) {
+        Panel(tr("Botón guía", "Guide button"), tr("Legion en el G9 · Xbox, PS u Home en otros", "Legion on the G9 · Xbox, PS or Home on others"),
+            trailing = { Switch(on, { on = it; AutoRules.setLegionKeys(a, it) }) }) {
+            CompositionLocalProvider(LocalEditable provides on) {
+                fun row(g: AutoRules.Guide) = states.getValue(g)
+                ShortcutRow(listOf(tr("Guía", "Guide")), tr("Tocar", "Tap"), tr("Atrás", "Back"), row(AutoRules.Guide.TAP_BACK).value) {
+                    row(AutoRules.Guide.TAP_BACK).value = it; AutoRules.setGuide(a, AutoRules.Guide.TAP_BACK, it)
+                }
+                ShortcutRow(listOf(tr("Guía", "Guide")), tr("Mantener", "Hold"), tr("Panel de juego", "Game panel"), row(AutoRules.Guide.HOLD_PANEL).value) {
+                    row(AutoRules.Guide.HOLD_PANEL).value = it; AutoRules.setGuide(a, AutoRules.Guide.HOLD_PANEL, it)
+                }
+                ShortcutRow(listOf(tr("Guía", "Guide"), "RB"), null, tr("Captura", "Screenshot"), row(AutoRules.Guide.RB_SHOT).value) {
+                    row(AutoRules.Guide.RB_SHOT).value = it; AutoRules.setGuide(a, AutoRules.Guide.RB_SHOT, it)
+                }
+                ShortcutRow(emptyList(), tr("Seguir manteniendo RB", "Keep holding RB"), tr("Ráfaga, una por segundo", "Burst, one per second"), burst) {
+                    burst = it; AutoRules.setBurstShots(a, it)
+                }
+                ShortcutRow(listOf(tr("Guía", "Guide"), "LB"), tr("Sale del juego en Dolphin", "Quits the game in Dolphin"), tr("Mantener Atrás", "Hold Back"),
+                    row(AutoRules.Guide.LB_BACK).value) {
+                    row(AutoRules.Guide.LB_BACK).value = it; AutoRules.setGuide(a, AutoRules.Guide.LB_BACK, it)
+                }
+            }
+            Hint(tr("Transmitiendo desde el PC (Artemis, Moonlight) el botón guía va al PC. En el G9, mantenerlo 5 s lo apaga.",
+                "While streaming from a PC (Artemis, Moonlight) the guide button goes to the PC. On the G9, holding it 5 s turns it off."))
+        }
+    }
+}
+
+@Composable
+private fun OtherShortcutsPanel(a: MainActivity) {
+    var chord by remember { mutableStateOf(AutoRules.gamePanel(a)) }
+    var touchpad by remember { mutableStateOf(AutoRules.touchpadShot(a)) }
+    CompositionLocalProvider(LocalEditable provides true) {
+        Panel(tr("Otros atajos", "Other shortcuts")) {
+            ShortcutRow(listOf("L3", "R3"), tr("Tocar · mantener: captura", "Tap · hold: screenshot"), tr("Panel de juego", "Game panel"), chord) {
+                chord = it; AutoRules.setGamePanel(a, it)
+            }
+            // El clic del touchpad del G9 (en DS5 llega como M dos veces).
+            ShortcutRow(listOf("M", "M"), tr("G9 en DS5", "G9 in DS5"), tr("Captura", "Screenshot"), touchpad) {
+                touchpad = it; AutoRules.setTouchpadShot(a, it)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TabletButtonsPanel(a: MainActivity) {
+    var swap by remember { mutableStateOf(AutoRules.swapVolume(a)) }
+    CompositionLocalProvider(LocalEditable provides true) {
+        Panel(tr("Botones de la tablet", "Tablet buttons")) {
+            SwitchRow(tr("Invertir el volumen", "Swap volume buttons"), swap, tr("El de abajo sube", "The lower one turns it up")) {
+                swap = it; AutoRules.setSwapVolume(a, it)
+            }
+        }
+    }
+}
+
+/**
+ * Un atajo: los botones dibujados (Guía + RB…), cómo se usan (tocar, mantener) y qué hacen, con su interruptor. Sin
+ * botones: variante del atajo de arriba (↳).
+ */
+@Composable
+private fun ShortcutRow(keys: List<String>, how: String?, action: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    val c = MaterialTheme.colorScheme
+    val editable = LocalEditable.current
+    Row(
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small).clickable(enabled = editable) { onChange(!checked) }
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(Modifier.widthIn(min = 132.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (keys.isEmpty()) Text("↳", Modifier.padding(start = 14.dp), fontSize = 20.sp, color = c.onSurfaceVariant)
+            keys.forEachIndexed { i, k ->
+                if (i > 0) Text(" + ", fontSize = 13.sp, color = c.onSurfaceVariant)
+                Box(Modifier.clip(RoundedCornerShape(8.dp)).background(c.secondaryContainer).padding(horizontal = 9.dp, vertical = 4.dp)) {
+                    Text(k, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = c.onSecondaryContainer)
+                }
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(action, fontSize = 15.sp, color = if (editable) c.onSurface else c.onSurface.copy(alpha = 0.5f))
+            if (how != null) Text(how, fontSize = 12.sp, color = c.onSurfaceVariant)
+        }
+        Switch(checked, onChange, enabled = editable)
+    }
+}

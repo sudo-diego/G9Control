@@ -1,6 +1,7 @@
 package io.github.sudodiego.g9control
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -88,9 +89,10 @@ private val NAV = listOf(
     NavItem(Page.BATTERY, "Batería", "Battery", Icons.Outlined.BatteryChargingFull, Icons.Filled.BatteryChargingFull),
     NavItem(Page.SCREEN, "Pantalla", "Screen", Icons.Outlined.Monitor, Icons.Filled.Monitor),
     NavItem(Page.GAMEPANEL, "Juego", "In game", Icons.Outlined.SportsEsports, Icons.Filled.SportsEsports),
+    NavItem(Page.CONTROLS, "Controles", "Controls", Icons.Outlined.VideogameAsset, Icons.Filled.VideogameAsset),
     // G9.
     NavItem(Page.HOME, "Inicio", "Home", Icons.Outlined.Home, Icons.Filled.Home),
-    NavItem(Page.AUTO, "Modos", "Modes", Icons.Outlined.Apps, Icons.Filled.Apps),
+    NavItem(Page.AUTO, "Por juego", "Per game", Icons.Outlined.Apps, Icons.Filled.Apps),
     NavItem(Page.LIGHTS, "Luces", "Lights", Icons.Outlined.Lightbulb, Icons.Filled.Lightbulb),
     NavItem(Page.STICKS, "Sticks", "Sticks", Icons.Outlined.Gamepad, Icons.Filled.Gamepad),
     NavItem(Page.VIBRATION, "Vibración", "Vibration", Icons.Outlined.Vibration, Icons.Filled.Vibration),
@@ -121,8 +123,8 @@ fun App(s: AppState, a: MainActivity) {
         ) {
             Column(Modifier.fillMaxSize()) {
                 TabBar(s, a)
-                // La franja de Vista + Menú es del G9: en la sección Tablet no hace falta.
-                if (s.section == Section.G9) ModeStrip(s)
+                // La franja de Vista + Menú, solo en el inicio del G9 (en las demás páginas basta el aviso de cada una).
+                if (s.page == Page.HOME) ModeStrip(s)
                 PageHost(s, a, Modifier.weight(1f))
                 HintBar(s)
             }
@@ -136,17 +138,21 @@ fun App(s: AppState, a: MainActivity) {
 @Composable
 private fun TabBar(s: AppState, a: MainActivity) {
     val c = MaterialTheme.colorScheme
-    Surface(color = c.surfaceContainerLow) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    // Arriba: a la izquierda Tablet/G9 (LT RT), al centro las pestañas en una píldora (LB RB a sus lados) y a la
+    // derecha el estado del G9.
+    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             PadBadge("LT")
             Spacer(Modifier.width(6.dp))
             SectionSwitch(s)
             Spacer(Modifier.width(6.dp))
             PadBadge("RT")
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.weight(1f))
+            Row(
+                Modifier.weight(6f, fill = false).clip(CircleShape).background(c.surfaceContainerHigh.copy(alpha = 0.85f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             PadBadge("LB")
             // Si las pestañas no caben, la elegida se desplaza a la vista.
             val tabScroll = rememberScrollState()
@@ -161,7 +167,7 @@ private fun TabBar(s: AppState, a: MainActivity) {
             var tabFocused by remember { mutableStateOf(false) }
             LaunchedEffect(s.page) { if (tabFocused) runCatching { tabFocus.getValue(s.page).requestFocus() } }
             Row(
-                Modifier.weight(1f).horizontalScroll(tabScroll).padding(horizontal = 6.dp)
+                Modifier.weight(1f, fill = false).horizontalScroll(tabScroll).padding(horizontal = 6.dp)
                     .onFocusChanged { tabFocused = it.hasFocus },
                 horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
@@ -184,27 +190,27 @@ private fun TabBar(s: AppState, a: MainActivity) {
                         modifier = Modifier.focusRequester(tabFocus.getValue(item.page))
                             .onGloballyPositioned { tabX[item.page] = it.positionInParent().x.toInt() to it.size.width }
                     ) {
-                        Row(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // Como un carrusel: la elegida con su nombre, las demás solo el ícono (así caben todas).
+                        Row(Modifier.animateContentSize().padding(horizontal = if (sel) 14.dp else 11.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                if (sel) item.selectedIcon else item.icon, null, Modifier.size(20.dp),
+                                if (sel) item.selectedIcon else item.icon, item.label, Modifier.size(22.dp),
                                 tint = if (sel) c.onPrimaryContainer else c.onSurfaceVariant
                             )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                item.label, fontSize = 14.sp, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal,
-                                color = if (sel) c.onPrimaryContainer else c.onSurfaceVariant
-                            )
+                            if (sel) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(item.label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = c.onPrimaryContainer)
+                            }
                         }
                     }
                     }
                 }
             }
             PadBadge("RB")
-            // Conexión del G9: solo en su sección (tocarla vuelve a leer el control).
-            if (s.section == Section.G9) {
-                Spacer(Modifier.width(12.dp))
-                ConnectionPill(s) { if (!s.busy) a.readAll() }
             }
+            Spacer(Modifier.weight(1f))
+            // Conexión del G9: solo en su sección (tocarla vuelve a leer el control).
+            if (s.section == Section.G9) ConnectionPill(s) { if (!s.busy) a.readAll() }
         }
     }
 }
@@ -355,6 +361,7 @@ private fun PageHost(s: AppState, a: MainActivity, modifier: Modifier) {
                         Page.BATTERY -> BatteryPage(s, a)
                         Page.SCREEN -> ScreenPage(s, a)
                         Page.GAMEPANEL -> GamePanelPage(s, a)
+                        Page.CONTROLS -> ShortcutsPage(s, a)
                         Page.DIAGNOSTICS -> DiagnosticsPage(s, a)
                     }
                 }
