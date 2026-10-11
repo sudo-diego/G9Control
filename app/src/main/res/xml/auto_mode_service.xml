@@ -5,7 +5,8 @@
      Filtra teclas para seguir y retener Vista/Menú con la guía de modo, para el panel de juego (L3 + R3)
      y, si se elige, bloquear los botones del control mientras hay un aviso en pantalla.
      Gestos: el panel de juego abre el de Game Assistant (ZUI) deslizando desde su pestaña lateral.
-     Capturas: la captura del panel de juego toma solo la ventana del juego (sin puntero ni superposiciones). -->
+     Capturas: la captura del panel de juego toma solo la ventana del juego (sin puntero ni superposiciones).
+     Botón de accesibilidad (y el atajo de mantener los dos botones de volumen): abre el panel sin control. -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
@@ -13,6 +14,6 @@
     android:canRequestFilterKeyEvents="true"
     android:canPerformGestures="true"
     android:canTakeScreenshot="true"
-    android:accessibilityFlags="flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows"
+    android:accessibilityFlags="flagRequestFilterKeyEvents|flagRetrieveInteractiveWindows|flagRequestAccessibilityButton"
     android:description="@string/auto_service_description"
     android:notificationTimeout="0" />

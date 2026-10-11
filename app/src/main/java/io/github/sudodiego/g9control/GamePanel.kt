@@ -104,8 +104,8 @@ import kotlin.coroutines.resume
 import java.util.Date
 import java.util.Locale
 
-/** Dónde va un ítem del panel: las barras arriba, después el juego y abajo Android. */
-private enum class PanelRow { SLIDER, GAME, SYSTEM }
+/** Dónde va un ítem del panel: las barras arriba, después el juego, la pantalla y conexiones, y abajo Android. */
+private enum class PanelRow { SLIDER, GAME, SCREEN, SYSTEM }
 
 /**
  * Una acción del panel de juego, como un mosaico de los ajustes rápidos: [sub] es su estado o un detalle y
@@ -138,6 +138,7 @@ private fun panelRows(items: List<PanelItem>): List<List<Int>> {
     return buildList {
         by[PanelRow.SLIDER]?.let { add(it) }
         by[PanelRow.GAME]?.let { addAll(even(it)) }
+        by[PanelRow.SCREEN]?.let { addAll(even(it)) }
         by[PanelRow.SYSTEM]?.let { addAll(even(it)) }
     }
 }
@@ -508,7 +509,7 @@ class GamePanel(private val svc: AutoModeService) {
             add(PanelItem(if (Shell.state == Shell.State.NO_PERMISSION) tr("Dar permiso", "Grant permission") else tr("Activar Shizuku", "Start Shizuku"),
                 Icons.Outlined.PowerSettingsNew, active = true, sub = tr("Bypass, rendimiento y más", "Bypass, performance and more"), run = ::fixShizuku))
         // El juego. La captura toma solo la ventana del juego: no hace falta esperar a que el panel desaparezca.
-        add(PanelItem(tr("Captura", "Screenshot"), Icons.Outlined.Screenshot, sub = tr("También: guía + RB", "Also: guide + RB")) { hide(); screenshot() })
+        add(PanelItem(tr("Captura", "Screenshot"), Icons.Outlined.Screenshot, sub = tr("Guía + RB", "Guide + RB")) { hide(); screenshot() })
         if (ZuiGame.inGame(svc)) {
             // Oculto: abrirlo. Visible: solo ocultarlo (abrirlo ya está a mano con su pestaña).
             val gaVisible = gaShownByUs || ZuiGame.hiddenNow == false
@@ -561,7 +562,7 @@ class GamePanel(private val svc: AutoModeService) {
         // Monitor de rendimiento sobre el juego (FPS con Shizuku; lo demás siempre).
         val hud = AutoRules.perfHud(svc)
         add(PanelItem(tr("Monitor", "Monitor"), Icons.Outlined.QueryStats, active = hud,
-            sub = if (hud) tr("FPS, CPU, GPU", "FPS, CPU, GPU") else tr("Apagado", "Off")) {
+            sub = if (hud) tr("Encendido", "On") else tr("Apagado", "Off")) {
             AutoRules.setPerfHud(svc, !hud); refresh()
         })
         // Frecuencia de la pantalla para esta app (se recuerda por juego).
@@ -571,8 +572,8 @@ class GamePanel(private val svc: AutoModeService) {
             sub = (hzNow?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { showHzMenu() })
         if (Aspect.available(svc)) {
             val wide = Aspect.is169(svc)
-            add(PanelItem(tr("Pantalla 16:9", "16:9 screen"), Icons.Outlined.AspectRatio,
-                sub = if (wide) tr("Activada", "On") else tr("Ahora 16:10", "Now 16:10"), active = wide) {
+            add(PanelItem("16:9", Icons.Outlined.AspectRatio, PanelRow.SCREEN,
+                sub = if (wide) tr("Encendida", "On") else tr("Apagada", "Off"), active = wide) {
                 hide()
                 scope.launch { if (!Aspect.toggle(svc)) toast(tr("No se pudo cambiar la pantalla.", "Couldn't change the screen.")) }
             })
@@ -580,18 +581,18 @@ class GamePanel(private val svc: AutoModeService) {
         // Con un monitor en espejo y la pantalla de la tablet oscurecida (o encendida a mano): verla un rato o volver.
         if (Monitor.screen(svc) != Monitor.Screen.NORMAL && Monitor.current(svc) != null && Monitor.mirror(svc)) {
             val dark = svc.tabletDark
-            add(PanelItem(tr("Tablet oscura", "Tablet dark"), Icons.Outlined.TabletAndroid,
+            add(PanelItem(tr("Tablet oscura", "Tablet dark"), Icons.Outlined.TabletAndroid, PanelRow.SCREEN,
                 sub = if (dark) tr("Con el monitor", "With the monitor") else tr("Encendida", "On"), active = dark) {
                 hide(); svc.toggleTabletScreen()
             })
         }
         // Abajo, Android: para no tener que tocar la pantalla (con la tablet en un dock, por ejemplo).
-        add(PanelItem(tr("Atrás", "Back"), Icons.AutoMirrored.Outlined.ArrowBack, PanelRow.SYSTEM, sub = tr("Largo: guía + LB", "Long: guide + LB")) {
+        add(PanelItem(tr("Atrás", "Back"), Icons.AutoMirrored.Outlined.ArrowBack, PanelRow.SYSTEM) {
             afterHide { svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) }
         })
-        add(PanelItem(tr("Inicio", "Home"), Icons.Outlined.Home, PanelRow.SYSTEM, sub = "Android") { hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) })
-        add(PanelItem(tr("Recientes", "Recents"), Icons.Outlined.Layers, PanelRow.SYSTEM, sub = tr("Apps abiertas", "Open apps")) { hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS) })
-        add(PanelItem(tr("Ajustes rápidos", "Quick settings"), Icons.Outlined.ToggleOn, PanelRow.SYSTEM, sub = "Android") {
+        add(PanelItem(tr("Inicio", "Home"), Icons.Outlined.Home, PanelRow.SYSTEM) { hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) })
+        add(PanelItem(tr("Recientes", "Recents"), Icons.Outlined.Layers, PanelRow.SYSTEM) { hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS) })
+        add(PanelItem(tr("Ajustes rápidos", "Quick settings"), Icons.Outlined.ToggleOn, PanelRow.SYSTEM) {
             hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
         })
         // WiFi y Bluetooth: con Shizuku se encienden y apagan aquí mismo; sin él, abre el panel de Android.
@@ -603,34 +604,36 @@ class GamePanel(private val svc: AutoModeService) {
         val wifiList = { hide(); openSettings(android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY) }
         val btList = { hide(); openSettings(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS) }
         val ySwitch = if (Shell.state == Shell.State.READY) tr(" · Y apagar", " · Y off") to tr(" · Y encender", " · Y on") else "" to ""
-        add(PanelItem("WiFi", if (wifi) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, PanelRow.SYSTEM, active = wifi,
+        add(PanelItem("WiFi", if (wifi) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, PanelRow.SCREEN, active = wifi,
             sub = tr("Redes", "Networks") + if (wifi) ySwitch.first else ySwitch.second,
             alt = { radio(!wifi, Shell.WIFI_ON, Shell.WIFI_OFF) }, run = wifiList))
-        add(PanelItem("Bluetooth", if (bt) Icons.Outlined.Bluetooth else Icons.Outlined.BluetoothDisabled, PanelRow.SYSTEM, active = bt,
+        add(PanelItem("Bluetooth", if (bt) Icons.Outlined.Bluetooth else Icons.Outlined.BluetoothDisabled, PanelRow.SCREEN, active = bt,
             sub = tr("Dispositivos", "Devices") + if (bt) ySwitch.first else ySwitch.second,
             alt = { radio(!bt, Shell.BT_ON, Shell.BT_OFF) }, run = btList))
         // Bloquear gestos: el "Disable navigation bar and gesture" de Game Assistant (en sus juegos), un ajuste del
         // sistema que se puede cambiar con el permiso de pantalla.
         if (ZuiGame.installed(svc) && Aspect.canWrite(svc)) {
             val locked = ZuiGame.gesturesLocked(svc)
-            add(PanelItem(tr("Bloquear gestos", "Lock gestures"), if (locked) Icons.Outlined.Lock else Icons.Outlined.LockOpen, PanelRow.SYSTEM,
+            add(PanelItem(tr("Bloquear gestos", "Lock gestures"), if (locked) Icons.Outlined.Lock else Icons.Outlined.LockOpen, PanelRow.GAME,
                 active = locked, sub = if (locked) tr("En juegos", "In games") else tr("Apagado", "Off")) {
                 ZuiGame.setGesturesLocked(svc, !locked); refresh()
             })
         }
         // Mouse virtual: para apps que no usan el control (los sticks dejan de llegar a la app mientras está).
         val mouseOn = svc.isMouseOn
-        add(PanelItem(tr("Mouse", "Mouse"), Icons.Outlined.Mouse, PanelRow.SYSTEM, active = mouseOn,
-            sub = if (mouseOn) tr("Encendido", "On") else tr("Stick y A", "Stick and A")) {
+        add(PanelItem(tr("Mouse", "Mouse"), Icons.Outlined.Mouse, PanelRow.SCREEN, active = mouseOn,
+            sub = if (mouseOn) tr("Encendido", "On") else tr("Apagado", "Off")) {
             hide(); svc.toggleMouse()
             if (!mouseOn) toast(tr("Mouse: stick izquierdo mueve, A toca (mantener: toque largo; mantener y mover: arrastra), stick derecho desplaza, B atrás.",
                 "Mouse: left stick moves, A taps (hold: long press; hold and move: drag), right stick scrolls, B back."))
         })
         val mode = ModeSwitcher.detect()
-        if (mode != null) PadMode.entries.filter { it != mode }.forEach { m ->
-            add(PanelItem(m.label, Icons.Outlined.SportsEsports, PanelRow.SYSTEM, sub = tr("Modo del control", "Controller mode")) { hide(); svc.manualSwitch(m) })
+        // Un solo mosaico para el modo del G9: dice el actual y pasa al siguiente (Android → X-Input → DS5 → Android).
+        if (mode != null) {
+            val next = PadMode.entries[(PadMode.entries.indexOf(mode) + 1) % PadMode.entries.size]
+            add(PanelItem("G9 · ${mode.label}", Icons.Outlined.SportsEsports, PanelRow.SYSTEM, sub = "→ ${next.label}") { hide(); svc.manualSwitch(next) })
         }
-        add(PanelItem("TBF Companion", Icons.Outlined.OpenInNew, PanelRow.SYSTEM, sub = tr("Abrir la app", "Open the app")) {
+        add(PanelItem("TBF Companion", Icons.Outlined.OpenInNew, PanelRow.SYSTEM) {
             hide()
             svc.startActivity(Intent(svc, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         })

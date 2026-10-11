@@ -563,6 +563,13 @@ class AutoModeService : AccessibilityService() {
         Lang.load(this)
         guide = ModeGuide(this)
         panel = GamePanel(this)
+        // Sin control: el botón de accesibilidad de la barra (o mantener los dos botones de volumen, si se eligió
+        // este servicio para ese atajo) abre y cierra el panel; se usa con el dedo.
+        accessibilityButtonController.registerAccessibilityButtonCallback(object : android.accessibilityservice.AccessibilityButtonController.AccessibilityButtonCallback() {
+            override fun onClicked(controller: android.accessibilityservice.AccessibilityButtonController) {
+                if (panel.isOpen) panel.hide() else panel.show()
+            }
+        })
         perfHud = PerfHud(this).also { it.update() }
         Shell.init(this)
         ZuiBattery.init(this)
