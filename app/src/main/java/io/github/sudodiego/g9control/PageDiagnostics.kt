@@ -119,6 +119,9 @@ fun G9PrefsPage(s: AppState, a: MainActivity) {
             ResetPanel(s, a)
         },
         second = {
+            // Lo que se guarda en el G9 (intercambiar botones, cruceta) y M dos veces, antes en la página de botones.
+            ControlOptionsPanel(s, a)
+            TouchpadShotPanel(s, a)
             if (dev) {
                 Panel(tr("Detalles técnicos", "Technical details")) {
                     Mono(s.deviceText)
@@ -353,8 +356,8 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         PermRow(tr("Shizuku (opcional)", "Shizuku (optional)"), shizuku == Shell.State.READY,
-            tr("Bypass y límite de carga, modo de rendimiento, ocultar Game Assistant, FPS, apagar la tablet con un monitor y arrastrar con el mouse",
-                "Bypass and charge limit, performance mode, hiding Game Assistant, FPS, turning the tablet off with a monitor and dragging with the mouse"),
+            tr("Bypass y límite de carga, ocultar Game Assistant, FPS, apps corriendo, la guía en emuladores, WiFi y Bluetooth, arrastrar con el mouse y la tablet apagada con un monitor",
+                "Bypass and charge limit, hiding Game Assistant, FPS, running apps, the guide in emulators, Wi-Fi and Bluetooth, dragging with the mouse and the tablet off with a monitor"),
             off = if (shizuku == Shell.State.NO_PERMISSION) tr("Falta el permiso", "Permission missing") else tr("No está iniciado", "Not started")
         ) {
             val launch = remember { Shell.launchIntent(a) }

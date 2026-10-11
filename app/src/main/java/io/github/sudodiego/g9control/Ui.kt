@@ -128,7 +128,7 @@ private val NAV = listOf(
     NavItem(Page.LIGHTS, "Luces", "Lights", Icons.Outlined.Lightbulb, Icons.Filled.Lightbulb),
     NavItem(Page.STICKS, "Sticks", "Sticks", Icons.Outlined.Gamepad, Icons.Filled.Gamepad),
     NavItem(Page.VIBRATION, "Vibración", "Vibration", Icons.Outlined.Vibration, Icons.Filled.Vibration),
-    NavItem(Page.TEST, "Botones", "Buttons", Icons.Outlined.RadioButtonChecked, Icons.Filled.RadioButtonChecked),
+    NavItem(Page.TEST, "Probar control", "Test controller", Icons.Outlined.RadioButtonChecked, Icons.Filled.RadioButtonChecked),
     NavItem(Page.BACK, "Traseros", "Paddles", Icons.Outlined.FlipToBack, Icons.Filled.FlipToBack),
     NavItem(Page.PROFILES, "Perfiles", "Profiles", Icons.Outlined.BookmarkBorder, Icons.Filled.Bookmark),
     NavItem(Page.G9_PREFS, "Preferencias", "Preferences", Icons.Outlined.Tune, Icons.Filled.Tune),
@@ -175,7 +175,8 @@ private fun TabBar(s: AppState, a: MainActivity) {
     // Arriba: a la izquierda Tablet/G9 (LT RT), al centro las pestañas en una píldora (LB RB a sus lados) y a la
     // derecha el estado del G9.
     Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // Alto fijo: en Ajustes (sin píldora de pestañas) la barra no sube y no salta al cambiar de sección.
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             PadBadge("LT")
             Spacer(Modifier.width(6.dp))
             SectionSwitch(s)

@@ -102,25 +102,6 @@ private fun ModeTile(
     }
 }
 
-/** Perfiles a un toque: el que está en uso queda marcado. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun QuickProfiles(s: AppState, a: MainActivity) {
-    if (s.profiles.isEmpty()) return
-    Panel(tr("Perfiles", "Profiles")) {
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            s.profiles.forEach { p ->
-                val active = s.configKnown && p.matches(s)
-                FilterChip(
-                    selected = active, onClick = { if (!active) a.applyProfile(p) }, enabled = s.connected && !s.busy,
-                    label = { Text(p.name) },
-                    leadingIcon = if (active) { { Icon(Icons.Outlined.Check, null, Modifier.size(16.dp)) } } else null
-                )
-            }
-        }
-    }
-}
-
 /**
  * El servicio de accesibilidad está apagado y hay algo que lo usa (cambio por juego, panel de juego, botón Legion o
  * volumen invertido): por ejemplo, tras reiniciar o actualizar. El aviso dice lo que deja de funcionar.

@@ -8,7 +8,9 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -63,22 +65,67 @@ fun pressedNow(s: AppState): Set<PadKey> = buildSet {
 }
 
 /**
- * Página "Controles": a la izquierda la prueba de botones; a la derecha traseros y opciones (o el
- * editor de macro). Pensada para verse entera sin desplazarse.
+ * Probar control (sección Tablet): botones, gatillos y sticks de cualquier control, no solo el G9 (lo que llega a
+ * Android). A la derecha los controles conectados y los sticks en números: sirve para ver si un stick tiene deriva
+ * (no vuelve a 0) o si un gatillo no llega al fondo.
  */
 @Composable
 fun ControlsPage(s: AppState, a: MainActivity) {
     val right: @Composable ColumnScope.() -> Unit = {
-        ControlOptionsPanel(s, a)
-        TouchpadShotPanel(s, a)
+        PadsPanel(a)
+        SticksReadout(s)
         if (s.otherKeys.isNotEmpty()) Panel(tr("Otros botones", "Other buttons")) { Text(s.otherKeys.joinToString("\n"), fontSize = 13.sp) }
     }
     DrawingPane(drawing = { TestPanel(s) }, side = right)
 }
 
+/** Los controles conectados (los que Android ve como gamepad), con su nombre y sus ids. */
+@Composable
+private fun PadsPanel(a: MainActivity) {
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(2000); tick++ } }
+    val pads = remember(tick) {
+        android.view.InputDevice.getDeviceIds().toList().mapNotNull { android.view.InputDevice.getDevice(it) }
+            .filter { d -> !d.isVirtual && (d.sources and android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD }
+            .distinctBy { it.descriptor }
+    }
+    val c = MaterialTheme.colorScheme
+    Panel(tr("Controles conectados", "Connected controllers")) {
+        if (pads.isEmpty()) Hint(tr("Ninguno: conecta un control por USB o Bluetooth.", "None: connect a controller over USB or Bluetooth."))
+        pads.forEach { d ->
+            Column {
+                Text(d.name, fontSize = 15.sp, maxLines = 1)
+                Text("%04x:%04x".format(d.vendorId, d.productId) + (if (d.vibratorManager.vibratorIds.isNotEmpty()) tr(" · vibra", " · rumble") else ""),
+                    fontSize = 12.sp, color = c.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+/** Los dos sticks en números (−1 a 1): en reposo deberían quedar cerca de 0. */
+@Composable
+private fun SticksReadout(s: AppState) {
+    val on = s.testMode
+    fun v(x: Float) = if (on) x else 0f
+    val c = MaterialTheme.colorScheme
+    Panel(tr("Sticks", "Sticks"), tr("En reposo deberían marcar cerca de 0", "At rest they should read near 0")) {
+        Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+            listOf(tr("Izquierdo", "Left") to (v(s.lx) to v(s.ly)), tr("Derecho", "Right") to (v(s.rx) to v(s.ry))).forEach { (name, xy) ->
+                Column(Modifier.weight(1f)) {
+                    Text(name, fontSize = 14.sp, color = c.onSurfaceVariant)
+                    Text("x %+.2f   y %+.2f".format(xy.first, xy.second), fontSize = 15.sp,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                }
+            }
+        }
+        Hint(if (on) tr("Suelto, si marca más de 0,10 tiene deriva: sube su zona muerta (en el G9, Sticks).", "Released, over 0.10 means drift: raise its dead zone (on the G9, Sticks).")
+            else tr("Toca «Probar botones» para ver los valores.", "Tap “Test buttons” to see the values."))
+    }
+}
+
 /** M dos veces en DS5 (el clic del touchpad del G9): captura. Es del G9: otros controles no lo tienen así. */
 @Composable
-private fun TouchpadShotPanel(s: AppState, a: MainActivity) {
+internal fun TouchpadShotPanel(s: AppState, a: MainActivity) {
     var on by remember { mutableStateOf(AutoRules.touchpadShot(a)) }
     // La captura la saca el servicio de accesibilidad: sin él, oscurecido y con el recordatorio.
     Gate(s.autoServiceOn) {

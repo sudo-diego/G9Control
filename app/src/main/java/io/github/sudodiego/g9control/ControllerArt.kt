@@ -499,58 +499,6 @@ fun ControllerTestView(
     }
 }
 
-/**
- * Dibujo del control para elegir un botón: cada botón es tocable (y enfocable con el control). Los de
- * [lit] se iluminan y [tags] pone etiquetas pequeñas (por ejemplo "L4") junto a cada botón.
- * LB/RB/LT/RT no se tocan acá: están en el borde del dibujo y quedan muy chicos (van como botones aparte).
- */
-@Composable
-fun ControllerKeyPicker(
-    lit: Set<PadKey>, tags: Map<PadKey, List<String>>, enabled: Boolean, modifier: Modifier,
-    lights: AppState? = null, onPick: (PadKey) -> Unit
-) {
-    Box(modifier.aspectRatio(ASPECT)) {
-        ControllerTestView(lit, 0f, 0f, 0f, 0f, 0f, 0f, Modifier.matchParentSize(), lights = lights)
-        val d = 0.077f
-        val dpadArm = 0.06f
-        val keys = listOf(
-            PadKey.Y to (ABXY + Offset(0f, -d)) to 0.09f, PadKey.X to (ABXY + Offset(-d / ASPECT, 0f)) to 0.09f,
-            PadKey.B to (ABXY + Offset(d / ASPECT, 0f)) to 0.09f, PadKey.A to (ABXY + Offset(0f, d)) to 0.09f,
-            PadKey.UP to (DPAD + Offset(0f, -dpadArm)) to 0.075f, PadKey.DOWN to (DPAD + Offset(0f, dpadArm)) to 0.075f,
-            PadKey.LEFT to (DPAD + Offset(-dpadArm / ASPECT, 0f)) to 0.075f, PadKey.RIGHT to (DPAD + Offset(dpadArm / ASPECT, 0f)) to 0.075f,
-            PadKey.VIEW to SMALL_KEY to 0.07f, PadKey.MENU to mirror(SMALL_KEY) to 0.07f,
-            PadKey.HOME to HOME to 0.08f, PadKey.L3 to STICK_L to 0.15f, PadKey.R3 to STICK_R to 0.15f,
-        )
-        // BiasAlignment ubica el borde, no el centro: se corrige con el tamaño.
-        fun bias(center: Float, size: Float) = ((center - size / 2) / (1 - size)) * 2 - 1
-        for ((kc, sizeH) in keys) {
-            val (k, c) = kc
-            val w = sizeH / ASPECT
-            Box(
-                Modifier.align(androidx.compose.ui.BiasAlignment(bias(c.x, w), bias(c.y, sizeH)))
-                    .fillMaxWidth(w).fillMaxHeight(sizeH)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .clickable(enabled = enabled, onClickLabel = k.label) { onPick(k) }
-            )
-            tags[k]?.takeIf { it.isNotEmpty() }?.let { t ->
-                // Etiqueta justo encima del botón (sin taparlo).
-                val tc = c + Offset(0f, -sizeH * 0.85f)
-                Box(
-                    Modifier.align(androidx.compose.ui.BiasAlignment(tc.x * 2 - 1, tc.y.coerceAtLeast(0.03f) * 2 - 1))
-                ) {
-                    // Box y no Surface: la etiqueta no debe quitarle los toques a los botones de al lado.
-                    androidx.compose.material3.Text(
-                        t.joinToString(" "),
-                        Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(50)).background(LIT)
-                            .padding(horizontal = 5.dp),
-                        fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0B1A20)
-                    )
-                }
-            }
-        }
-    }
-}
-
 /** Tiras y anillo de Home con los colores y efectos leídos del control (apagados si no se leyeron). */
 @Composable
 private fun ControllerLights(s: AppState, modifier: Modifier) {

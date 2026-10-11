@@ -943,8 +943,8 @@ enum class Page { HOME, LIGHTS, STICKS, VIBRATION, TEST, BACK, PROFILES, AUTO, G
  * preferencias) y los ajustes de la app. Cada una con sus pestañas, en el orden de LB/RB; LT/RT pasan de una a otra.
  */
 enum class Section(val pages: List<Page>) {
-    TABLET(listOf(Page.TABLET_HOME, Page.BATTERY, Page.SCREEN, Page.GAMEPANEL, Page.CONTROLS)),
-    G9(listOf(Page.HOME, Page.AUTO, Page.LIGHTS, Page.STICKS, Page.VIBRATION, Page.TEST, Page.BACK, Page.G9_PREFS)),
+    TABLET(listOf(Page.TABLET_HOME, Page.BATTERY, Page.SCREEN, Page.GAMEPANEL, Page.CONTROLS, Page.TEST)),
+    G9(listOf(Page.HOME, Page.AUTO, Page.LIGHTS, Page.STICKS, Page.VIBRATION, Page.BACK, Page.G9_PREFS)),
     SETTINGS(listOf(Page.DIAGNOSTICS)),
 }
 

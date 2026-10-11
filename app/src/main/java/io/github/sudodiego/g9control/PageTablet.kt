@@ -90,13 +90,9 @@ fun BatteryNowPanel(a: MainActivity) {
     var now by remember { mutableStateOf(batteryNow(a)) }
     var watts by remember { mutableStateOf<Double?>(null) }
     LaunchedEffect(Unit) {
-        val bm = a.getSystemService(BatteryManager::class.java)
         while (true) {
             now = batteryNow(a)
-            val i = a.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
-            val mv = i?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
-            watts = if (ua != Int.MIN_VALUE && ua != 0 && mv > 0) kotlin.math.abs(ua.toDouble()) / 1e6 * mv / 1e3 else null
+            watts = ZuiBattery.watts(a)
             delay(3000)
         }
     }
