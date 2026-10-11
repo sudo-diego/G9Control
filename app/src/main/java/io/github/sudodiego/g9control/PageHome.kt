@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -131,8 +132,8 @@ fun ServiceWarning(s: AppState, a: MainActivity) {
         AutoRules.smartBypass(a) || Monitor.all169(a) || Monitor.screen(a) != Monitor.Screen.NORMAL
     if (!on || s.autoServiceOn || !used) return
     WarningStrip(
-        tr("El servicio de accesibilidad está apagado: el panel de juego, el cambio automático, el botón guía y lo automático de la tablet no funcionan.",
-            "The accessibility service is off: the game panel, automatic switching, the guide button and the tablet's automatic features don't work."),
+        tr("El servicio de accesibilidad está apagado: el panel y los atajos no funcionan.",
+            "The accessibility service is off: the panel and shortcuts don't work."),
         tr("Activar", "Turn on"), { AutoRules.openServiceSettings(a) },
         onDismiss = { on = false; AutoRules.setWarnService(a, false) }
     )
@@ -153,8 +154,8 @@ fun ShizukuWarning(a: MainActivity) {
         WarningStrip(tr("TBF Companion no tiene permiso de Shizuku.", "TBF Companion has no Shizuku permission."),
             tr("Dar permiso", "Grant"), { Shell.requestPermission() }, onDismiss = { on = false; AutoRules.setWarnShizuku(a, false) })
     else
-        WarningStrip(tr("Shizuku no está iniciado: lo que lo necesita (bypass, ocultar Game Assistant, apagar la tablet con el monitor) no funciona.",
-            "Shizuku isn't started: what needs it (bypass, hiding Game Assistant, turning the tablet off with a monitor) doesn't work."),
+        WarningStrip(tr("Shizuku no está iniciado.",
+            "Shizuku isn't started."),
             tr("Abrir Shizuku", "Open Shizuku"), { runCatching { a.startActivity(launch) } }, onDismiss = { on = false; AutoRules.setWarnShizuku(a, false) })
 }
 
@@ -162,13 +163,14 @@ fun ShizukuWarning(a: MainActivity) {
 @Composable
 private fun WarningStrip(text: String, action: String, onAction: () -> Unit, onDismiss: () -> Unit) {
     val c = MaterialTheme.colorScheme
-    Surface(color = c.errorContainer, shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-        Row(Modifier.padding(start = 20.dp, end = 12.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Outlined.WarningAmber, null, tint = c.onErrorContainer)
-            Spacer(Modifier.width(12.dp))
-            Text(text, Modifier.weight(1f), color = c.onErrorContainer)
-            TextButton(onClick = onDismiss) { Text(tr("No avisar", "Don't warn"), color = c.onErrorContainer) }
-            Button(onClick = onAction) { Text(action) }
+    // Discreto: una línea con el ícono en rojo, no un bloque rojo que tapa la página.
+    Surface(color = c.surfaceContainerHigh, shape = CircleShape, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(start = 18.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.WarningAmber, null, Modifier.size(20.dp), tint = c.error)
+            Spacer(Modifier.width(10.dp))
+            Text(text, Modifier.weight(1f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            TextButton(onClick = onDismiss) { Text(tr("No avisar", "Don't warn"), color = c.onSurfaceVariant) }
+            FilledTonalButton(onClick = onAction) { Text(action) }
         }
     }
 }

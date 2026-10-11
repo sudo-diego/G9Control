@@ -29,6 +29,7 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
     // Detalles técnicos ocultos: como el modo desarrollador de Android, aparecen al tocar la versión 5 veces.
     var dev by remember { mutableStateOf(Prefs.devTools(a)) }
     var taps by remember { mutableIntStateOf(0) }
+    var anim by remember { mutableStateOf(AutoRules.noticeAnim(a)) }
     TwoPane(
         first = {
             Panel(tr("Aplicación", "App")) {
@@ -38,6 +39,9 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                 ChoiceChips(AppTheme.entries.map { it to it.label }, ThemeState.theme) {
                     ThemeState.theme = it; Prefs.setTheme(a, it)
                 }
+                // Una sola animación para todos los avisos (cambio de modo y capturas).
+                Text(tr("Animación de los avisos", "Notice animation"), fontSize = 14.sp)
+                ChoiceChips(NoticeAnim.entries.map { it to it.label }, anim) { anim = it; AutoRules.setNoticeAnim(a, it); AutoRules.setShotAnim(a, it) }
                 OutlinedButton(onClick = { s.showSetup = true }) { Text(tr("Ver la configuración inicial", "Show quick setup")) }
                 val version = runCatching { a.packageManager.getPackageInfo(a.packageName, 0).versionName }.getOrNull() ?: "?"
                 Row(
@@ -180,11 +184,11 @@ private fun GamesHzPanel(a: MainActivity) {
     var hz by remember { mutableIntStateOf(RefreshRate.forGames(a) ?: 0) }
     CompositionLocalProvider(LocalEditable provides true) {
         Panel(tr("Frecuencia en juegos", "Refresh rate in games"),
-            tr("Fija la pantalla en todos los juegos. Cada juego puede tener la suya desde el panel.", "Locks the screen in every game. Each game can have its own from the panel.")) {
+            tr("Cada juego puede tener la suya desde el panel", "Each game can have its own from the panel")) {
             ChoiceChips(listOf(0 to tr("Sistema", "System")) + RefreshRate.supported(a).map { it to "$it Hz" }, hz) {
                 hz = it; RefreshRate.setForGames(a, it.takeIf { v -> v > 0 })
             }
-            Text(if (hz == 0) tr("Sistema: entre 30 y 120 Hz según el juego y el modo (en Ahorro baja a 30).", "System: 30 to 120 Hz depending on the game and mode (Saver drops to 30).")
+            Text(if (hz == 0) tr("Sistema: de 30 a 120 Hz según el juego.", "System: 30 to 120 Hz depending on the game.")
                 else tr("Siempre $hz Hz en los juegos.", "Always $hz Hz in games."),
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -200,41 +204,38 @@ fun NoticesPanel(s: AppState, a: MainActivity) {
     var pos by remember { mutableStateOf(AutoRules.noticePos(a)) }
     var label by remember { mutableStateOf(AutoRules.showLabel(a)) }
     var guidePos by remember { mutableStateOf(AutoRules.guidePos(a)) }
-    var anim by remember { mutableStateOf(AutoRules.noticeAnim(a)) }
     val on = s.autoServiceOn
     // Estas opciones son de la app, no del control: siempre se pueden cambiar.
     CompositionLocalProvider(LocalEditable provides true) {
         Panel(tr("Avisos de cambio de modo", "Mode change notices")) {
-            NoticeBox(tr("Al abrir un juego", "When opening a game"), tr("Pide mantener Vista + Menú si el juego usa otro modo.", "Asks you to hold View + Menu if the game uses another mode."),
+            NoticeBox(tr("Al abrir un juego", "When opening a game"), tr("Si el juego usa otro modo", "If the game uses another mode"),
                 if (on) { { AutoRules.preview(a, if (small) "mini" else "big") } } else null) {
                 ChoiceChips(listOf(false to tr("Tarjeta en el centro", "Card in the center"), true to tr("Aviso pequeño", "Small notice")), small) {
                     small = it; AutoRules.setGuideSmall(a, it)
                 }
-                if (small) Hint(tr("Usa el mismo bloqueo y posición que el aviso al salir de un juego.", "Uses the same blocking and position as the notice when leaving a game."))
+                if (small) Hint(tr("Mismo bloqueo y posición que al salir.", "Same blocking and position as when leaving."))
                 else LockChips(big) { big = it; AutoRules.setGuideBlock(a, it > 0); AutoRules.setBlockSticks(a, it > 1) }
             }
-            NoticeBox(tr("Al salir de un juego", "When leaving a game"), tr("Recuerda volver a Android.", "Reminds you to return to Android."),
+            NoticeBox(tr("Al salir de un juego", "When leaving a game"), tr("Volver a Android", "Back to Android"),
                 if (on) { { AutoRules.preview(a, if (exitBig) "big" else "mini") } } else null,
                 side = { PosGrid(guidePos) { guidePos = it; AutoRules.setGuidePos(a, it) } }) {
                 ChoiceChips(listOf(true to tr("Tarjeta en el centro", "Card in the center"), false to tr("Aviso pequeño", "Small notice")), exitBig) {
                     exitBig = it; AutoRules.setExitBig(a, it)
                 }
-                if (exitBig) Hint(tr("Usa el mismo bloqueo que la tarjeta al abrir un juego.", "Uses the same blocking as the card when opening a game."))
+                if (exitBig) Hint(tr("Mismo bloqueo que al abrir.", "Same blocking as when opening."))
                 else LockChips(mini) { mini = it; AutoRules.setMiniBlock(a, it > 0); AutoRules.setMiniBlockSticks(a, it > 1) }
                 // Por qué: en X-Input y DS5 el G9 no tiene canal de configuración (solo vuelve con Vista + Menú).
-                Hint(tr("¿Por qué volver? Solo en Android la app puede cambiar el modo sola en el próximo juego y ajustar luces, sticks o traseros. Si no lo necesitas, puedes quedarte en DS5.",
-                    "Why go back? Only in Android can the app switch the mode by itself for the next game and adjust lights, sticks or back buttons. If you don't need that, you can stay in DS5."))
+                Hint(tr("Solo en Android la app cambia el modo sola y ajusta el G9. Si no lo necesitas, quédate en DS5.",
+                    "Only in Android can the app switch modes by itself and adjust the G9. If you don't need that, stay in DS5."))
             }
-            NoticeBox(tr("Al cambiar de modo", "When switching mode"), tr("Etiqueta con el modo nuevo cuando la app lo cambia. No bloquea nada.", "Label with the new mode when the app switches it. Doesn't block anything."),
+            NoticeBox(tr("Al cambiar de modo", "When switching mode"), tr("Etiqueta con el modo nuevo", "Label with the new mode"),
                 if (on && label) { { AutoRules.preview(a, "banner") } } else null,
                 side = if (label) { { PosGrid(pos) { pos = it; AutoRules.setNoticePos(a, it) } } } else null) {
                 SwitchRow(tr("Mostrar la etiqueta", "Show the label"), label) { label = it; AutoRules.setShowLabel(a, it) }
             }
             if ((!small && big > 0) || mini > 0)
-                Hint(tr("Para quitar un aviso que bloquea sin cambiar de modo: mantén presionada la pantalla 2 s.", "To dismiss a blocking notice without switching mode: press and hold the screen for 2 s."))
-            Text(tr("Animación", "Animation"), fontSize = 14.sp)
-            ChoiceChips(NoticeAnim.entries.map { it to it.label }, anim) { anim = it; AutoRules.setNoticeAnim(a, it) }
-            if (!on) Hint(tr("Para ver los avisos hay que activar el servicio de accesibilidad (Ajustes → Permisos).", "To see the notices, turn on the accessibility service (Settings → Permissions)."))
+                Hint(tr("Para quitar un aviso que bloquea: mantén la pantalla 2 s.", "To dismiss a blocking notice: hold the screen for 2 s."))
+            if (!on) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
         }
     }
 }
@@ -247,7 +248,6 @@ fun NoticesPanel(s: AppState, a: MainActivity) {
 private fun GamePanelSettings(s: AppState, a: MainActivity) {
     var shotPos by remember { mutableStateOf(AutoRules.shotPos(a)) }
     var shotSound by remember { mutableStateOf(AutoRules.shotSound(a)) }
-    var shotAnim by remember { mutableStateOf(AutoRules.shotAnim(a)) }
     var perfHud by remember { mutableStateOf(AutoRules.perfHud(a)) }
     var perfPos by remember { mutableStateOf(AutoRules.perfPos(a)) }
     var perfFull by remember { mutableStateOf(AutoRules.perfFull(a)) }
@@ -258,8 +258,6 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                 side = { PosGrid(shotPos) { shotPos = it; AutoRules.setShotPos(a, it) } }) {
                 Text(tr("Sonido", "Sound"), fontSize = 14.sp)
                 ChoiceChips(ShotSound.entries.map { it to it.label }, shotSound) { shotSound = it; AutoRules.setShotSound(a, it) }
-                Text(tr("Animación", "Animation"), fontSize = 14.sp)
-                ChoiceChips(NoticeAnim.entries.map { it to it.label }, shotAnim) { shotAnim = it; AutoRules.setShotAnim(a, it) }
             }
         }
         Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }) }) {
@@ -342,8 +340,8 @@ private fun LockChips(level: Int, onPick: (Int) -> Unit) {
     Text(tr("Mientras está en pantalla, bloquear", "While on screen, block"), fontSize = 14.sp)
     ChoiceChips(listOf(0 to tr("Nada", "Nothing"), 1 to tr("Botones", "Buttons"), 2 to tr("Todo", "Everything")), level, onPick)
     when (level) {
-        1 -> Hint(tr("Botones y pantalla táctil. Sticks y gatillos siguen llegando al juego.", "Buttons and touchscreen. Sticks and triggers still reach the game."))
-        2 -> Hint(tr("Botones, pantalla, sticks y gatillos. El juego pierde el foco y puede pausarse.", "Buttons, screen, sticks and triggers. The game loses focus and may pause."))
+        1 -> Hint(tr("Sticks y gatillos siguen llegando al juego.", "Sticks and triggers still reach the game."))
+        2 -> Hint(tr("También sticks y gatillos. El juego puede pausarse.", "Also sticks and triggers. The game may pause."))
     }
 }
 

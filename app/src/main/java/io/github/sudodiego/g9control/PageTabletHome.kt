@@ -71,14 +71,14 @@ private fun QuickPanel(a: MainActivity) {
     CompositionLocalProvider(LocalEditable provides true) {
         Panel(tr("Rápido", "Quick")) {
             CompositionLocalProvider(LocalEditable provides ready) {
-                SwitchRow("Bypass", bypass, tr("Con el cargador, la batería no carga ni se calienta.", "With the charger, the battery doesn't charge or heat up.")) { want ->
+                SwitchRow("Bypass", bypass, tr("La batería no carga ni se calienta", "The battery doesn't charge or heat up")) { want ->
                     if (ready) scope.launch { if (ZuiBattery.setBypass(want)) bypass = want }
                 }
             }
-            SwitchRow(tr("Monitor de rendimiento", "Performance monitor"), hud, tr("FPS, CPU, GPU y batería sobre el juego.", "FPS, CPU, GPU and battery over the game.")) {
+            SwitchRow(tr("Monitor de rendimiento", "Performance monitor"), hud, tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery")) {
                 hud = it; AutoRules.setPerfHud(a, it)
             }
-            if (Aspect.available(a)) SwitchRow(tr("Pantalla 16:9", "16:9 screen"), wide, tr("Para un monitor externo sin bordes.", "For an external monitor without borders.")) { want ->
+            if (Aspect.available(a)) SwitchRow(tr("Pantalla 16:9", "16:9 screen"), wide, tr("Monitor sin bordes", "Monitor without borders")) { want ->
                 scope.launch {
                     if (want != Aspect.is169(a)) Aspect.toggle(a)
                     delay(500)

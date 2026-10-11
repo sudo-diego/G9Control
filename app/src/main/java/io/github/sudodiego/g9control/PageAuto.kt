@@ -66,7 +66,7 @@ private fun ServiceSetup(a: MainActivity) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(Icons.Outlined.WarningAmber, null, tint = MaterialTheme.colorScheme.tertiary)
         Spacer(Modifier.width(8.dp))
-        Text(tr("El cambio automático necesita el servicio de accesibilidad (Ajustes → Permisos).", "Automatic switching needs the accessibility service (Settings → Permissions)."),
+        Text(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Automatic switching needs the accessibility service (Settings → Permissions)."),
             Modifier.weight(1f), fontWeight = FontWeight.Medium)
         Button(onClick = { AutoRules.openServiceSettings(a) }) { Text(tr("Activar", "Turn on")) }
     }

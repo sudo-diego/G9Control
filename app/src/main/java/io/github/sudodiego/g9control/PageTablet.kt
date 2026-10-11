@@ -223,7 +223,7 @@ private fun MonitorPanel(s: AppState, a: MainActivity) {
             if (Aspect.available(a)) {
                 SwitchRow(
                     tr("16:9 en cualquier monitor", "16:9 on any monitor"), all169,
-                    tr("Al conectarlo en modo espejo. Vuelve a 16:10 al desconectarlo.", "When connected in mirror mode. Back to 16:10 when unplugged.")
+                    tr("Al conectar en espejo", "When connected in mirror mode. Back to 16:10 when unplugged.")
                 ) { all169 = it; Monitor.setAll169(a, it) }
             }
             Text(tr("Pantalla de la tablet", "Tablet screen"), fontSize = 14.sp)
@@ -244,8 +244,8 @@ private fun MonitorPanel(s: AppState, a: MainActivity) {
                 OutlinedButton(onClick = { AutoRules.darkenTablet(a); tick++ }) { Text(tr("Oscurecer ahora", "Darken now")) }
             }
             if (screen >= Monitor.Screen.NO_LIGHT && !ready) Hint(tr("Sin Shizuku queda oscura.", "Without Shizuku it's just dimmed."))
-            if (screen != Monitor.Screen.NORMAL) Hint(tr("Con el monitor en espejo. Se vuelve a oscurecer aquí o desde el panel de juego (L3 + R3, con cualquier control). Si algo falla, el botón de encendido dos veces siempre la enciende.",
-                "With the monitor in mirror mode. Darken it again here or from the game panel (L3 + R3, any controller). If anything goes wrong, pressing the power button twice always turns it back on."))
+            if (screen != Monitor.Screen.NORMAL) Hint(tr("Con el monitor en espejo. Si algo falla, el botón de encendido dos veces la enciende.",
+                "With the monitor in mirror mode. If anything goes wrong, pressing power twice turns it on."))
             if (!s.autoServiceOn) Hint(tr("Necesita el servicio de accesibilidad (Ajustes → Permisos).", "Needs the accessibility service (Settings → Permissions)."))
             if (known.isNotEmpty() && Aspect.available(a)) {
                 Text(tr("Monitores", "Monitors"), fontSize = 14.sp)
@@ -315,7 +315,7 @@ fun GameAssistantSettings(s: AppState, a: MainActivity) {
             CompositionLocalProvider(LocalEditable provides ready) {
                 SwitchRow(
                     tr("Ocultar Game Assistant", "Hide Game Assistant"), gaHidden == true,
-                    tr("Sin pestaña ni panel. TBF Companion lo muestra solo mientras lo usa.", "No side tab or panel. TBF Companion shows it only while using it.")
+                    tr("Sin pestaña ni panel", "No side tab or panel")
                 ) { want ->
                     if (ready) gaScope.launch { if (ZuiGame.setHidden(want)) { AutoRules.setGaHidden(a, want); gaHidden = want } }
                 }
@@ -332,7 +332,7 @@ fun GameAssistantSettings(s: AppState, a: MainActivity) {
             CompositionLocalProvider(LocalEditable provides canWrite) {
                 SwitchRow(
                     tr("Brillo automático en juegos", "Auto brightness in games"), autoInGames,
-                    tr("Game Assistant lo apaga al entrar a un juego. Actívalo para que siga como esté.", "Game Assistant turns it off when a game starts. Turn this on to leave it as it is.")
+                    tr("Que Game Assistant no lo apague", "Keep Game Assistant from turning it off")
                 ) { want ->
                     if (runCatching { Settings.Global.putInt(a.contentResolver, GA_NO_AUTO_BRIGHTNESS, if (want) 0 else 1) }.isSuccess) autoInGames = want
                 }
@@ -340,10 +340,10 @@ fun GameAssistantSettings(s: AppState, a: MainActivity) {
             if (!canWrite) Hint(tr("Necesita el permiso de pantalla (Ajustes → Permisos).", "Needs the screen permission (Settings → Permissions)."))
             // Medido en RetroArch: ninguno cambia el techo de la CPU; cambian cuánto la dejan subir.
             Text(tr("Modos de rendimiento", "Performance modes"), fontSize = 14.sp)
-            ModeRow(tr("Ahorro de energía", "Power saving"), tr("La CPU se queda baja. Gasta menos; puede haber más lag y los juegos pesados bajan de FPS.",
-                "The CPU stays low. Uses less; may add lag and heavy games lose FPS."))
-            ModeRow(tr("Equilibrado", "Balanced"), tr("Sube solo cuando el juego lo pide.", "Ramps up only when the game asks."))
-            ModeRow(tr("Alto rendimiento", "High performance"), tr("La CPU siempre arriba. Menos tirones, más calor y batería.", "The CPU always high. Fewer stutters, more heat and battery."))
+            ModeRow(tr("Ahorro de energía", "Power saving"), tr("CPU baja: gasta menos, más lag",
+                "Low CPU: uses less, more lag"))
+            ModeRow(tr("Equilibrado", "Balanced"), tr("Sube cuando el juego lo pide", "Ramps up when the game asks"))
+            ModeRow(tr("Alto rendimiento", "High performance"), tr("CPU alta: menos tirones, más calor", "High CPU: fewer stutters, more heat"))
             OutlinedButton(onClick = { if (!ZuiGame.openSettings(a)) s.fail(tr("No se pudieron abrir los ajustes de Game Assistant.", "Couldn't open Game Assistant settings.")) }) {
                 Text(tr("Ajustes de Game Assistant", "Game Assistant settings"))
             }
@@ -361,13 +361,13 @@ private fun ScreenRow(a: MainActivity) {
     var wide by remember { mutableStateOf(Aspect.is169(a)) }
     if (!Aspect.available(a)) {
         Text(tr("Pantalla 16:9", "16:9 screen"), fontSize = 14.sp)
-        Hint(tr("Para un monitor externo sin bordes. Se activa una vez desde un computador: ${Aspect.GRANT_COMMAND}",
+        Hint(tr("Monitor sin bordes. Se activa una vez desde un computador: ${Aspect.GRANT_COMMAND}",
             "For an external monitor without borders. Enable it once from a computer: ${Aspect.GRANT_COMMAND}"))
         return
     }
     SwitchRow(
         tr("Pantalla 16:9", "16:9 screen"), wide,
-        tr("Monitor externo sin bordes. Cambiarla cierra Dolphin si está abierto.", "External monitor without borders. Switching closes Dolphin if it's open.")
+        tr("Monitor sin bordes · cierra Dolphin si está abierto", "External monitor without borders. Switching closes Dolphin if it's open.")
     ) { want ->
         scope.launch {
             if (want != Aspect.is169(a)) Aspect.toggle(a)

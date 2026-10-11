@@ -58,8 +58,8 @@ private fun GuidePanel(a: MainActivity) {
                     row(AutoRules.Guide.LB_BACK).value = it; AutoRules.setGuide(a, AutoRules.Guide.LB_BACK, it)
                 }
             }
-            Hint(tr("Transmitiendo desde el PC (Artemis, Moonlight) el botón guía va al PC. En el G9, mantenerlo 5 s lo apaga.",
-                "While streaming from a PC (Artemis, Moonlight) the guide button goes to the PC. On the G9, holding it 5 s turns it off."))
+            Hint(tr("Transmitiendo desde el PC, el botón guía va al PC. En el G9, 5 s lo apaga.",
+                "While streaming from a PC, the guide button goes to the PC. On the G9, 5 s turns it off."))
         }
     }
 }
