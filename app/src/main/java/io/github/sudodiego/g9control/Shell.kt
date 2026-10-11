@@ -62,8 +62,15 @@ object Shell {
         "app_process -Djava.class.path=${app?.applicationInfo?.sourceDir} /system/bin ${ScreenPower::class.java.name} $args"
     private val SCREEN = Regex("power [02]|light -1")
 
+    // WiFi y Bluetooth desde el panel: una app ya no puede encenderlos ni apagarlos (Android 10 y 13), el shell sí.
+    const val WIFI_ON = "svc wifi enable"
+    const val WIFI_OFF = "svc wifi disable"
+    const val BT_ON = "svc bluetooth enable"
+    const val BT_OFF = "svc bluetooth disable"
+
     private fun allowed(cmd: String) =
-        cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+        cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

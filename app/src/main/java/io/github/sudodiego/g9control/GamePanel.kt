@@ -39,6 +39,10 @@ import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.Mouse
+import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.BluetoothDisabled
 import androidx.compose.material.icons.outlined.BrightnessAuto
 import androidx.compose.material.icons.outlined.BrightnessMedium
 import androidx.compose.material.icons.outlined.Home
@@ -278,6 +282,17 @@ class GamePanel(private val svc: AutoModeService) {
             }
         ui.sel = ui.items.indexOfFirst { it.active }.coerceAtLeast(0)
         poke()
+    }
+
+    /** WiFi o Bluetooth: con Shizuku se cambia y el panel queda abierto mostrando el estado nuevo; sin él, el panel de Android. */
+    private fun radio(on: Boolean, onCmd: String, offCmd: String, settingsAction: String) {
+        if (Shell.state == Shell.State.READY) scope.launch {
+            Shell.run(if (on) onCmd else offCmd)
+            main.postDelayed({ refresh() }, 700)
+        } else {
+            hide()
+            runCatching { svc.startActivity(Intent(settingsAction).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        }
     }
 
     private fun pickHz(hz: Int?) {
@@ -571,6 +586,18 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem(tr("Recientes", "Recents"), Icons.Outlined.Layers, PanelRow.SYSTEM, sub = tr("Apps abiertas", "Open apps")) { hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS) })
         add(PanelItem(tr("Ajustes rápidos", "Quick settings"), Icons.Outlined.ToggleOn, PanelRow.SYSTEM, sub = "Android") {
             hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
+        })
+        // WiFi y Bluetooth: con Shizuku se encienden y apagan aquí mismo; sin él, abre el panel de Android.
+        val cr = svc.contentResolver
+        val wifi = android.provider.Settings.Global.getInt(cr, "wifi_on", 0) != 0
+        val bt = android.provider.Settings.Global.getInt(cr, "bluetooth_on", 0) != 0
+        add(PanelItem("WiFi", if (wifi) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, PanelRow.SYSTEM, active = wifi,
+            sub = if (wifi) tr("Encendido", "On") else tr("Apagado", "Off")) {
+            radio(!wifi, Shell.WIFI_ON, Shell.WIFI_OFF, android.provider.Settings.Panel.ACTION_WIFI)
+        })
+        add(PanelItem("Bluetooth", if (bt) Icons.Outlined.Bluetooth else Icons.Outlined.BluetoothDisabled, PanelRow.SYSTEM, active = bt,
+            sub = if (bt) tr("Encendido", "On") else tr("Apagado", "Off")) {
+            radio(!bt, Shell.BT_ON, Shell.BT_OFF, android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)
         })
         // Mouse virtual: para apps que no usan el control (los sticks dejan de llegar a la app mientras está).
         val mouseOn = svc.isMouseOn
