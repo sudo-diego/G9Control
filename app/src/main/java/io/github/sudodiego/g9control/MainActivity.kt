@@ -869,6 +869,7 @@ class MainActivity : ComponentActivity() {
         runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         Prefs.setPanelUri(this, uri.toString()); Prefs.setPanelBackground(this, PanelBackground.IMAGE)
         ThemeState.panelUri = uri.toString(); ThemeState.panelBackground = PanelBackground.IMAGE
+        ImageCache.preload(this, "panel", uri.toString())
     }
     fun pickPanelBackground() = panelBackgroundLauncher.launch(arrayOf("image/*"))
 

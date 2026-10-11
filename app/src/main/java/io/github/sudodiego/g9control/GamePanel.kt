@@ -87,6 +87,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.setViewTreeLifecycleOwner
@@ -124,8 +125,8 @@ private class PanelItem(
     val set: ((Float) -> Unit)? = null, val hint: String? = null, val run: () -> Unit = {}
 )
 
-/** Columnas de mosaicos. */
-private const val COLUMNS = 4
+/** Columnas de mosaicos: las de la forma elegida. */
+private val COLUMNS get() = ThemeState.panelShape.cols
 
 /**
  * Las filas del panel (índices de [items]): las barras juntas y los mosaicos de cada sección repartidos parejo, de a
@@ -161,6 +162,8 @@ private class PanelUi {
     var status by mutableStateOf("")
     /** Modo del G9 ahora (Android, X-Input, DS5), como recordatorio; null si no está conectado. */
     var mode by mutableStateOf<String?>(null)
+    /** Con la forma automática, el alto de la ventana queda fijo al entrar a un submenú (si se achicara, ZUI la desliza). */
+    var lockedHeight by mutableStateOf(false)
     /** Mini monitor (RAM, W, CPU, temperatura) debajo del encabezado. */
     var stats by mutableStateOf(true)
     /** En un submenú (rendimiento): encabezado sin batería ni hora, y B vuelve. */
@@ -244,9 +247,14 @@ class GamePanel(private val svc: AutoModeService) {
         ui.charging = !ui.bypass && i?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) == android.os.BatteryManager.BATTERY_STATUS_CHARGING
         // Lo calcula Android (−1 si todavía no sabe, recién enchufada).
         // Hasta el límite de carga si hay (el de ZUI o el propio), si no hasta 100.
-        ui.chargeLeft = if (!ui.charging) null else ZuiBattery.chargeTimeLeft(svc)?.let {
-            val target = ZuiBattery.chargeTarget(svc)
-            ZuiBattery.formatTime(it) + if (target < 100) tr(" a $target %", " to $target %") else ""
+        ui.chargeLeft = when {
+            ui.charging -> ZuiBattery.chargeTimeLeft(svc)?.let {
+                val target = ZuiBattery.chargeTarget(svc)
+                ZuiBattery.formatTime(it) + if (target < 100) tr(" a $target %", " to $target %") else ""
+            }
+            // A batería: cuánto dura al ritmo del último minuto (o al de ahora si todavía no hay promedio).
+            !ZuiBattery.plugged(svc) -> ZuiBattery.dischargeTimeLeft(svc, PowerLog.recentAvg)?.let { "~" + ZuiBattery.formatTime(it) }
+            else -> null
         }
         val time = android.text.format.DateFormat.getTimeFormat(svc).format(Date())
         ui.status = listOfNotNull(ui.battery.takeIf { it >= 0 }?.let { "$it %" }, time).joinToString(" · ")
@@ -261,6 +269,16 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     /** Del submenú (rendimiento, frecuencia) al panel, con su mosaico elegido. */
+    /** Antes de pasar a un submenú: la ventana conserva su alto (y la tarjeta queda al centro). */
+    private fun keepHeight() {
+        val v = view ?: return
+        val lp = params ?: return
+        if (lp.height != WindowManager.LayoutParams.WRAP_CONTENT || v.height <= 0) return
+        lp.height = v.height
+        ui.lockedHeight = true
+        runCatching { wm.updateViewLayout(v, lp) }
+    }
+
     private fun backToMain() {
         inPerfMenu = false
         ui.items = items()
@@ -275,6 +293,7 @@ class GamePanel(private val svc: AutoModeService) {
 
     /** Submenú de frecuencia de la pantalla para la app al frente: la del sistema o una fija (se recuerda por app). */
     private fun showHzMenu() {
+        keepHeight()
         inPerfMenu = true
         subFrom = Icons.Outlined.DisplaySettings
         val app = svc.foregroundApp
@@ -829,6 +848,7 @@ class GamePanel(private val svc: AutoModeService) {
      * Solo si todavía no se sabe se espera esa lectura.
      */
     private fun showPerfMenu() {
+        keepHeight()
         inPerfMenu = true
         subFrom = Icons.Outlined.Speed
         fun build(current: ZuiGame.PerfMode?) = ZuiGame.PerfMode.entries.map { m ->
@@ -1017,9 +1037,14 @@ class GamePanel(private val svc: AutoModeService) {
                 // Aparece desvaneciéndose (la animación de la ventana sola no siempre se ve al abrir).
                 val alpha = remember { androidx.compose.animation.core.Animatable(0f) }
                 LaunchedEffect(Unit) { alpha.animateTo(1f, androidx.compose.animation.core.tween(160)) }
-                Box(Modifier.fillMaxWidth().graphicsLayer { this.alpha = alpha.value }, contentAlignment = Alignment.Center) {
+                // Con alto fijo (forma elegida o submenú) la tarjeta va al centro.
+                Box(Modifier.fillMaxWidth().then(if (ui.lockedHeight || ThemeState.panelShape.ratio != null) Modifier.fillMaxHeight() else Modifier)
+                    .graphicsLayer { this.alpha = alpha.value }, contentAlignment = Alignment.Center) {
                     // La tarjeta se mide con el ancho que necesite (sin el límite de la ventana) y la ventana toma
                     // ese ancho: así no tapa el juego a los lados (un gesto o un toque ahí cerraba el panel).
+                    val base = androidx.compose.ui.platform.LocalDensity.current
+                    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides
+                        androidx.compose.ui.unit.Density(base.density * panelScale, base.fontScale)) {
                     PanelCard(ui, Modifier.wrapContentWidth(unbounded = true).onSizeChanged { fitWidth(it.width) },
                         onPick = { i ->
                             poke()
@@ -1029,15 +1054,18 @@ class GamePanel(private val svc: AutoModeService) {
                         },
                         onSet = ::setLevel
                     )
+                    }
                 }
             }
         }
         // Desde el principio con el ancho de la tarjeta (con WRAP_CONTENT Android la mide con el ancho de un diálogo,
         // ~580 dp, y se cortaba; con todo el ancho y achicándola después, ZUI animaba el cambio como un deslizamiento).
         // Al centro. No toma el foco (el juego lo conserva); tocar fuera lo cierra.
-        val cardWidth = ((TILE_W * COLUMNS + GAP * (COLUMNS - 1) + CARD_PAD * 2).value * svc.resources.displayMetrics.density).toInt()
+        val dims = panelDims(svc)
+        val density = svc.resources.displayMetrics.density * panelScale
+        ui.lockedHeight = false
         val lp = WindowManager.LayoutParams(
-            cardWidth, WindowManager.LayoutParams.WRAP_CONTENT,
+            (dims.width.value * density).toInt(), dims.height?.let { (it.value * density).toInt() } ?: WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
@@ -1085,7 +1113,26 @@ private val tileColor get() = when {
     else -> TILE_GLASS
 }
 
-private val TILE_W = 172.dp
+/** Medidas de la tarjeta según la forma y el tamaño elegidos, ajustadas a la pantalla (con margen). */
+private class PanelDims(val cols: Int, val tileW: Dp, val width: Dp, val height: Dp?)
+
+/** Escala del panel (el "Tamaño" en Ajustes): se aplica a toda la tarjeta con una densidad propia. */
+private val panelScale get() = ThemeState.panelScale.coerceIn(60, 120) / 100f
+
+/** En dp sin escalar (los de la tarjeta); la pantalla se mide en esas mismas unidades. */
+private fun panelDims(ctx: android.content.Context): PanelDims {
+    val conf = ctx.resources.configuration
+    val shape = ThemeState.panelShape
+    val cols = shape.cols
+    val screenW = conf.screenWidthDp / panelScale
+    val screenH = conf.screenHeightDp / panelScale
+    val maxTile = (screenW * 0.94f - CARD_PAD.value * 2 - GAP.value * (cols - 1)) / cols
+    val tileW = minOf(172f, maxTile).dp
+    val width = tileW * cols + GAP * (cols - 1) + CARD_PAD * 2
+    val height = shape.ratio?.let { minOf(width.value / it, screenH * 0.92f).dp }
+    return PanelDims(cols, tileW, width, height)
+}
+
 private val TILE_H = 68.dp
 private val GAP = 10.dp
 private val CARD_PAD = 22.dp
@@ -1096,9 +1143,17 @@ private val CARD_PAD = 22.dp
  */
 @Composable
 private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onSet: (Int, Float) -> Unit) {
-    val width = TILE_W * COLUMNS + GAP * (COLUMNS - 1)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val dims = panelDims(ctx)
+    val width = dims.width - CARD_PAD * 2
+    // Con forma fija el alto es el de la proporción y las filas de mosaicos se reparten lo que queda.
+    val fixed = dims.height != null
     val shape = RoundedCornerShape(28.dp)
-    Surface(color = if (ThemeState.panelSeeThrough) Color.Transparent else PANEL_BG, shape = shape, modifier = modifier,
+    // Al entrar o salir de un submenú el contenido aparece desvaneciéndose, como el panel al abrirse.
+    val fade = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(ui.sub, ui.title) { fade.snapTo(0f); fade.animateTo(1f, androidx.compose.animation.core.tween(180)) }
+    Surface(color = if (ThemeState.panelSeeThrough) Color.Transparent else PANEL_BG, shape = shape,
+        modifier = modifier.then(dims.height?.let { Modifier.height(it) } ?: Modifier),
         border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
       Box {
         // Fondo propio del panel (degradado, imagen o GIF) con un velo para que se lea sobre cualquier imagen.
@@ -1106,7 +1161,8 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
             PanelBackdrop()
             if (!ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
         }
-        Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width)) {
+        Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width).then(if (fixed) Modifier.fillMaxHeight() else Modifier)
+            .graphicsLayer { alpha = fade.value }) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // El nombre ocupa lo que necesita (hasta la mitad); el resto empuja la batería y la hora a la derecha.
                 Text(ui.title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
@@ -1133,6 +1189,8 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
             if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
             Spacer(Modifier.height(16.dp))
             val rows = panelRows(ui.items)
+            Column(if (fixed) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth(),
+                verticalArrangement = if (fixed) Arrangement.Center else Arrangement.Top) {
             rows.forEachIndexed { r, row ->
                 val section = ui.items[row[0]].section
                 // Un poco más de aire entre secciones (barras, juego, Android) que entre filas, y su nombre chico (no en
@@ -1145,17 +1203,22 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                         else -> "Android"
                     }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
                 }
-                // Cada fila llena el ancho: los mosaicos se reparten el espacio (sin huecos al final).
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+                // Cada fila llena el ancho: los mosaicos se reparten el espacio (sin huecos al final). Con forma fija,
+                // las filas de mosaicos se reparten también el alto.
+                val stretch = fixed && !ui.sub && section != PanelRow.SLIDER
+                Row(Modifier.fillMaxWidth().then(if (stretch) Modifier.weight(1f, fill = false).heightIn(min = 48.dp, max = 92.dp) else Modifier),
+                    horizontalArrangement = Arrangement.spacedBy(GAP)) {
                     row.forEach { i ->
                         val item = ui.items[i]
                         when {
-                            section != PanelRow.SLIDER -> PanelTile(item, i == ui.sel, Modifier.weight(1f)) { onPick(i) }
+                            section != PanelRow.SLIDER -> PanelTile(item, i == ui.sel,
+                                Modifier.weight(1f).then(if (stretch) Modifier.fillMaxHeight() else Modifier.height(TILE_H))) { onPick(i) }
                             item.level != null -> PanelSlider(item, i == ui.sel, ui.editing && i == ui.sel, Modifier.weight(1f)) { onSet(i, it) }
                             else -> PanelToggle(item, i == ui.sel) { onPick(i) }
                         }
                     }
                 }
+            }
             }
             Spacer(Modifier.height(14.dp))
             Text(
@@ -1185,7 +1248,10 @@ private fun PanelStats() {
     val temp = remember(tick) { Stats.batteryTemp(ctx) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GAP)) {
         StatChip(Icons.Outlined.Memory, Memory.gb(ram.freeBytes), tr("RAM libre", "Free RAM"), Modifier.weight(1f))
-        StatChip(Icons.Outlined.Bolt, w?.let { (if (plugged) "+" else "") + "%.1f W".format(it) } ?: "—",
+        // En bypass la batería casi no da ni recibe nada (los watts saldrían ~0): el enchufe y "Bypass".
+        val bypass = plugged && ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY
+        if (bypass) StatChip(Icons.Outlined.Power, "Bypass", tr("Activo", "On"), Modifier.weight(1f))
+        else StatChip(Icons.Outlined.Bolt, w?.let { (if (plugged) "+" else "") + "%.1f W".format(it) } ?: "—",
             PowerLog.recentAvg?.takeIf { !plugged }?.let { tr("prom. %.1f W", "avg %.1f W").format(it) } ?: if (plugged) tr("Entra", "Charging") else tr("Consumo", "Draw"),
             Modifier.weight(1f))
         StatChip(Icons.Outlined.Speed, Stats.cpuText(cpu), "CPU", Modifier.weight(1f))
@@ -1255,7 +1321,7 @@ private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, on
     Surface(
         color = if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
         border = if (selected) BorderStroke(2.5.dp, SELECTED) else if (glassPanel && !item.active) BorderStroke(1.dp, GLASS_EDGE) else null,
-        modifier = modifier.height(TILE_H).clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)
+        modifier = modifier.clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)
             .graphicsLayer { alpha = if (item.enabled) 1f else 0.45f }
     ) {
         Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {

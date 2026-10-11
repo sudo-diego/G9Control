@@ -145,7 +145,13 @@ private fun TestPanel(s: AppState) {
     val pressed = if (on) pressedNow(s) else emptySet()
     Panel {
         fun v(x: Float) = if (on) x else 0f
-        ControllerTestView(pressed, v(s.lx), v(s.ly), v(s.rx), v(s.ry), v(s.lt), v(s.rt), Modifier.fillMaxWidth(), lights = s)
+        // El dibujo del G9 solo si hay un G9 conectado (en cualquier modo); con otro control, uno genérico.
+        val g9 = remember(on, s.connected) {
+            android.view.InputDevice.getDeviceIds().toList().mapNotNull { android.view.InputDevice.getDevice(it) }
+                .any { !it.isVirtual && it.name.contains("G9", ignoreCase = true) }
+        }
+        if (g9) ControllerTestView(pressed, v(s.lx), v(s.ly), v(s.rx), v(s.ry), v(s.lt), v(s.rt), Modifier.fillMaxWidth(), lights = s)
+        else GenericControllerView(pressed, v(s.lx), v(s.ly), v(s.rx), v(s.ry), v(s.lt), v(s.rt), Modifier.fillMaxWidth())
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(tr("Prueba de botones", "Button test"), fontWeight = FontWeight.SemiBold)

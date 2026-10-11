@@ -73,6 +73,16 @@ enum class AppBackground { GRADIENT, IMAGE, WALLPAPER, PLAIN;
     }
 }
 
+/**
+ * Forma del panel de juego: columnas de mosaicos y proporción de la tarjeta (ancho : alto). Automática = 4 columnas y
+ * el alto que pida el contenido; las demás fijan el alto y los mosaicos se estiran para llenarlo.
+ */
+enum class PanelShape(val cols: Int, val ratio: Float?) {
+    AUTO(4, null), R16_9(6, 16f / 9), R16_10(5, 1.6f), R4_3(4, 4f / 3), R1_1(3, 1f);
+    val label get() = when (this) { AUTO -> tr("Automática", "Automatic"); R16_9 -> "16:9"; R16_10 -> "16:10"; R4_3 -> "4:3"; R1_1 -> "1:1" }
+}
+
+
 /** Fondo del panel de juego (aparte del de la app): el fondo de pantalla no se puede, el juego está detrás. */
 enum class PanelBackground { CLEAR, GRADIENT, IMAGE, PLAIN;
     val label get() = when (this) {
@@ -99,6 +109,9 @@ object ThemeState {
     var panelFill by androidx.compose.runtime.mutableIntStateOf(25)
     /** Degradado o imagen: cuánto se ve el juego a través (0 = nada, el fondo tapa; 100 = casi invisible). */
     var panelSee by androidx.compose.runtime.mutableIntStateOf(0)
+    var panelShape by androidx.compose.runtime.mutableStateOf(PanelShape.AUTO)
+    /** Tamaño del panel en % (todo: mosaicos y letras); 100 = el diseño original, que ocupaba casi todo el alto. */
+    var panelScale by androidx.compose.runtime.mutableIntStateOf(85)
     /** El panel deja ver el juego detrás: transparente, o un fondo con transparencia. */
     val panelSeeThrough get() = panelBackground == PanelBackground.CLEAR ||
         (panelBackground != PanelBackground.PLAIN && panelSee > 0)
@@ -108,6 +121,9 @@ object ThemeState {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
         panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
+        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx)
+        // La imagen del panel ya decodificada: al abrirlo no aparece primero el fondo liso.
+        panelUri?.takeIf { panelBackground == PanelBackground.IMAGE }?.let { ImageCache.preload(ctx, "panel", it) }
     }
     /** Con fondo (degradado o imagen) las tarjetas son de vidrio: translúcidas con un borde claro. */
     val glass get() = background != AppBackground.PLAIN

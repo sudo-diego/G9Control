@@ -51,6 +51,10 @@ private fun GuidePanel(a: MainActivity) {
                 ShortcutRow(listOf(tr("Guía", "Guide")), tr("Mantener", "Hold"), tr("Panel de juego", "Game panel"), row(AutoRules.Guide.HOLD_PANEL).value) {
                     row(AutoRules.Guide.HOLD_PANEL).value = it; AutoRules.setGuide(a, AutoRules.Guide.HOLD_PANEL, it)
                 }
+                ShortcutRow(listOf(tr("Guía", "Guide")), tr("Mantener 5 s (el G9 se apaga)", "Hold 5 s (the G9 turns off)"), tr("Bloquear la tablet", "Lock the tablet"),
+                    row(AutoRules.Guide.HOLD_LOCK).value) {
+                    row(AutoRules.Guide.HOLD_LOCK).value = it; AutoRules.setGuide(a, AutoRules.Guide.HOLD_LOCK, it)
+                }
                 ShortcutRow(listOf(tr("Guía", "Guide"), "RB"), null, tr("Captura", "Screenshot"), row(AutoRules.Guide.RB_SHOT).value) {
                     row(AutoRules.Guide.RB_SHOT).value = it; AutoRules.setGuide(a, AutoRules.Guide.RB_SHOT, it)
                 }

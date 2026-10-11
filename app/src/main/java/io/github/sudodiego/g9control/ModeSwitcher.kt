@@ -50,6 +50,10 @@ object Prefs {
     fun panelFill(ctx: Context) = sp(ctx).getInt("panel_fill", 25)
     fun setPanelFill(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_fill", v).apply()
     fun panelSee(ctx: Context) = sp(ctx).getInt("panel_see", 0)
+    fun panelShape(ctx: Context) = runCatching { PanelShape.valueOf(sp(ctx).getString("panel_shape", null)!!) }.getOrDefault(PanelShape.AUTO)
+    fun setPanelShape(ctx: Context, v: PanelShape) = sp(ctx).edit().putString("panel_shape", v.name).apply()
+    fun panelScale(ctx: Context) = sp(ctx).getInt("panel_scale", 85)
+    fun setPanelScale(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_scale", v).apply()
     fun setPanelSee(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_see", v).apply()
 
     fun centered(ctx: Context) = sp(ctx).getBoolean("centered", false)

@@ -149,7 +149,7 @@ object Shell {
     }
 
     /** Corre un comando permitido (fuera del hilo principal) y devuelve su salida. Null si no está listo, no está permitido o falló. */
-    suspend fun run(command: String): String? = withContext(Dispatchers.IO) {
+    suspend fun run(command: String, timeoutSec: Long = 4): String? = withContext(Dispatchers.IO) {
         refresh()
         if (state != State.READY || !allowed(command)) return@withContext null
         val m = newProcess ?: return@withContext null
@@ -163,7 +163,7 @@ object Shell {
             var code: Int? = null
             val waiter = Thread { code = runCatching { p.waitFor() }.getOrNull() }
             waiter.start()
-            waiter.join(TimeUnit.SECONDS.toMillis(4))
+            waiter.join(TimeUnit.SECONDS.toMillis(timeoutSec))
             if (waiter.isAlive) { p.destroy(); error("tardó demasiado") }
             reader.join(500)
             // ScreenPower termina matándose (137 = SIGKILL) para saltarse los destructores de libandroid_servers.

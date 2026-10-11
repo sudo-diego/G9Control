@@ -74,7 +74,7 @@ private fun PanelBackdropLayer() {
         PanelBackground.GRADIENT -> GradientBackdrop(true)
         PanelBackground.IMAGE -> {
             val uri = ThemeState.panelUri
-            if (uri == null) GradientBackdrop(true) else ImageBackdrop(uri, ThemeState.panelBlur, ThemeState.panelLoop, true)
+            if (uri == null) GradientBackdrop(true) else ImageBackdrop(uri, ThemeState.panelBlur, ThemeState.panelLoop, true, "panel")
         }
     }
 }
@@ -97,14 +97,28 @@ private fun GradientBackdrop(dark: Boolean) {
     }
 }
 
+/**
+ * Imágenes de fondo ya decodificadas, por lugar ("app" o "panel": un GIF animado solo puede estar en una vista a la
+ * vez) y archivo. Así el panel abre con su imagen al instante (antes se veía un momento el degradado).
+ */
+object ImageCache {
+    private val map = mutableMapOf<String, Drawable>()
+    @Synchronized fun get(place: String, uri: String) = map["$place|$uri"]
+    @Synchronized private fun put(place: String, uri: String, d: Drawable) { map.keys.removeAll { it.startsWith("$place|") }; map["$place|$uri"] = d }
+    fun decode(ctx: android.content.Context, place: String, uri: String): Drawable? = get(place, uri)
+        ?: runCatching { ImageDecoder.decodeDrawable(ImageDecoder.createSource(ctx.contentResolver, Uri.parse(uri))) }.getOrNull()
+            ?.also { put(place, uri, it) }
+    fun preload(ctx: android.content.Context, place: String, uri: String) {
+        if (get(place, uri) == null) Thread { decode(ctx.applicationContext, place, uri) }.start()
+    }
+}
+
 @Composable
-private fun ImageBackdrop(uri: String, blur: Int, loop: Boolean, dark: Boolean) {
+private fun ImageBackdrop(uri: String, blur: Int, loop: Boolean, dark: Boolean, place: String = "app") {
     val ctx = LocalContext.current
-    var drawable by remember(uri) { mutableStateOf<Drawable?>(null) }
+    var drawable by remember(uri) { mutableStateOf(ImageCache.get(place, uri)) }
     LaunchedEffect(uri) {
-        drawable = withContext(Dispatchers.IO) {
-            runCatching { ImageDecoder.decodeDrawable(ImageDecoder.createSource(ctx.contentResolver, Uri.parse(uri))) }.getOrNull()
-        }
+        if (drawable == null) drawable = withContext(Dispatchers.IO) { ImageCache.decode(ctx, place, uri) }
     }
     Box(Modifier.fillMaxSize()) {
         val d = drawable

@@ -324,6 +324,9 @@ private fun PanelLookPanel(a: MainActivity) {
             SliderRow(tr("Desenfoque", "Blur"), ThemeState.panelBlur, 0..100) { ThemeState.panelBlur = it; Prefs.setPanelBlur(a, it) }
             SwitchRow(tr("Repetir el GIF", "Loop the GIF"), loop) { loop = it; ThemeState.panelLoop = it; Prefs.setPanelLoop(a, it) }
         }
+        Text(tr("Forma", "Shape"), fontSize = 14.sp)
+        ChoiceChips(PanelShape.entries.map { it to it.label }, ThemeState.panelShape) { ThemeState.panelShape = it; Prefs.setPanelShape(a, it) }
+        SliderRow(tr("Tamaño (%)", "Size (%)"), ThemeState.panelScale, 60..120) { ThemeState.panelScale = it; Prefs.setPanelScale(a, it) }
         SwitchRow(tr("Mini monitor", "Mini monitor"), stats, tr("RAM libre, watts, CPU y temperatura arriba del panel", "Free RAM, watts, CPU and temperature at the top of the panel")) {
             stats = it; Prefs.setPanelStats(a, it)
         }

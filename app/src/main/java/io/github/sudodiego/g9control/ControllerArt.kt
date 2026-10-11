@@ -515,3 +515,141 @@ private fun ControllerLights(s: AppState, modifier: Modifier) {
         homeRing(HOME.scale(w, h), HOME_R * h, if (s.appliedHome != null) s.homeToSend() else off)
     }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Control genérico (Probar control con otro control): simétrico, con las mismas piezas del G9.
+// ---------------------------------------------------------------------------------------------
+
+private const val GP_ASPECT = 1.55f
+private val GP_DPAD = Offset(0.25f, 0.40f)
+private val GP_ABXY = Offset(0.75f, 0.40f)
+private val GP_STICK_L = Offset(0.37f, 0.64f)
+private val GP_STICK_R = Offset(0.63f, 0.64f)
+private val GP_VIEW = Offset(0.42f, 0.30f)
+private val GP_HOME = Offset(0.5f, 0.44f)
+
+/**
+ * Un control genérico simétrico (cruceta y ABXY arriba en espejo, los dos sticks abajo, como un DualSense), dibujado
+ * con las piezas y la paleta del G9 (el estilo elegido en Preferencias del G9): lo apretado brilla en celeste, los
+ * gatillos se llenan y los sticks muestran su posición.
+ */
+@Composable
+fun GenericControllerView(
+    pressed: Set<PadKey>, lx: Float, ly: Float, rx: Float, ry: Float, lt: Float, rt: Float, modifier: Modifier
+) {
+    Box(modifier.aspectRatio(GP_ASPECT)) {
+        val text = rememberTextMeasurer()
+        Canvas(Modifier.matchParentSize()) { genericBody(text, lt, rt) }
+        Canvas(Modifier.matchParentSize()) {
+            val w = size.width; val h = size.height
+            fun p(o: Offset) = Offset(o.x * w, o.y * h)
+            fun lit(c: Offset, r: Float) {
+                drawCircle(LIT.copy(alpha = 0.35f), r * 1.45f, c)
+                drawCircle(LIT, r * 1.05f, c, style = Stroke(r * 0.2f))
+            }
+            for (right in listOf(false, true)) {
+                if ((if (right) PadKey.RB else PadKey.LB) in pressed) drawPath(gpBumper(w, h, right), LIT)
+            }
+            val d = 0.10f * h
+            for ((k, o) in listOf(PadKey.Y to Offset(0f, -d), PadKey.X to Offset(-d, 0f), PadKey.B to Offset(d, 0f), PadKey.A to Offset(0f, d))) {
+                if (k in pressed) lit(p(GP_ABXY) + o, 0.055f * h)
+            }
+            if (PadKey.VIEW in pressed) lit(p(GP_VIEW), 0.034f * h)
+            if (PadKey.MENU in pressed) lit(p(mirror(GP_VIEW)), 0.034f * h)
+            if (PadKey.HOME in pressed) lit(p(GP_HOME), 0.045f * h)
+            if (PadKey.L3 in pressed) lit(p(GP_STICK_L), 0.085f * h)
+            if (PadKey.R3 in pressed) lit(p(GP_STICK_R), 0.085f * h)
+            val c = p(GP_DPAD); val arm = 0.12f * h; val t = 0.105f * h
+            val cr = CornerRadius(t * 0.28f)
+            if (PadKey.UP in pressed) drawRoundRect(LIT, Offset(c.x - t / 2, c.y - arm), Size(t, arm - t / 2), cr)
+            if (PadKey.DOWN in pressed) drawRoundRect(LIT, Offset(c.x - t / 2, c.y + t / 2), Size(t, arm - t / 2), cr)
+            if (PadKey.LEFT in pressed) drawRoundRect(LIT, Offset(c.x - arm, c.y - t / 2), Size(arm - t / 2, t), cr)
+            if (PadKey.RIGHT in pressed) drawRoundRect(LIT, Offset(c.x + t / 2, c.y - t / 2), Size(arm - t / 2, t), cr)
+            for ((center, v) in listOf(p(GP_STICK_L) to Offset(lx, ly), p(GP_STICK_R) to Offset(rx, ry))) {
+                if (hypot(v.x, v.y) < 0.04f) continue
+                val dot = center + v * (0.09f * h)
+                drawLine(LIT.copy(alpha = 0.7f), center, dot, 0.01f * h, StrokeCap.Round)
+                drawCircle(LIT, 0.025f * h, dot)
+            }
+        }
+    }
+}
+
+/** LB o RB: una franja curva sobre el hombro. */
+private fun gpBumper(w: Float, h: Float, right: Boolean): Path {
+    fun x(v: Float) = (if (right) 1f - v else v) * w
+    return Path().apply {
+        moveTo(x(0.09f), 0.20f * h)
+        cubicTo(x(0.12f), 0.10f * h, x(0.20f), 0.075f * h, x(0.33f), 0.075f * h)
+        lineTo(x(0.33f), 0.13f * h)
+        cubicTo(x(0.22f), 0.13f * h, x(0.15f), 0.15f * h, x(0.12f), 0.22f * h)
+        close()
+    }
+}
+
+private fun DrawScope.genericBody(text: TextMeasurer, lt: Float, rt: Float) {
+    val w = size.width; val h = size.height
+    fun p(o: Offset) = Offset(o.x * w, o.y * h)
+
+    // Gatillos (detrás de los hombros): se llenan de celeste según cuánto se aprietan.
+    for (right in listOf(false, true)) {
+        fun x(v: Float) = (if (right) 1f - v else v) * w
+        val trig = Path().apply {
+            moveTo(x(0.15f), 0.10f * h)
+            cubicTo(x(0.16f), 0.02f * h, x(0.22f), 0.0f * h, x(0.27f), 0.0f * h)
+            lineTo(x(0.31f), 0.0f * h)
+            lineTo(x(0.31f), 0.09f * h)
+            close()
+        }
+        drawPath(trig, Brush.verticalGradient(listOf(pal.bumperTop, pal.bumperBottom), 0f, 0.1f * h))
+        val v = if (right) rt else lt
+        if (v > 0.02f) drawPath(trig, LIT.copy(alpha = 0.25f + 0.65f * v))
+        drawPath(gpBumper(w, h, right), Brush.verticalGradient(listOf(pal.bumperTop, pal.bumperBottom), 0.07f * h, 0.2f * h))
+    }
+
+    // Cuerpo: la mitad izquierda y su espejo (asas abajo, hombros arriba).
+    val half = listOf(
+        Triple(Offset(0.26f, 0.11f), Offset(0.42f, 0.11f), Offset(0.32f, 0.11f)),
+        Triple(Offset(0.07f, 0.24f), Offset(0.17f, 0.11f), Offset(0.10f, 0.15f)),
+        Triple(Offset(0.02f, 0.70f), Offset(0.03f, 0.36f), Offset(0.0f, 0.55f)),
+        Triple(Offset(0.15f, 0.99f), Offset(0.04f, 0.90f), Offset(0.08f, 0.99f)),
+        Triple(Offset(0.30f, 0.86f), Offset(0.22f, 0.99f), Offset(0.25f, 0.90f)),
+        Triple(Offset(0.5f, 0.80f), Offset(0.36f, 0.81f), Offset(0.44f, 0.80f)),
+    )
+    val body = Path().apply {
+        moveTo(0.5f * w, 0.11f * h)
+        for ((end, c1, c2) in half) cubicTo(c1.x * w, c1.y * h, c2.x * w, c2.y * h, end.x * w, end.y * h)
+        val rev = half.reversed()
+        for (i in 0 until rev.size) {
+            val (_, c1, c2) = rev[i]
+            val to = if (i + 1 < rev.size) rev[i + 1].first else Offset(0.5f, 0.11f)
+            cubicTo((1f - c2.x) * w, c2.y * h, (1f - c1.x) * w, c1.y * h, (1f - to.x) * w, to.y * h)
+        }
+        close()
+    }
+    drawPath(body, Brush.verticalGradient(listOf(pal.bodyTop, pal.bodyBottom)))
+    drawPath(body, pal.edge, style = Stroke(1.5f))
+
+    // Vista, Menú y Home al centro.
+    iconKey(p(GP_VIEW), 0.034f * h, KeyIcon.VIEW, text)
+    iconKey(p(mirror(GP_VIEW)), 0.034f * h, KeyIcon.MENU, text)
+    drawCircle(pal.key, 0.045f * h, p(GP_HOME))
+    drawCircle(pal.keyHi, 0.045f * h, p(GP_HOME), style = Stroke(1.5f))
+    drawCircle(pal.label.copy(alpha = 0.7f), 0.026f * h, p(GP_HOME), style = Stroke(0.008f * h))
+
+    // Sticks (las medidas del G9 escaladas), cruceta y ABXY.
+    stick(p(GP_STICK_L), h * 1.3f)
+    stick(p(GP_STICK_R), h * 1.3f)
+    dpad(p(GP_DPAD), 0.12f * h, 0.105f * h)
+    val style = TextStyle(color = pal.label, fontSize = (0.065f * h / density).sp, fontWeight = FontWeight.Bold)
+    val d = 0.10f * h
+    for ((label, o) in listOf("Y" to Offset(0f, -d), "X" to Offset(-d, 0f), "B" to Offset(d, 0f), "A" to Offset(0f, d))) {
+        val c = p(GP_ABXY) + o
+        val r = 0.055f * h
+        if (!pal.flat) drawCircle(Color.Black.copy(alpha = 0.35f), r * 1.08f, c + Offset(0f, r * 0.12f))
+        if (pal.flat) { drawCircle(pal.key, r, c); drawCircle(pal.keyHi, r, c, style = Stroke(1.5f)) }
+        else drawCircle(Brush.radialGradient(listOf(pal.keyHi, pal.key), c - Offset(r * 0.3f, r * 0.4f), r * 1.2f), r, c)
+        val m = text.measure(label, style)
+        drawText(m, topLeft = c - Offset(m.size.width / 2f, m.size.height / 2f))
+    }
+}

@@ -154,7 +154,7 @@ object AutoRules {
     fun legionKeys(ctx: Context) = sp(ctx).getBoolean("legion_keys", true)
 
     /** Cada atajo del botón guía, por separado (con el botón guía activado). */
-    enum class Guide(val key: String) { TAP_BACK("guide_tap_back"), HOLD_PANEL("guide_hold_panel"), RB_SHOT("guide_rb_shot"), LB_BACK("guide_lb_back") }
+    enum class Guide(val key: String) { TAP_BACK("guide_tap_back"), HOLD_PANEL("guide_hold_panel"), RB_SHOT("guide_rb_shot"), LB_BACK("guide_lb_back"), HOLD_LOCK("guide_hold_lock") }
 
     /**
      * Qué hace tocar la guía en una app: Atrás (lo normal), el botón guía tal cual (el emulador lo puede usar para lo
@@ -721,6 +721,9 @@ class AutoModeService : AccessibilityService() {
      */
     override fun onKeyEvent(event: KeyEvent): Boolean {
         val k = event.keyCode
+        // Soltar la guía cancela siempre el bloqueo de 5 s, antes que nada: con el panel abierto el soltar va al panel
+        // y no llegaba a legionKey (la tablet se bloqueaba sola 5 s después de abrir el panel manteniendo la guía).
+        if (k == KeyEvent.KEYCODE_BUTTON_MODE && event.action == KeyEvent.ACTION_UP) main.removeCallbacks(legionLock)
         // Los botones que aprieta la app como si fuera el control (la guía en RetroArch) pasan sin tocar.
         if (android.os.SystemClock.uptimeMillis() < injectingUntil) return false
         // Qué control se usó por última vez: con otro control (8BitDo, por ejemplo) el G9 se queda como está.
@@ -729,6 +732,7 @@ class AutoModeService : AccessibilityService() {
             // En X-Input el G9 se llama "Microsoft X-Box 360 pad" (el nombre del driver de Xbox por USB).
             val name = event.device?.name.orEmpty()
             if (name.contains("G9", true) || name.contains("x-box 360", true)) lastG9Key = now else lastOtherPad = now
+            event.device?.takeIf { !it.isVirtual }?.let { lastPadDevice = it.id }
         }
         if (event.action == KeyEvent.ACTION_UP && delivered.remove(k)) {
             handleKey(event)   // para que el resto (L3 + R3, la guía) se entere de que se soltó
@@ -837,6 +841,17 @@ class AutoModeService : AccessibilityService() {
     }
 
     /**
+     * Mantener la guía 5 s: el G9 se apaga (firmware) y la tablet se bloquea con él, como "poner a dormir". Sin
+     * Shizuku (acción global del servicio). Si el control se apaga, el soltar puede no llegar: por eso se cuenta
+     * desde que se apretó y se cancela solo si llega el soltar o una combinación.
+     */
+    private val legionLock = Runnable {
+        Log.i(TAG, "guía mantenida 5 s: bloquear la tablet")
+        panel.hide()
+        performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN)
+    }
+
+    /**
      * Botón Legion (Home del control, llega como BUTTON_MODE en los tres modos): tocar = Atrás, mantener 0,5 s
      * = panel de juego. Dentro de G9 Control llega normal (lo usa la prueba de botones), y en las apps de streaming
      * también ([AutoRules.STREAMING]: ahí es el botón guía del PC o la consola). Llega con algo de retraso: el
@@ -874,6 +889,7 @@ class AutoModeService : AccessibilityService() {
         legionPending = false
         legionChording = true
         main.removeCallbacks(legionHold)
+        main.removeCallbacks(legionLock)
         main.removeCallbacks(chordExpire)
         main.postDelayed(chordExpire, 2000)
         chordSwallow += k
@@ -907,6 +923,20 @@ class AutoModeService : AccessibilityService() {
     @Volatile private var injectingUntil = 0L
     /** El control que apretó la guía: los botones que se envían salen de él. */
     private var legionDevice = 0
+    /** El último control real (no virtual) que apretó un botón. */
+    private var lastPadDevice = 0
+
+    /**
+     * De qué control salen los botones enviados: el que apretó la guía si Android lo conoce y es real; si no, el
+     * último que se usó; si no, el primer gamepad conectado. Con un id que no existe, el emulador lo toma como un
+     * teclado virtual (RetroArch decía "virtual 0/0") y no como el control.
+     */
+    private fun injectDevice(): Int {
+        fun real(id: Int) = android.view.InputDevice.getDevice(id)?.takeIf {
+            !it.isVirtual && (it.sources and android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD
+        }?.id
+        return real(legionDevice) ?: real(lastPadDevice) ?: android.view.InputDevice.getDeviceIds().toList().firstNotNullOfOrNull { real(it) } ?: legionDevice
+    }
 
     /** Tocar la guía en esta app: Atrás, o apretar botones como el control (con Shizuku), o nada. */
     private fun guideTap() {
@@ -914,8 +944,8 @@ class AutoModeService : AccessibilityService() {
         val keys = when (tap) {
             AutoRules.GuideTap.BACK -> { if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK); return }
             AutoRules.GuideTap.NOTHING -> return
-            // 1,1 s apretado: RetroArch pide mantener 1 s para asignar un botón.
-            AutoRules.GuideTap.GUIDE -> intArrayOf(KeyEvent.KEYCODE_BUTTON_MODE) to 1100
+            // 3 s apretado: al asignar un botón, RetroArch pide mantenerlo (con 1,1 s no alcanzaba).
+            AutoRules.GuideTap.GUIDE -> intArrayOf(KeyEvent.KEYCODE_BUTTON_MODE) to 3000
             AutoRules.GuideTap.VIEW_MENU -> intArrayOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START) to 150
         }
         if (Shell.state != Shell.State.READY) {
@@ -923,10 +953,11 @@ class AutoModeService : AccessibilityService() {
             return
         }
         injectingUntil = android.os.SystemClock.uptimeMillis() + keys.second + 1500
+        val dev = injectDevice()
         scope.launch {
-            val ok = Shell.run(Shell.keyInject(legionDevice, keys.second, *keys.first)) != null
+            val ok = Shell.run(Shell.keyInject(dev, keys.second, *keys.first), timeoutSec = 8) != null
             injectingUntil = android.os.SystemClock.uptimeMillis() + 200
-            Log.d(TAG, "guía en $lastPackage: ${tap.name} (${if (ok) "enviado" else "falló"})")
+            Log.i(TAG, "guía en $lastPackage: ${tap.name} desde el dispositivo $dev (guía: $legionDevice, último: $lastPadDevice) ${if (ok) "enviado" else "falló"}")
         }
     }
 
@@ -944,11 +975,17 @@ class AutoModeService : AccessibilityService() {
                     if (now != streaming) { streaming = now; Log.d(TAG, "transmitiendo (al apretar Legion): $now"); updatePadWatch() }
                 }
                 legionOwned = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming
-                legionDevice = e.deviceId
-                if (legionOwned) { legionPending = true; if (AutoRules.guide(this, AutoRules.Guide.HOLD_PANEL)) main.postDelayed(legionHold, 500) }
+                legionDevice = e.device?.id ?: e.deviceId
+                if (legionOwned) {
+                    legionPending = true
+                    if (AutoRules.guide(this, AutoRules.Guide.HOLD_PANEL)) main.postDelayed(legionHold, 500)
+                    main.removeCallbacks(legionLock)
+                    if (AutoRules.guide(this, AutoRules.Guide.HOLD_LOCK)) main.postDelayed(legionLock, 5000)
+                }
                 return legionOwned
             }
             KeyEvent.ACTION_UP -> {
+                main.removeCallbacks(legionLock)
                 if (legionChording) { legionOwned = false; return true }
                 if (!legionOwned) return false
                 legionOwned = false
