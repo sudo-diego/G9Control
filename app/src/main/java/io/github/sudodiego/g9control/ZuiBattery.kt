@@ -88,6 +88,25 @@ object ZuiBattery {
         return ((target - level) / 100.0 * capacity / current * 3_600_000).toLong()
     }
 
+    /** Lo que entra o sale de la batería ahora, en W (positivo). Null si Android no da la corriente. */
+    fun watts(ctx: Context): Double? {
+        val i = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return null
+        val ua = ctx.getSystemService(BatteryManager::class.java).getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
+            .takeIf { it != 0 && it != Int.MIN_VALUE } ?: return null
+        val mv = i.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0).takeIf { it > 0 } ?: return null
+        return kotlin.math.abs(ua.toDouble()) / 1e6 * mv / 1e3
+    }
+
+    /** Lo que dura la batería al consumo de ahora (ms); null si casi no consume (enchufada en bypass) o no se sabe. */
+    fun dischargeTimeLeft(ctx: Context): Long? {
+        val bm = ctx.getSystemService(BatteryManager::class.java)
+        val uah = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER).takeIf { it > 0 } ?: return null
+        // La corriente promedio de esta tablet no sirve (da casi 0): la de ahora.
+        val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).takeIf { it != 0 && it != Int.MIN_VALUE } ?: return null
+        val current = kotlin.math.abs(ua.toDouble()).takeIf { it > 50_000 } ?: return null
+        return (uah / current * 3_600_000).toLong()
+    }
+
     /** "1 h 20 min" o "35 min". */
     fun formatTime(ms: Long): String {
         val min = (ms / 60_000).coerceAtLeast(1)

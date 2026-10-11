@@ -65,6 +65,46 @@ object Memory {
             }.toList()
     }
 
-    /** Detener una app activa, como el botón Detener de Android (la app y sus servicios). Con Shizuku. */
-    suspend fun stop(pkg: String) = Shell.run(Shell.stopApp(pkg)) != null
+    /** Detener una app, como el botón Detener de Android (la app y sus servicios). Con Shizuku. */
+    suspend fun stop(pkg: String): Boolean {
+        stoppedAt[pkg] = android.os.SystemClock.elapsedRealtime()
+        return Shell.run(Shell.stopApp(pkg)) != null
+    }
+
+    /** Cuándo se detuvo cada app desde aquí: si vuelve a estar corriendo al rato, se reinicia sola. */
+    private val stoppedAt = mutableMapOf<String, Long>()
+    fun restartsByItself(pkg: String) = stoppedAt[pkg]?.let { android.os.SystemClock.elapsedRealtime() - it < 5 * 60_000 } == true
+
+    /** Una app corriendo: cuánta RAM usa (MB, todos sus procesos), cuánta CPU (% de un núcleo) y si está activa. */
+    data class Task(val app: App, val ramMb: Int, val cpu: Float, val active: Boolean)
+
+    /**
+     * Administrador de tareas (con Shizuku): las apps de usuario que están corriendo, la que más RAM usa primero. Sale
+     * de `top` (la segunda pasada, que trae la CPU) sumando los procesos de cada app (paquete y paquete:algo).
+     */
+    suspend fun tasks(ctx: Context): List<Task> {
+        val out = Shell.run(Shell.TOP) ?: return emptyList()
+        val blocks = out.split(Regex("""(?m)^\s*Tasks:"""))
+        val last = blocks.lastOrNull() ?: return emptyList()
+        val row = Regex("""^\s*(u\d+_a\d+)\s+([\d.]+)\s+([\d.]+)([KMG])\s+(\S+)""")
+        val ram = mutableMapOf<String, Double>()
+        val cpu = mutableMapOf<String, Double>()
+        last.lineSequence().forEach { line ->
+            val m = row.find(line) ?: return@forEach
+            val (_, c, size, unit, name) = m.destructured
+            val pkg = name.substringBefore(':')
+            val mb = size.toDouble() * when (unit) { "G" -> 1024.0; "K" -> 1 / 1024.0; else -> 1.0 }
+            ram[pkg] = (ram[pkg] ?: 0.0) + mb
+            cpu[pkg] = (cpu[pkg] ?: 0.0) + c.toDouble()
+        }
+        val active = activeApps(ctx).map { it.pkg }.toSet()
+        val pm = ctx.packageManager
+        val launchers = home(ctx)
+        return ram.keys.filter { it != ctx.packageName && it !in launchers }.mapNotNull { pkg ->
+            val ai = runCatching { pm.getApplicationInfo(pkg, 0) }.getOrNull() ?: return@mapNotNull null
+            if (pm.getLaunchIntentForPackage(pkg) == null && pkg != ZuiGame.PACKAGE) return@mapNotNull null
+            Task(App(pkg, pm.getApplicationLabel(ai).toString(), runCatching { pm.getApplicationIcon(ai) }.getOrNull()),
+                ram.getValue(pkg).toInt(), cpu.getValue(pkg).toFloat(), pkg in active)
+        }.sortedByDescending { it.ramMb }
+    }
 }

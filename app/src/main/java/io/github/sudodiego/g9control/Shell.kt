@@ -76,12 +76,14 @@ object Shell {
     // Apps activas (con un servicio en primer plano: video, música, descargas), como "Apps activas" de los ajustes
     // rápidos de Android, y detenerlas como su botón Detener (`am stop-app`: la app y sus servicios).
     const val PROCESSES = "dumpsys activity processes"
+    // Administrador de tareas (Memoria): RAM y CPU de cada proceso, en dos pasadas de 1 s (la primera no tiene CPU).
+    const val TOP = "top -b -n 2 -d 1 -m 500 -o USER,%CPU,RES,NAME"
     fun stopApp(pkg: String) = "am stop-app $pkg"
     private val STOP_APP = Regex("am stop-app [A-Za-z0-9_.]+")
 
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

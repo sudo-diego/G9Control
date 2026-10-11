@@ -61,7 +61,15 @@ private fun TabletNowTiles(a: MainActivity) {
                     it.charging -> left?.let { ms -> "⚡ " + ZuiBattery.formatTime(ms) } ?: tr("Cargando", "Charging")
                     else -> tr("Batería", "Battery")
                 }
-                StatTile("${it.level} %", state, tile.weight(1f), big = true)
+                // Debajo: lo que consume y cuánto dura, o cargando cuánto falta (hasta el límite, si hay) y lo que entra.
+                val w = remember(tick) { ZuiBattery.watts(a) }
+                val extra = when {
+                    it.plugged && !it.charging -> null
+                    it.charging -> listOfNotNull(left?.let { ms -> ZuiBattery.formatTime(ms) + ZuiBattery.chargeTarget(a).let { t -> if (t < 100) tr(" a $t %", " to $t %") else "" } },
+                        w?.let { x -> "+%.1f W".format(x) }).joinToString(" · ")
+                    else -> listOfNotNull(w?.let { x -> "%.1f W".format(x) }, remember(tick) { ZuiBattery.dischargeTimeLeft(a) }?.let { ms -> "~" + ZuiBattery.formatTime(ms) }).joinToString(" · ")
+                }?.takeIf { s -> s.isNotEmpty() }
+                StatTile("${it.level} %", if (it.charging) tr("Cargando", "Charging") else state, tile.weight(1f), big = true, extra = extra)
                 StatTile("${"%.0f".format(it.tempC)} °C", tr("Temperatura", "Temperature"), tile.weight(1f), big = true)
             }
         }
@@ -78,11 +86,12 @@ private fun cpuMhz(): Int? = (0..9).mapNotNull { i ->
 
 /** Un dato grande con su etiqueta debajo, en una tarjeta de vidrio. */
 @Composable
-private fun StatTile(value: String, label: String, modifier: Modifier, big: Boolean = false) {
+private fun StatTile(value: String, label: String, modifier: Modifier, big: Boolean = false, extra: String? = null) {
     Panel(modifier = modifier) {
         // Una sola línea, sin cortar: el valor (y su unidad) no se parten aunque el mosaico sea angosto.
         Text(value, fontSize = if (big) 38.sp else 26.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, softWrap = false)
         Text(label, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        extra?.let { Text(it, fontSize = 14.sp, color = MaterialTheme.colorScheme.secondary, maxLines = 1) }
     }
 }
 
@@ -211,8 +220,8 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
     LaunchedEffect(Unit) { while (true) { delay(3000); tick++ } }
     val info = remember(tick) { Memory.info(a) }
     val ready = Shell.state == Shell.State.READY
-    var active by remember { mutableStateOf(listOf<Memory.App>()) }
-    LaunchedEffect(ready, tick / 3) { if (ready) active = Memory.activeApps(a) }
+    var tasks by remember { mutableStateOf(listOf<Memory.Task>()) }
+    LaunchedEffect(ready, tick / 2) { if (ready) tasks = Memory.tasks(a) }
     var busy by remember { mutableStateOf(false) }
     val c = MaterialTheme.colorScheme
     Panel(tr("Memoria", "Memory"), trailing = {
@@ -222,7 +231,8 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
         val used = 1f - info.freeBytes.toFloat() / info.totalBytes.coerceAtLeast(1)
         LinearProgressIndicator({ used }, Modifier.fillMaxWidth().height(8.dp), color = c.secondary, trackColor = c.surfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(tr("Cierra las apps en segundo plano", "Closes background apps"), Modifier.weight(1f), fontSize = 14.sp, color = c.onSurfaceVariant)
+            Text(tr("Cierra las apps en segundo plano (no las activas, como un video sonando)", "Closes background apps (not active ones, like a playing video)"),
+                Modifier.weight(1f), fontSize = 14.sp, color = c.onSurfaceVariant)
             Button(onClick = {
                 busy = true
                 scope.launch {
@@ -232,28 +242,38 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
                 }
             }, enabled = !busy) { Text(if (busy) tr("Liberando…", "Freeing…") else tr("Liberar memoria", "Free memory")) }
         }
-        // Las activas (con un servicio corriendo) no se cierran así: hay que detenerlas, y eso necesita Shizuku.
-        Text(tr("Apps activas", "Active apps"), fontSize = 15.sp, fontWeight = FontWeight.Medium)
-        if (!ready) Hint(tr("Con un video, música o descarga corriendo. Detenerlas desde aquí necesita Shizuku; sin él, en Ajustes rápidos → Apps activas.",
-            "With a video, music or download running. Stopping them here needs Shizuku; without it, in Quick settings → Active apps."))
-        else if (active.isEmpty()) Text(tr("Ninguna.", "None."), fontSize = 14.sp, color = c.onSurfaceVariant)
-        else active.forEach { app ->
+        // Administrador de tareas (con Shizuku): RAM y CPU de cada app, las activas marcadas, y detenerlas.
+        Text(tr("Apps corriendo", "Running apps"), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        if (!ready) Hint(tr("Ver cuánta RAM y CPU usa cada app y detenerlas necesita Shizuku. Sin él, las activas se detienen en Ajustes rápidos → Apps activas.",
+            "Seeing each app's RAM and CPU and stopping them needs Shizuku. Without it, active apps are stopped in Quick settings → Active apps."))
+        else if (tasks.isEmpty()) Text(tr("Leyendo…", "Reading…"), fontSize = 14.sp, color = c.onSurfaceVariant)
+        else tasks.take(8).forEach { task ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                app.icon?.let { d ->
-                    androidx.compose.foundation.Image(remember(app.pkg) { androidx.compose.ui.graphics.painter.BitmapPainter(d.toBitmapSafe().asImageBitmap()) },
+                task.app.icon?.let { d ->
+                    androidx.compose.foundation.Image(remember(task.app.pkg) { androidx.compose.ui.graphics.painter.BitmapPainter(d.toBitmapSafe().asImageBitmap()) },
                         null, Modifier.size(28.dp))
                     Spacer(Modifier.width(12.dp))
                 }
-                Text(app.label, Modifier.weight(1f), fontSize = 15.sp, maxLines = 1)
+                Column(Modifier.weight(1f)) {
+                    Text(task.app.label, fontSize = 15.sp, maxLines = 1)
+                    val tags = listOfNotNull(
+                        if (task.active) tr("Activa", "Active") else null,
+                        if (Memory.restartsByItself(task.app.pkg)) tr("se reinicia sola", "restarts by itself") else null
+                    )
+                    if (tags.isNotEmpty()) Text(tags.joinToString(" · "), fontSize = 12.sp, color = c.secondary)
+                }
+                Text("${task.ramMb} MB", Modifier.width(84.dp), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                Text("%.0f %%".format(task.cpu), Modifier.width(64.dp), fontSize = 14.sp, color = c.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                Spacer(Modifier.width(8.dp))
                 OutlinedButton(onClick = {
-                    active = active - app
-                    scope.launch { Memory.stop(app.pkg); tick++ }
+                    tasks = tasks - task
+                    scope.launch { Memory.stop(task.app.pkg); tick++ }
                 }) { Text(tr("Detener", "Stop")) }
             }
         }
     }
 }
-
 /** Ícono de app como bitmap (los adaptativos no son BitmapDrawable). */
 private fun android.graphics.drawable.Drawable.toBitmapSafe(): android.graphics.Bitmap {
     (this as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { return it }

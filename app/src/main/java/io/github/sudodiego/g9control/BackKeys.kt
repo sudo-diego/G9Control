@@ -47,39 +47,60 @@ val MACRO_KEY_BYTE = mapOf(
     PadKey.UP to 0xB0, PadKey.DOWN to 0xB1, PadKey.LEFT to 0xB2, PadKey.RIGHT to 0xB3,
 )
 
-/** Grilla de botones del control, como están en él: A B X Y · LB RB LT RT · L3 R3 Vista Menú Home · cruceta. */
-private val GRID_ROWS = listOf(
-    listOf(0xB4, 0xB5, 0xB7, 0xB8),
-    listOf(0xBA, 0xBB, 0xBE, 0xBF),
-    listOf(0xC0, 0xC1, 0xBC, 0xBD, 0xC2),
-    listOf(0xB0, 0xB1, 0xB2, 0xB3),
-)
-
 private fun gridLabel(b: Int) = when (b) {
     0xB0 -> "↑"; 0xB1 -> "↓"; 0xB2 -> "←"; 0xB3 -> "→"
     else -> backTargetName(b)
 }
 
 /**
- * Elegir un botón con botones grandes (en vez de tocarlo en el dibujo, donde quedaban chicos): la grilla del control y
- * debajo las dos rosas de 8 direcciones de los sticks. [selected] se marca; [onPick] recibe el byte del firmware.
+ * Elegir un botón con botones grandes, ordenados como en el control (en vez de tocarlo en el dibujo, donde quedaban
+ * chicos): arriba LT LB · RB RT, al medio Vista Home Menú, a la izquierda el stick izquierdo (L3 al centro) y la
+ * cruceta en cruz, a la derecha A B X Y en rombo y el stick derecho (R3 al centro). [selected] se marca.
  */
 @Composable
 internal fun ButtonGrid(selected: Int?, enabled: Boolean, onPick: (Int) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        GRID_ROWS.forEachIndexed { r, row ->
-            if (r == 3) Text(tr("Cruceta", "D-pad"), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { b -> PickTile(gridLabel(b), selected == b, enabled, Modifier.weight(1f)) { onPick(b) } }
-            }
+    val cur = selected ?: -1
+    @Composable
+    fun tile(b: Int, w: Modifier) = PickTile(gridLabel(b), cur == b, enabled, w) { onPick(b) }
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tile(0xBE, Modifier.weight(1f)); tile(0xBA, Modifier.weight(1f))
+            Spacer(Modifier.weight(0.6f))
+            tile(0xBB, Modifier.weight(1f)); tile(0xBF, Modifier.weight(1f))
         }
-        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            StickGrid(tr("Stick izquierdo", "Left stick"), 0xEF, selected ?: -1, enabled, onPick)
-            StickGrid(tr("Stick derecho", "Right stick"), 0xF7, selected ?: -1, enabled, onPick)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+            tile(0xBC, Modifier.width(96.dp)); tile(0xC2, Modifier.width(96.dp)); tile(0xBD, Modifier.width(96.dp))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            StickGrid(tr("Stick izquierdo", "Left stick"), 0xEF, 0xC0, cur, enabled, onPick)
+            Cross3(tr("Botones", "Buttons"), listOf(-1, 0xB8, -1, 0xB7, -2, 0xB5, -1, 0xB4, -1), cur, enabled, onPick)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+            Cross3(tr("Cruceta", "D-pad"), listOf(-1, 0xB0, -1, 0xB2, -2, 0xB3, -1, 0xB1, -1), cur, enabled, onPick)
+            StickGrid(tr("Stick derecho", "Right stick"), 0xF7, 0xC1, cur, enabled, onPick)
         }
     }
 }
 
+/** Nueve lugares en 3 × 3: un botón (byte), −1 vacío, −2 el centro (un círculo, como el de la cruceta). */
+@Composable
+private fun Cross3(name: String, cells: List<Int>, cur: Int, enabled: Boolean, onPick: (Int) -> Unit) {
+    val c = MaterialTheme.colorScheme
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(name, fontSize = 13.sp, color = c.onSurfaceVariant)
+        cells.chunked(3).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { b ->
+                    when (b) {
+                        -1 -> Spacer(Modifier.size(52.dp))
+                        -2 -> Box(Modifier.size(52.dp).background(c.surfaceContainerHigh, androidx.compose.foundation.shape.CircleShape))
+                        else -> PickTile(gridLabel(b), cur == b, enabled, Modifier.size(52.dp)) { onPick(b) }
+                    }
+                }
+            }
+        }
+    }
+}
 /** Un botón de la grilla: grande, fácil de tocar; el elegido en celeste. */
 @Composable
 internal fun PickTile(label: String, on: Boolean, enabled: Boolean, modifier: Modifier, onClick: () -> Unit) {
@@ -141,7 +162,7 @@ fun BackPage(s: AppState, a: MainActivity) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             PickTile(if (cur == BACK_MACRO) tr("Editar la macro", "Edit the macro") else "Macro", cur == BACK_MACRO, editable,
                                 Modifier.weight(1f)) { a.openMacroEditor(k) }
-                            PickTile(tr("Nada", "Nothing"), cur == 0, editable, Modifier.weight(1f)) { pick(0) }
+                            PickTile(tr("Sin asignar", "Unassigned"), cur == 0, editable, Modifier.weight(1f)) { pick(0) }
                         }
                         ButtonGrid(cur, editable) { pick(it) }
                     }
@@ -151,9 +172,9 @@ fun BackPage(s: AppState, a: MainActivity) {
     )
 }
 
-/** Las 8 direcciones de un stick en una cuadrícula de 3 × 3, como se ven en el stick; la elegida, resaltada. */
+/** Las 8 direcciones de un stick en 3 × 3, como se ven en él, con su clic (L3 o R3) al centro; la elegida, resaltada. */
 @Composable
-private fun StickGrid(name: String, first: Int, cur: Int, enabled: Boolean, onPick: (Int) -> Unit) {
+private fun StickGrid(name: String, first: Int, click: Int, cur: Int, enabled: Boolean, onPick: (Int) -> Unit) {
     val dirs = listOf("←", "↖", "↑", "↗", "→", "↘", "↓", "↙")
     val c = MaterialTheme.colorScheme
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -161,20 +182,13 @@ private fun StickGrid(name: String, first: Int, cur: Int, enabled: Boolean, onPi
         listOf(listOf(1, 2, 3), listOf(0, -1, 4), listOf(7, 6, 5)).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { d ->
-                    if (d < 0) Box(Modifier.size(46.dp).background(c.surfaceContainerHigh, androidx.compose.foundation.shape.CircleShape))
-                    else {
-                        val on = cur == first + d
-                        Surface(onClick = { onPick(first + d) }, enabled = enabled, modifier = Modifier.size(46.dp), shape = MaterialTheme.shapes.medium,
-                            color = if (on) c.secondary else c.surfaceContainerHigh) {
-                            Box(contentAlignment = Alignment.Center) { Text(dirs[d], fontSize = 18.sp, color = if (on) c.onSecondary else c.onSurface) }
-                        }
-                    }
+                    if (d < 0) PickTile(gridLabel(click), cur == click, enabled, Modifier.size(52.dp)) { onPick(click) }
+                    else PickTile(dirs[d], cur == first + d, enabled, Modifier.size(52.dp)) { onPick(first + d) }
                 }
             }
         }
     }
-}
-/** Opciones del control que no son de un botón en particular. */
+}/** Opciones del control que no son de un botón en particular. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ControlOptionsPanel(s: AppState, a: MainActivity) {
