@@ -21,8 +21,8 @@ import kotlin.math.sign
 
 /**
  * Mouse virtual para las apps que no usan el control: un puntero que se mueve con el stick izquierdo (o la cruceta)
- * y toca con A, con toques de verdad (gestos del servicio de accesibilidad). Mantener A arrastra (y si no se mueve,
- * es un toque largo); el stick derecho desplaza; B es Atrás. Mientras está encendido los sticks no llegan a las apps.
+ * y toca con A, con toques de verdad (gestos del servicio de accesibilidad). Mantener A quieto es un toque largo y
+ * moverse con A apretado arrastra; el stick derecho desplaza; B es Atrás. Mientras está encendido los sticks no llegan a las apps.
  */
 class VirtualMouse(private val svc: AccessibilityService, private val onChange: (Boolean) -> Unit) {
     private val main = Handler(Looper.getMainLooper())
@@ -70,7 +70,7 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         if (!isOn) return
         isOn = false
         main.removeCallbacks(tick)
-        if (dragging) endDrag()
+        endDrag()
         view?.let { runCatching { wm.removeView(it) } }
         view = null
         lx = 0f; ly = 0f; rx = 0f; ry = 0f
@@ -94,8 +94,8 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         when (e.keyCode) {
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER -> {
                 if (e.repeatCount == 0) when (e.action) {
-                    KeyEvent.ACTION_DOWN -> startDrag()
-                    KeyEvent.ACTION_UP -> aHeld = false
+                    KeyEvent.ACTION_DOWN -> pressA()
+                    KeyEvent.ACTION_UP -> releaseA()
                 }
                 return true
             }
@@ -131,10 +131,15 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
                 x = (x + vx * speed * dt).coerceIn(0f, b.width() - 1f)
                 y = (y + vy * speed * dt).coerceIn(0f, b.height() - 1f)
                 place()
+                // Con A apretado, moverse es arrastrar (ya no es toque ni toque largo).
+                if (aDown && !dragging && Math.hypot((x - downX).toDouble(), (y - downY).toDouble()) > DRAG_DP * dp) {
+                    dragging = true
+                    main.removeCallbacks(longPress)
+                }
             }
             // Desplazar: un deslizamiento corto desde el puntero, al revés del stick (como arrastrar la página).
             val sx = curve(rx); val sy = curve(ry)
-            if (!dragging && (sx != 0f || sy != 0f) && now - lastScroll > SCROLL_EVERY) {
+            if (!aDown && (sx != 0f || sy != 0f) && now - lastScroll > SCROLL_EVERY) {
                 lastScroll = now
                 swipe(-sx * SCROLL_DP * dp, -sy * SCROLL_DP * dp)
             }
@@ -166,56 +171,66 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         runCatching { svc.dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(p, 0, SCROLL_EVERY - 20)).build(), null, null) }
     }
 
-    // Toque, toque largo y arrastre con un solo gesto que sigue mientras A está apretado: cada tramo empieza donde
-    // terminó el anterior y va hasta donde está el puntero ahora.
-    private var aHeld = false
+    // A: toque al soltar (un gesto corto y completo, lo más confiable); mantener quieto = toque largo; moverse con A
+    // apretado = arrastrar, que se hace al soltar desde donde se apretó hasta donde quedó el puntero.
+    private var aDown = false
     private var dragging = false
-    private var stroke: GestureDescription.StrokeDescription? = null
-    private var gx = 0f; private var gy = 0f
+    private var longDone = false
+    private var downX = 0f; private var downY = 0f
 
-    private fun startDrag() {
-        if (dragging) return
-        aHeld = true
-        dragging = true
-        gx = x; gy = y
-        val p = Path().apply { moveTo(x, y) }
-        send(GestureDescription.StrokeDescription(p, 0, STEP, true))
+    private fun pressA() {
+        aDown = true; dragging = false; longDone = false
+        downX = x; downY = y
+        main.removeCallbacks(longPress)
+        main.postDelayed(longPress, LONG_MS)
     }
 
-    private fun send(s: GestureDescription.StrokeDescription) {
-        stroke = s
-        val ok = svc.dispatchGesture(GestureDescription.Builder().addStroke(s).build(), object : AccessibilityService.GestureResultCallback() {
-            override fun onCompleted(g: GestureDescription) = next()
-            override fun onCancelled(g: GestureDescription) { dragging = false; stroke = null }
-        }, main)
-        if (!ok) { dragging = false; stroke = null }
+    private fun releaseA() {
+        if (!aDown) return
+        aDown = false
+        main.removeCallbacks(longPress)
+        when {
+            longDone -> Unit
+            dragging -> gesture(Path().apply { moveTo(downX, downY); lineTo(x, y) }, DRAG_MS)
+            else -> gesture(Path().apply { moveTo(x, y) }, TAP_MS)
+        }
+        dragging = false
     }
 
-    private fun next() {
-        val prev = stroke ?: return
-        if (!dragging) return
-        val p = Path().apply { moveTo(gx, gy); lineTo(x, y) }
-        gx = x; gy = y
-        send(prev.continueStroke(p, 0, STEP, aHeld))
-        if (!aHeld) { dragging = false; stroke = null }
+    private val longPress = Runnable {
+        if (aDown && !dragging) { longDone = true; gesture(Path().apply { moveTo(x, y) }, LONG_PRESS_MS) }
     }
 
-    private fun endDrag() { aHeld = false }
+    private fun endDrag() { aDown = false; dragging = false; main.removeCallbacks(longPress) }
 
-    /** El puntero: una flecha blanca con borde oscuro, la punta arriba a la izquierda (donde toca). */
+    private fun gesture(p: Path, ms: Long) {
+        runCatching { svc.dispatchGesture(GestureDescription.Builder().addStroke(GestureDescription.StrokeDescription(p, 0, ms)).build(), null, null) }
+            .onFailure { Log.w(AutoModeService.TAG, "mouse virtual: no se pudo tocar", it) }
+    }
+
+    /**
+     * El puntero, como el de Android con mouse: flecha negra con borde blanco y una sombra suave. La punta, arriba a
+     * la izquierda, es donde toca.
+     */
     private class Pointer(ctx: Context) : View(ctx) {
         private val d = ctx.resources.displayMetrics.density
         private val arrow = Path().apply {
-            moveTo(2f, 2f); lineTo(2f, 20f); lineTo(7f, 15.5f); lineTo(10.5f, 23f); lineTo(13.5f, 21.5f)
-            lineTo(10f, 14.2f); lineTo(16.5f, 14.2f); close()
+            moveTo(0f, 0f); lineTo(0f, 16.5f); lineTo(4.2f, 12.6f); lineTo(6.9f, 18.8f); lineTo(9.6f, 17.7f)
+            lineTo(6.9f, 11.6f); lineTo(12.4f, 11.6f); close()
         }
-        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); style = Paint.Style.FILL }
+        private val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x55000000; style = Paint.Style.FILL
+            maskFilter = android.graphics.BlurMaskFilter(1.6f, android.graphics.BlurMaskFilter.Blur.NORMAL)
+        }
+        private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF111111.toInt(); style = Paint.Style.FILL }
         private val edge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = 0xFF0E1424.toInt(); style = Paint.Style.STROKE; strokeWidth = 1.4f; strokeJoin = Paint.Join.ROUND
+            color = 0xFFFFFFFF.toInt(); style = Paint.Style.STROKE; strokeWidth = 1.3f; strokeJoin = Paint.Join.ROUND
         }
+        init { setLayerType(LAYER_TYPE_SOFTWARE, null) }   // la sombra borrosa
         override fun onDraw(c: Canvas) {
-            c.save(); c.scale(d * 1.1f, d * 1.1f)
-            c.drawPath(arrow, fill); c.drawPath(arrow, edge)
+            c.save(); c.scale(d * 1.25f, d * 1.25f); c.translate(1.2f, 1.2f)
+            c.save(); c.translate(0.8f, 1.2f); c.drawPath(arrow, shadow); c.restore()
+            c.drawPath(arrow, edge); c.drawPath(arrow, fill)
             c.restore()
         }
     }
@@ -225,7 +240,11 @@ class VirtualMouse(private val svc: AccessibilityService, private val onChange: 
         const val SPEED_DP = 900f      // a fondo, dp por segundo
         const val SCROLL_DP = 220f     // cuánto desplaza cada deslizamiento a fondo
         const val SCROLL_EVERY = 140L
-        const val STEP = 60L           // duración de cada tramo del toque/arrastre
+        const val TAP_MS = 40L
+        const val LONG_MS = 450L       // mantener A quieto esto = toque largo
+        const val LONG_PRESS_MS = 650L
+        const val DRAG_MS = 350L
+        const val DRAG_DP = 10f        // moverse más que esto con A apretado = arrastrar
         const val DEAD = 0.15f
     }
 }
