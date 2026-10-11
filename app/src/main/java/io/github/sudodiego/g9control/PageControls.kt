@@ -27,7 +27,7 @@ fun ShortcutsPage(s: AppState, a: MainActivity) {
 @Composable
 private fun ShortcutsContent(s: AppState, a: MainActivity) {
     TwoPane(
-        first = { GuidePanel(a) },
+        first = { GuidePanel(a); GuideTapPanel(a) },
         second = {
             OtherShortcutsPanel(a)
             TabletButtonsPanel(a)
@@ -67,6 +67,43 @@ private fun GuidePanel(a: MainActivity) {
         }
     }
 }
+
+/**
+ * Tocar la guía en cada juego o emulador instalado: Atrás (lo normal) o, con Shizuku, apretar botones como el
+ * control. En RetroArch, Vista + Menú sale (sus atajos de fábrica); "Botón guía" deja asignarlo en RetroArch a lo
+ * que quieras (se manda apretado 1 s, lo que RetroArch pide para asignar).
+ */
+@Composable
+private fun GuideTapPanel(a: MainActivity) {
+    val pm = a.packageManager
+    val apps = remember {
+        GAME_APPS.mapNotNull { pkg ->
+            runCatching { pm.getApplicationInfo(pkg, 0) }.getOrNull()?.let { pkg to pm.getApplicationLabel(it).toString() }
+        }
+    }
+    if (apps.isEmpty()) return
+    val ready = Shell.state == Shell.State.READY
+    CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
+        Panel(tr("Tocar la guía en…", "Tapping guide in…"), tr("Mantener sigue abriendo el panel", "Holding still opens the panel")) {
+            apps.forEach { (pkg, label) ->
+                var tap by remember(pkg) { mutableStateOf(AutoRules.guideTap(a, pkg)) }
+                Text(label, fontSize = 15.sp)
+                ChoiceChips(AutoRules.GuideTap.entries.map { it to it.label }, tap) { tap = it; AutoRules.setGuideTap(a, pkg, it) }
+            }
+            Hint(if (ready) tr("Botón guía y Vista + Menú se aprietan como si fuera el control: el emulador los recibe de verdad.",
+                    "Guide button and View + Menu are pressed as the controller: the emulator really gets them.")
+                else tr("Botón guía y Vista + Menú necesitan Shizuku; sin él, se hace Atrás.", "Guide button and View + Menu need Shizuku; without it, Back."))
+        }
+    }
+}
+
+/** Juegos y emuladores conocidos: los que estén instalados salen en "Tocar la guía en…". */
+private val GAME_APPS = listOf(
+    "com.retroarch", "com.retroarch.aarch64", "dev.eden.eden_emulator", "org.azahar_emu.azahar", "org.dolphinemu.dolphinemu",
+    "xyz.aethersx2.android", "info.cemu.cemu", "me.magnum.melondualds", "me.magnum.melonds", "org.vita3k.emulator",
+    "org.ppsspp.ppsspp", "org.ppsspp.ppssppgold", "com.github.stenzek.duckstation", "app.gamenative", "com.winlator",
+    "com.dishii.soh", "com.dishii.mm", "dev.twilitrealm.dusk", "org.citra.emu", "io.github.lime3ds.android",
+)
 
 @Composable
 private fun OtherShortcutsPanel(a: MainActivity) {

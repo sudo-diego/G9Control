@@ -4,3 +4,6 @@
 
 # ScreenPower corre aparte con app_process (por nombre): no se renombra ni se quita.
 -keep class io.github.sudodiego.g9control.ScreenPower { public static void main(java.lang.String[]); }
+
+# KeyInject también (botones del control desde el shell, como Key Mapper).
+-keep class io.github.sudodiego.g9control.KeyInject { public static void main(java.lang.String[]); }
