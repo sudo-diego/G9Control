@@ -1,6 +1,8 @@
 package io.github.sudodiego.g9control
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -83,6 +85,32 @@ object MacroGcm {
     private fun round5(ms: Int) = (((ms + 2) / 5) * 5).coerceIn(0, MACRO_MAX_MS)
 }
 
+/**
+ * Macros listas para cargar en el editor. Solo secuencias: en el G9 cada paso empieza cuando se soltó el anterior,
+ * así que una macro no puede mantener dos botones a la vez (los atajos de emulador como Vista + Menú no se pueden;
+ * esos los hace la app, ver "Tocar la guía en…"). Sirven para repetir, encadenar y movimientos de pelea.
+ */
+data class SuggestedMacro(val name: String, val desc: String, val macro: Macro)
+
+private const val K_A = 0xB4; private const val K_B = 0xB5; private const val K_X = 0xB7; private const val K_Y = 0xB8
+// Stick izquierdo: 0xEF + dirección (0 ←, 1 ↖, 2 ↑, 3 ↗, 4 →, 5 ↘, 6 ↓, 7 ↙).
+private const val LS_RIGHT = 0xF3; private const val LS_DOWN_RIGHT = 0xF4; private const val LS_DOWN = 0xF5
+
+val SUGGESTED_MACROS get() = listOf(
+    SuggestedMacro(tr("A repetido", "Repeat A"), tr("Pasar diálogos: mientras lo mantienes", "Skip dialogue: while held"),
+        Macro(listOf(MacroStep(K_A, 40, 0)), mode = 1, loop = true, loopMs = 60)),
+    SuggestedMacro(tr("B repetido", "Repeat B"), tr("Turbo de B mientras lo mantienes", "B turbo while held"),
+        Macro(listOf(MacroStep(K_B, 40, 0)), mode = 1, loop = true, loopMs = 60)),
+    SuggestedMacro(tr("Doble salto", "Double jump"), tr("A, y A otra vez en el aire", "A, then A again mid-air"),
+        Macro(listOf(MacroStep(K_A, 60, 0), MacroStep(K_A, 60, 180)))),
+    SuggestedMacro(tr("Bola de fuego", "Fireball"), tr("↓ ↘ → + X (pelea, a la derecha)", "↓ ↘ → + X (fighting, facing right)"),
+        Macro(listOf(MacroStep(LS_DOWN, 35, 0), MacroStep(LS_DOWN_RIGHT, 35, 0), MacroStep(LS_RIGHT, 35, 0), MacroStep(K_X, 60, 0)))),
+    SuggestedMacro(tr("Gancho", "Uppercut"), tr("→ ↓ ↘ + X (pelea, a la derecha)", "→ ↓ ↘ + X (fighting, facing right)"),
+        Macro(listOf(MacroStep(LS_RIGHT, 35, 0), MacroStep(LS_DOWN, 35, 0), MacroStep(LS_DOWN_RIGHT, 35, 0), MacroStep(K_X, 60, 0)))),
+    SuggestedMacro(tr("Esquivar y atacar", "Dodge and attack"), tr("B y enseguida Y", "B, then Y right away"),
+        Macro(listOf(MacroStep(K_B, 60, 0), MacroStep(K_Y, 60, 120)))),
+)
+
 /** Destinos que puede pulsar una macro: los mismos de los traseros, sin "Sin asignar". */
 val MACRO_KEYS get() = BACK_TARGETS.filter { it.first != 0 }
 
@@ -129,6 +157,22 @@ fun MacroEditor(s: AppState, a: MainActivity) {
             }
             Text(tr("O agrega pasos uno por uno:", "Or add steps one by one:"), fontSize = 14.sp, color = c.onSurfaceVariant)
             ButtonGrid(null, canAdd, ::add)
+        }
+        // Plantillas: cargan pasos, modo y bucle en el borrador (no se guarda en el control hasta "Guardar").
+        Panel(tr("Sugeridas", "Suggested"), tr("Cargar una y ajustarla", "Load one and tweak it")) {
+            SUGGESTED_MACROS.forEach { sm ->
+                Row(Modifier.fillMaxWidth().clip(MaterialTheme.shapes.small)
+                    .clickable(enabled = !s.macroRecording) { s.macroDraft = sm.macro; sel = -1 }.padding(vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(sm.name, fontSize = 15.sp)
+                        Text(sm.desc, fontSize = 12.sp, color = c.onSurfaceVariant)
+                    }
+                    Text(tr("Cargar", "Load"), color = c.primary, fontSize = 14.sp)
+                }
+            }
+            Hint(tr("Una macro aprieta un botón después de otro, nunca dos a la vez: los atajos de emulador (Vista + Menú…) se hacen con «Tocar la guía» en Controles.",
+                "A macro presses one button after another, never two at once: emulator shortcuts (View + Menu…) go through “Tapping guide” in Controls."))
         }
     }
     val right: @Composable ColumnScope.() -> Unit = {
