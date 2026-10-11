@@ -79,10 +79,10 @@ object ZuiBattery {
         val target = chargeTarget(ctx)
         if (level < 0 || level >= target) return null
         val bm = ctx.getSystemService(BatteryManager::class.java)
-        if (target >= 100) return bm.computeChargeTimeRemaining().takeIf { it > 0 }
+        if (target >= 100) bm.computeChargeTimeRemaining().takeIf { it > 0 }?.let { return it }
         val uah = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER).takeIf { it > 0 } ?: return null
-        val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_AVERAGE).takeIf { it != 0 && it != Int.MIN_VALUE }
-            ?: bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).takeIf { it != 0 && it != Int.MIN_VALUE } ?: return null
+        // La corriente promedio de esta tablet da casi 0 (y el tiempo quedaba vacío): la de ahora.
+        val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW).takeIf { it != 0 && it != Int.MIN_VALUE } ?: return null
         val current = kotlin.math.abs(ua.toDouble()).takeIf { it > 50_000 } ?: return null
         val capacity = uah * 100.0 / level.coerceAtLeast(1)
         return ((target - level) / 100.0 * capacity / current * 3_600_000).toLong()

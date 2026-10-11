@@ -10,6 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
@@ -254,16 +258,15 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
                         null, Modifier.size(28.dp))
                     Spacer(Modifier.width(12.dp))
                 }
-                Column(Modifier.weight(1f)) {
-                    Text(task.app.label, fontSize = 15.sp, maxLines = 1)
-                    val tags = listOfNotNull(
-                        if (task.active) tr("Activa", "Active") else null,
-                        if (Memory.restartsByItself(task.app.pkg)) tr("se reinicia sola", "restarts by itself") else null
-                    )
-                    if (tags.isNotEmpty()) Text(tags.joinToString(" · "), fontSize = 12.sp, color = c.secondary)
+                // El nombre y sus marcas en pastillas: Activa (algo corriendo) y ↻ si volvió sola después de detenerla.
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(task.app.label, Modifier.weight(1f, fill = false), fontSize = 15.sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                    if (task.active) TaskTag(null, tr("Activa", "Active"))
+                    if (Memory.restartsByItself(task.app.pkg)) TaskTag(Icons.Outlined.Autorenew, tr("Vuelve", "Returns"))
                 }
                 Text("${task.ramMb} MB", Modifier.width(84.dp), fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                Text("%.0f %%".format(task.cpu), Modifier.width(64.dp), fontSize = 14.sp, color = c.onSurfaceVariant,
+                Text(if (task.cpu < 10) "%.1f %%".format(task.cpu) else "%.0f %%".format(task.cpu), Modifier.width(72.dp), fontSize = 14.sp, color = c.onSurfaceVariant,
                     textAlign = androidx.compose.ui.text.style.TextAlign.End)
                 Spacer(Modifier.width(8.dp))
                 OutlinedButton(onClick = {
@@ -274,6 +277,17 @@ private fun MemoryPanel(s: AppState, a: MainActivity) {
         }
     }
 }
+/** Una marca de la lista de apps: una pastilla chica con ícono opcional. */
+@Composable
+private fun TaskTag(icon: androidx.compose.ui.graphics.vector.ImageVector?, text: String) {
+    val c = MaterialTheme.colorScheme
+    Row(Modifier.background(c.secondaryContainer, RoundedCornerShape(50)).padding(horizontal = 8.dp, vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        icon?.let { Icon(it, null, Modifier.size(14.dp), tint = c.onSecondaryContainer); Spacer(Modifier.width(4.dp)) }
+        Text(text, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = c.onSecondaryContainer)
+    }
+}
+
 /** Ícono de app como bitmap (los adaptativos no son BitmapDrawable). */
 private fun android.graphics.drawable.Drawable.toBitmapSafe(): android.graphics.Bitmap {
     (this as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { return it }

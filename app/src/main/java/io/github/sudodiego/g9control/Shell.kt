@@ -76,8 +76,9 @@ object Shell {
     // Apps activas (con un servicio en primer plano: video, música, descargas), como "Apps activas" de los ajustes
     // rápidos de Android, y detenerlas como su botón Detener (`am stop-app`: la app y sus servicios).
     const val PROCESSES = "dumpsys activity processes"
-    // Administrador de tareas (Memoria): RAM y CPU de cada proceso, en dos pasadas de 1 s (la primera no tiene CPU).
-    const val TOP = "top -b -n 2 -d 1 -m 500 -o USER,%CPU,RES,NAME"
+    // Administrador de tareas (Memoria): RAM y CPU de cada proceso, en dos pasadas de 2 s (la primera no tiene CPU; con
+    // 1 s, top mide de a 1 % y casi todo salía 0).
+    const val TOP = "top -b -n 2 -d 2 -m 500 -o USER,%CPU,RES,NAME"
     fun stopApp(pkg: String) = "am stop-app $pkg"
     private val STOP_APP = Regex("am stop-app [A-Za-z0-9_.]+")
 
