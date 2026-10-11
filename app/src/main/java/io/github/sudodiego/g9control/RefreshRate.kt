@@ -56,12 +56,48 @@ object RefreshRate {
         val want = wanted(ctx, pkg)
         main.post { window(ctx, want); done() }
         if (want != null) Log.d(AutoModeService.TAG, "pantalla a $want Hz ($pkg)")
-        // Lo que dejaron las versiones con Shizuku: se devuelve una vez, cuando se pueda.
+        main.removeCallbacks(verify)
+        // Si se había forzado con los ajustes del sistema (por Ahorro de energía), se devuelven al cambiar de app o de Hz.
+        if (forced != pkg to want) restoreSettings(ctx)
+        if (want != null) {
+            verifyFor = { check(ctx, pkg, want) }
+            main.postDelayed(verify, 2000)
+        }
+    }
+
+    /**
+     * En Ahorro de energía ZUI le impone 30 Hz al juego con la misma prioridad que la ventana, y gana. Solo ahí (la
+     * pantalla no quedó como se pidió) y con Shizuku: mínimo y máximo del sistema iguales, que tienen más prioridad.
+     */
+    private var verifyFor: (() -> Unit)? = null
+    /** App y Hz forzados con los ajustes del sistema (para no devolverlos mientras sigan siendo los mismos). */
+    private var forced: Pair<String?, Int?>? = null
+    private val verify = Runnable { verifyFor?.invoke() }
+    private fun check(ctx: Context, pkg: String?, want: Int) {
+        val now = current(ctx) ?: return
+        if (kotlin.math.abs(now - want) <= 1 || Shell.state != Shell.State.READY) return
         val p = sp(ctx)
-        if (p.contains("hz_saved_peak") && Shell.state == Shell.State.READY) scope.launch {
+        val cr = ctx.contentResolver
+        scope.launch {
+            if (!p.contains("hz_saved_peak")) p.edit()
+                .putFloat("hz_saved_peak", android.provider.Settings.System.getFloat(cr, "peak_refresh_rate", 120f))
+                .putFloat("hz_saved_min", android.provider.Settings.System.getFloat(cr, "min_refresh_rate", 30f)).commit()
+            Shell.run(Shell.refreshRate("peak_refresh_rate", want.toFloat()))
+            Shell.run(Shell.refreshRate("min_refresh_rate", want.toFloat()))
+            forced = pkg to want
+            Log.d(AutoModeService.TAG, "pantalla en $now Hz en vez de $want ($pkg): forzada con los ajustes del sistema")
+        }
+    }
+
+    /** Devuelve los ajustes del sistema si quedaron cambiados (cuando se pueda). */
+    private fun restoreSettings(ctx: Context) {
+        val p = sp(ctx)
+        if (!p.contains("hz_saved_peak") || Shell.state != Shell.State.READY) return
+        scope.launch {
             Shell.run(Shell.refreshRate("peak_refresh_rate", p.getFloat("hz_saved_peak", 120f)))
             Shell.run(Shell.refreshRate("min_refresh_rate", p.getFloat("hz_saved_min", 30f)))
             p.edit().remove("hz_saved_peak").remove("hz_saved_min").commit()
+            forced = null
             Log.d(AutoModeService.TAG, "frecuencia del sistema devuelta a la de siempre")
         }
     }
