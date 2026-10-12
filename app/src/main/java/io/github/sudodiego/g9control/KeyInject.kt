@@ -31,11 +31,10 @@ object KeyInject {
             val now = SystemClock.uptimeMillis()
             inject.invoke(im, KeyEvent(down, now, action, key, 0, 0, device, 0, 0, source), 0)
         }
-        // Primero un toque corto al primer botón: la primera vez que RetroArch recibe algo del dispositivo "Virtual" lo usa
-        // para registrarlo ("Virtual (0/0)") y no lo cuenta (había que tocar la guía dos veces). Un botón que no usa
-        // (BUTTON_16) no sirve: lo ignora sin registrar nada. Si ya estaba registrado, este toque ya hace lo suyo.
-        send(KeyEvent.ACTION_DOWN, keys[0]); Thread.sleep(80); send(KeyEvent.ACTION_UP, keys[0])
-        Thread.sleep(400)
+        // Primero un toque a un botón que nadie usa (BUTTON_16): la primera vez que RetroArch recibe algo del dispositivo
+        // "Virtual" lo usa para registrarlo ("Virtual (0/0)") y no lo cuenta; sin esto había que tocar la guía dos veces.
+        send(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_BUTTON_16); Thread.sleep(30); send(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_BUTTON_16)
+        Thread.sleep(300)
         // 200 ms entre botones: RetroArch activa sus atajos unos cuadros después de apretar el primero
         // (input_hotkey_block_delay, 5 cuadros ≈ 83 ms); con 40 ms el segundo a veces llegaba antes y no hacía nada.
         keys.forEachIndexed { i, k -> send(KeyEvent.ACTION_DOWN, k); if (i < keys.size - 1) Thread.sleep(200) }
