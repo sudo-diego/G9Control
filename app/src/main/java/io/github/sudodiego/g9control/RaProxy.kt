@@ -19,12 +19,13 @@ object RaProxy {
     const val PACKAGE = "com.raofflineproxy"
 
     /**
-     * Emuladores que RAOfflineProxy configura en Android y cuyo paquete se conoce (también ARMSX2 y WatermelonDS: agregar
-     * su paquete cuando se instalen). AetherSX2 / NetherSX2 no están soportados.
+     * Emuladores que RAOfflineProxy configura en Android (sus paquetes salen de su registro: "resolved packages"). También
+     * AetherSX2 (`xyz.aethersx2.android`, lo trata como NetherSX2) y melonDS (`me.magnum.melondualds`, como WatermelonDS).
+     * Faltan los de ARMSX1/2, Mupen64, EmuCoreX y SeedlessDS: agregarlos si se instalan.
      */
     val EMULATORS = setOf(
         "com.retroarch", "com.retroarch.aarch64", "org.dolphinemu.dolphinemu", "org.ppsspp.ppsspp", "org.ppsspp.ppssppgold",
-        "com.flycast.emulator"
+        "com.flycast.emulator", "xyz.aethersx2.android", "me.magnum.melondualds"
     )
 
     fun installed(ctx: Context) = runCatching { ctx.packageManager.getApplicationInfo(PACKAGE, 0) }.isSuccess

@@ -451,8 +451,31 @@ class GamePanel(private val svc: AutoModeService) {
     fun raStrandedHint() = flash.show(flash.appIcon(RaProxy.PACKAGE), tr("RAOfflineProxy está apagado", "RAOfflineProxy is off"),
         tr("Sin él no hay logros, ni con internet: ábrelo y aprieta Start (o Stop)", "Without it there are no achievements, even online: open it and press Start (or Stop)"), 7000)
 
-    /** Proxy encendido pero al emulador le falta algo (sin sesión, no apunta al proxy): sin esto no hay logros. */
-    fun raSetupHint(problem: String) = flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Logros", "Achievements"), problem, 6000)
+    private var alert: RaAlert? = null
+    val alertOpen get() = alert != null
+    fun alertKey(e: KeyEvent) { alert?.onKey(e) }
+    private fun showAlert(a: RaAlert) { alert?.hide(); hide(); alert = a; a.onClose = { if (alert === a) alert = null }; a.show() }
+
+    /** Proxy apagado con los emuladores apuntándole: A cierra el juego y abre RAOfflineProxy (para Start); B sigue. */
+    fun raStrandedAlert(pkg: String) = showAlert(RaAlert(svc,
+        tr("Sin logros: RAOfflineProxy está apagado", "No achievements: RAOfflineProxy is off"),
+        tr("Tus emuladores le apuntan, así que sin él no hay logros, ni con internet. Se cierra el juego (recién empieza) y se abre RAOfflineProxy: aprieta Start y vuelve a entrar.",
+            "Your emulators point to it, so without it there are no achievements, even online. The game closes (it just started) and RAOfflineProxy opens: press Start and come back."),
+        tr("Encenderlo", "Turn it on")) { scope.launch { RaProxy.prepare(svc) } })
+
+    /** El emulador no tiene sesión (o no apunta al proxy): A cierra el juego y abre el emulador para iniciar sesión. */
+    fun raSetupAlert(pkg: String, s: RaProxy.Setup) = showAlert(RaAlert(svc,
+        tr("Sin logros en ${s.name}", "No achievements in ${s.name}"),
+        if (!s.loggedIn) tr("${s.name} no tiene la sesión de RetroAchievements iniciada. Se cierra el juego y se abre ${s.name}: inicia sesión en sus ajustes (RetroAchievements). Mejor con RAOfflineProxy apagado: si no, al apagarlo puede borrarla.",
+            "${s.name} isn't signed in to RetroAchievements. The game closes and ${s.name} opens: sign in from its settings (RetroAchievements). Best with RAOfflineProxy off: otherwise turning it off can erase it.")
+        else s.problem.orEmpty(),
+        if (!s.loggedIn) tr("Iniciar sesión", "Sign in") else tr("Arreglar", "Fix")) {
+        scope.launch {
+            if (Shell.state == Shell.State.READY) Shell.run(Shell.stopApp(pkg))
+            if (s.loggedIn) RaProxy.open(svc)
+            else svc.packageManager.getLaunchIntentForPackage(pkg)?.let { runCatching { svc.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+        }
+    })
 
     /** Al empezar a transmitir: la guía va al PC, así que las capturas se sacan de otra forma. */
     fun streamTip() {
@@ -1772,6 +1795,102 @@ private class FreezeCover(private val svc: AccessibilityService) {
         // Sin recycle(): removeView es asíncrono y la ventana todavía se dibuja una vez (se caía la app). Al
         // soltar la referencia, la memoria se libera sola.
         shot = null
+    }
+}
+
+/**
+ * Alerta de logros, en rojo y al centro, delante del juego (como la guía de cambio de modo): título, qué pasa y dos
+ * acciones con el control o el dedo: A arregla (cierra el juego y abre lo que hace falta), B sigue sin logros. Toma el
+ * foco (sticks y gatillos no llegan al juego) y el servicio le pasa los botones. Sigue el tema claro u oscuro.
+ */
+private class RaAlert(private val svc: AccessibilityService, private val title: String, private val text: String,
+                      private val actionLabel: String, private val action: () -> Unit) {
+    private val wm = svc.getSystemService(WindowManager::class.java)
+    private var view: android.view.View? = null
+    var onClose: (() -> Unit)? = null
+
+    fun show() {
+        val dp = svc.resources.displayMetrics.density
+        val px = { v: Int -> (v * dp).toInt() }
+        val red = 0xFFE5484D.toInt()
+        val fg = if (light) 0xFF14203A.toInt() else android.graphics.Color.WHITE
+        val muted = if (light) 0xFF56607A.toInt() else 0xFFB8C0D0.toInt()
+        fun button(key: String, label: String, filled: Boolean, onTap: () -> Unit) = android.widget.TextView(svc).apply {
+            text = "$key   $label"
+            textSize = 16f
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            setTextColor(if (filled) android.graphics.Color.WHITE else fg)
+            gravity = Gravity.CENTER
+            setPadding(px(22), px(14), px(22), px(14))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                cornerRadius = 26 * dp
+                if (filled) setColor(red) else { setColor(android.graphics.Color.TRANSPARENT); setStroke(px(2), muted) }
+            }
+            setOnClickListener { onTap() }
+        }
+        val icon = android.widget.ImageView(svc).apply {
+            runCatching { setImageDrawable(svc.packageManager.getApplicationIcon(RaProxy.PACKAGE)) }
+        }
+        val card = android.widget.LinearLayout(svc).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(px(32), px(28), px(32), px(26))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(if (light) 0xFFFFF1F1.toInt() else 0xFF2A1218.toInt()); cornerRadius = 28 * dp; setStroke(px(3), red)
+            }
+            addView(icon, android.widget.LinearLayout.LayoutParams(px(56), px(56)))
+            addView(android.widget.TextView(svc).apply {
+                text = title; textSize = 22f; setTextColor(red); gravity = Gravity.CENTER
+                setTypeface(typeface, android.graphics.Typeface.BOLD); setPadding(0, px(14), 0, px(8))
+            })
+            addView(android.widget.TextView(svc).apply { text = this@RaAlert.text; textSize = 15f; setTextColor(fg); gravity = Gravity.CENTER })
+            addView(android.widget.LinearLayout(svc).apply {
+                orientation = android.widget.LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                setPadding(0, px(22), 0, 0)
+                addView(button("A", actionLabel, true) { pick(true) })
+                addView(android.view.View(svc), android.widget.LinearLayout.LayoutParams(px(14), 1))
+                addView(button("B", tr("Seguir sin logros", "Continue without"), false) { pick(false) })
+            })
+        }
+        val root = android.widget.FrameLayout(svc).apply {
+            setBackgroundColor(0x99000000.toInt())
+            addView(card, android.widget.FrameLayout.LayoutParams(px(560), android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+            isFocusable = true; isFocusableInTouchMode = true
+            setOnGenericMotionListener { _, _ -> true }   // sticks y gatillos: no al juego
+            alpha = 0f
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT
+        ).apply { if (Build.VERSION.SDK_INT >= 30) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS }
+        if (runCatching { wm.addView(root, lp) }.isFailure) { onClose?.invoke(); return }
+        root.requestFocus()
+        root.animate().alpha(1f).setDuration(220).start()
+        view = root
+    }
+
+    /** Botones del control (los pasa el servicio): A arregla, B sigue. Los demás no hacen nada (no llegan al juego). */
+    fun onKey(e: KeyEvent) {
+        if (e.action != KeyEvent.ACTION_DOWN || e.repeatCount != 0) return
+        when (e.keyCode) {
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER -> pick(true)
+            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> pick(false)
+        }
+    }
+
+    private fun pick(fix: Boolean) {
+        hide()
+        if (fix) action()
+    }
+
+    fun hide() {
+        val v = view ?: return
+        view = null
+        v.animate().alpha(0f).setDuration(180).withEndAction { runCatching { wm.removeView(v) } }.start()
+        onClose?.invoke()
     }
 }
 

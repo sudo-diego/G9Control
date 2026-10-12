@@ -844,6 +844,8 @@ class AutoModeService : AccessibilityService() {
         // Imagen congelada (cambiando el rendimiento): moverse sin ver a dónde, no. Los sticks los toma su ventana.
         if (panel.busy && (KeyEvent.isGamepadButton(k) || event.isFromSource(InputDevice.SOURCE_GAMEPAD) ||
                 event.isFromSource(InputDevice.SOURCE_DPAD))) return true
+        if (panel.alertOpen && (KeyEvent.isGamepadButton(k) || event.isFromSource(InputDevice.SOURCE_GAMEPAD) ||
+                event.isFromSource(InputDevice.SOURCE_DPAD))) { panel.alertKey(event); return true }
         if (panelChord(event)) return true
         if (legionChord(event)) return true
         if (panel.isOpen && panel.onKey(event)) return true
@@ -1353,26 +1355,23 @@ class AutoModeService : AccessibilityService() {
      * saber si está encendido, no se avisa (sería un aviso de más).
      */
     private val raHinted = mutableSetOf<String>()
-    private val raChecked = mutableSetOf<String>()
-    /** Cuándo se avisó por última vez, por emulador, que el proxy quedó apagado. */
-    private val raStranded = mutableMapOf<String, Long>()
+    /** Cuándo se mostró por última vez la alerta de logros, por emulador. */
+    private val raAlerted = mutableMapOf<String, Long>()
     private val RA_REPEAT_MS = 3 * 60_000L
     private fun raProxyHint(pkg: String) {
+        // Sin logros por algo que se arregla (proxy apagado con los emuladores apuntándole, o el emulador sin sesión):
+        // la alerta roja al centro, con A para arreglarlo y B para seguir. Cada vez que se entra al emulador, como
+        // mucho una vez cada 3 min (una sola vez no bastaba: se gastó en una prueba y al entrar a jugar no avisó).
         if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && RaProxy.installed(this)) scope.launch {
-            // Grave (cero logros): cada vez que se entra al emulador, como mucho una vez cada 3 min (antes una sola vez y,
-            // gastada en una prueba, al entrar a jugar no avisó).
             val now = android.os.SystemClock.uptimeMillis()
-            if (now - (raStranded[pkg] ?: -RA_REPEAT_MS) >= RA_REPEAT_MS && RaProxy.stranded(this@AutoModeService)) {
-                raStranded[pkg] = now; main.postDelayed({ panel.raStrandedHint() }, 1500)
+            if (now - (raAlerted[pkg] ?: -RA_REPEAT_MS) < RA_REPEAT_MS) return@launch
+            if (RaProxy.stranded(this@AutoModeService)) {
+                raAlerted[pkg] = now; main.postDelayed({ panel.raStrandedAlert(pkg) }, 1200); return@launch
             }
-        }
-        // Proxy encendido: ¿el emulador está listo? (sesión, apunta al proxy). Una vez por emulador y encendido.
-        if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && Shell.state == Shell.State.READY && RaProxy.installed(this)) scope.launch {
-            if (RaProxy.readActive(this@AutoModeService) != true) { raChecked.clear(); return@launch }
-            val s = RaProxy.setup(pkg).also { RaProxy.setupNow = it } ?: return@launch
-            if (pkg in raChecked) return@launch
-            raChecked += pkg
-            s.problem?.let { p -> main.postDelayed({ panel.raSetupHint(p) }, 1500) }
+            if (RaProxy.activeNow == true && Shell.state == Shell.State.READY) {
+                val s = RaProxy.setup(pkg).also { RaProxy.setupNow = it } ?: return@launch
+                if (s.problem != null) { raAlerted[pkg] = now; main.postDelayed({ panel.raSetupAlert(pkg, s) }, 1200) }
+            }
         }
         if (RaProxy.online(this)) { raHinted.clear(); return }
         if (!RaProxy.isEmulator(pkg) || pkg in raHinted || !AutoRules.raProxyHint(this) || !RaProxy.installed(this)) return
