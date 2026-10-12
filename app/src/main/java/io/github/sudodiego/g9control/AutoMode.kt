@@ -796,6 +796,8 @@ class AutoModeService : AccessibilityService() {
         if (k == KeyEvent.KEYCODE_BUTTON_MODE) trackGuide(event)
         // Otro botón del mismo control con la guía apretada (Vista + Menú, navegar el panel): no es "mantener para apagar".
         else if (event.action == KeyEvent.ACTION_DOWN && event.deviceId == guideDevice && guideDownAt > 0) guideDownAt = 0
+        // "Pasar al juego": otro botón con la guía apretada es un atajo del emulador (Guía + X = menú), no abrir el panel.
+        if (event.action == KeyEvent.ACTION_DOWN && k != KeyEvent.KEYCODE_BUTTON_MODE) main.removeCallbacks(passHold)
         // Qué control se usó por última vez: con otro control (8BitDo, por ejemplo) el G9 se queda como está.
         if (event.action == KeyEvent.ACTION_DOWN && KeyEvent.isGamepadButton(k)) {
             val now = android.os.SystemClock.uptimeMillis()
@@ -903,6 +905,12 @@ class AutoModeService : AccessibilityService() {
     private var legionOwned = false
     /** Botón Legion apretado y todavía sin decidir si es toque (Atrás) o mantener (panel de juego). */
     private var legionPending = false
+    /**
+     * "Pasar al juego": la guía le llega al emulador, pero mantenerla sola 0,5 s igual abre el panel (el mismo gesto en
+     * todas partes). En RetroArch la guía sola no hace nada si es la "tecla para activar teclas rápidas".
+     */
+    private val passHold = Runnable { Log.i(TAG, "guía mantenida (pasada al juego): panel"); panel.show() }
+
     private val legionHold = Runnable {
         if (!legionPending) return@Runnable
         legionPending = false
@@ -1063,7 +1071,7 @@ class AutoModeService : AccessibilityService() {
     /** Se cruzó un umbral con la pantalla apagada o bloqueada: se avisa al desbloquear (si sigue baja y sin cargador). */
     private var lowPending = false
 
-    /** Tocar la guía en esta app: Atrás o nada (con "Pasar al juego" la guía ni siquiera llega aquí). */
+    /** Tocar la guía en esta app: Atrás o nada (con "Pasar al juego" la guía le llega al juego; mantener sigue abriendo el panel). */
     private fun guideTap() {
         val app = currentApp()
         if (AutoRules.guideTap(this, app) != AutoRules.GuideTap.BACK) return
@@ -1084,8 +1092,11 @@ class AutoModeService : AccessibilityService() {
                     val now = limelightStreaming()
                     if (now != streaming) { streaming = now; Log.d(TAG, "transmitiendo (al apretar Legion): $now"); updatePadWatch() }
                 }
-                legionOwned = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming &&
-                    AutoRules.guideTap(this, currentApp()) != AutoRules.GuideTap.PASS
+                val usable = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming
+                val pass = AutoRules.guideTap(this, currentApp()) == AutoRules.GuideTap.PASS
+                legionOwned = usable && !pass
+                main.removeCallbacks(passHold)
+                if (usable && pass && AutoRules.guide(this, AutoRules.Guide.HOLD_PANEL)) main.postDelayed(passHold, 500)
                 Log.i(TAG, "guía apretada: dispositivo ${e.deviceId} (${e.device?.name}), en $lastPackage")
                 if (legionOwned) {
                     legionPending = true
@@ -1097,6 +1108,7 @@ class AutoModeService : AccessibilityService() {
             }
             KeyEvent.ACTION_UP -> {
                 main.removeCallbacks(legionLock)
+                main.removeCallbacks(passHold)
                 if (legionChording) { legionOwned = false; return true }
                 if (!legionOwned) return false
                 legionOwned = false

@@ -97,7 +97,7 @@ private fun GuideTapPanel(a: MainActivity) {
                 Text(label, fontSize = 15.sp)
                 ChoiceChips(AutoRules.GuideTap.entries.map { it to it.label }, tap) { tap = it; AutoRules.setGuideTap(a, pkg, it) }
                 if (tap == AutoRules.GuideTap.PASS) {
-                    Text(tr("Aquí el panel se abre con L3 + R3 (la guía es del juego).", "Here the panel opens with L3 + R3 (the guide belongs to the game)."),
+                    Text(tr("Mantener la guía sigue abriendo el panel; tocarla le llega al juego.", "Holding the guide still opens the panel; a tap goes to the game."),
                         fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
                     // Capturas nítidas con shaders como BFI o CRT beam simulator: que las saque el emulador.
                     var byGame by remember(pkg) { mutableStateOf(AutoRules.shotByGame(a, pkg)) }
