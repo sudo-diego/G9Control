@@ -783,7 +783,9 @@ class AutoModeService : AccessibilityService() {
         // Otro botón del mismo control con la guía apretada (Vista + Menú, navegar el panel): no es "mantener para apagar".
         else if (event.action == KeyEvent.ACTION_DOWN && event.deviceId == guideDevice && guideDownAt > 0) guideDownAt = 0
         // Los botones que aprieta la app como si fuera el control (la guía en RetroArch) pasan sin tocar.
-        if (android.os.SystemClock.uptimeMillis() < injectingUntil) return false
+        // Solo los que vienen del dispositivo "Virtual" (id < 0): los del control de verdad se manejan normal (antes, mientras
+        // se enviaba, la guía real del usuario se colaba al juego).
+        if (event.deviceId < 0 && android.os.SystemClock.uptimeMillis() < injectingUntil) return false
         // Qué control se usó por última vez: con otro control (8BitDo, por ejemplo) el G9 se queda como está.
         if (event.action == KeyEvent.ACTION_DOWN && KeyEvent.isGamepadButton(k)) {
             val now = android.os.SystemClock.uptimeMillis()
