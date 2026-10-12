@@ -257,7 +257,11 @@ class MainActivity : ComponentActivity() {
         when {
             s.macroRecording -> stopMacroRecording()
             s.testMode -> s.testMode = false
-            else -> moveTaskToBack(true)
+            else -> {
+                // B sigue apretado: que no le llegue al juego que queda al frente (lo filtra el servicio hasta soltarlo).
+                AppKeys.swallowB = true; AppKeys.swallowUntil = android.os.SystemClock.uptimeMillis() + 8000
+                moveTaskToBack(true)
+            }
         }
     }
 

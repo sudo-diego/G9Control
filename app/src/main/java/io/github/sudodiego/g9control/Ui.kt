@@ -370,6 +370,8 @@ private fun HintBar(s: AppState) {
 private fun PageHost(s: AppState, a: MainActivity, modifier: Modifier) {
     // Al cambiar de pestaña se termina la prueba de botones.
     LaunchedEffect(s.page) { if (s.page != Page.TEST) s.testMode = false }
+    // Probando botones o grabando una macro, la guía es un botón más (no abre el panel).
+    LaunchedEffect(s.capturing) { AppKeys.capturing = s.capturing }
     AnimatedContent(
         targetState = s.page,
         modifier = modifier,

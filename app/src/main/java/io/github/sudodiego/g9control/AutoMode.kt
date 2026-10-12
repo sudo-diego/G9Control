@@ -632,6 +632,7 @@ class AutoModeService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        active = this
         Lang.load(this)
         // El fondo del panel (y el tema) aunque no se haya abierto la app.
         ThemeState.load(this)
@@ -793,6 +794,11 @@ class AutoModeService : AccessibilityService() {
         val k = event.keyCode
         // Soltar la guía cancela siempre el bloqueo de 5 s, antes que nada: con el panel abierto el soltar va al panel
         // y no llegaba a legionKey (la tablet se bloqueaba sola 5 s después de abrir el panel manteniendo la guía).
+        // Se salió de la app manteniendo B 3 s: ese B sigue apretado y no tiene que llegarle al juego que queda al frente.
+        if (k == KeyEvent.KEYCODE_BUTTON_B && AppKeys.swallowB) {
+            if (event.action == KeyEvent.ACTION_UP || android.os.SystemClock.uptimeMillis() > AppKeys.swallowUntil) AppKeys.swallowB = false
+            return true
+        }
         if (k == KeyEvent.KEYCODE_BUTTON_MODE) trackGuide(event)
         // Otro botón del mismo control con la guía apretada (Vista + Menú, navegar el panel): no es "mantener para apagar".
         else if (event.action == KeyEvent.ACTION_DOWN && event.deviceId == guideDevice && guideDownAt > 0) guideDownAt = 0
@@ -1073,6 +1079,8 @@ class AutoModeService : AccessibilityService() {
 
     /** Tocar la guía en esta app: Atrás o nada (con "Pasar al juego" la guía le llega al juego; mantener sigue abriendo el panel). */
     private fun guideTap() {
+        // En la propia app tocarla no hace nada (Atrás de Android la cerraría; ahí B es volver): solo mantener abre el panel.
+        if (appInFront) return
         val app = currentApp()
         if (AutoRules.guideTap(this, app) != AutoRules.GuideTap.BACK) return
         Log.i(TAG, "guía en $app: Atrás")
@@ -1092,7 +1100,7 @@ class AutoModeService : AccessibilityService() {
                     val now = limelightStreaming()
                     if (now != streaming) { streaming = now; Log.d(TAG, "transmitiendo (al apretar Legion): $now"); updatePadWatch() }
                 }
-                val usable = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming
+                val usable = AutoRules.legionKeys(this) && !(appInFront && AppKeys.capturing) && !guide.blocksInput && !streaming
                 val pass = AutoRules.guideTap(this, currentApp()) == AutoRules.GuideTap.PASS
                 legionOwned = usable && !pass
                 main.removeCallbacks(passHold)
@@ -1325,12 +1333,18 @@ class AutoModeService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    /** Abrir el panel desde la app (botón en Juego → Panel de juego). */
+    fun openPanel() = main.post { panel.show() }
+
     companion object {
         internal const val TAG = "G9Auto"
+        /** El servicio corriendo (null si está apagado): la app lo usa para abrir el panel. */
+        @Volatile var active: AutoModeService? = null
         const val ACTION_TEST_GUIDE_TAP = "io.github.sudodiego.g9control.TEST_GUIDE_TAP"
     }
 
     override fun onDestroy() {
+        if (active === this) active = null
         if (mouseOn) mouse.stop()
         PowerLog.stop()
         getSystemService(InputManager::class.java).unregisterInputDeviceListener(inputListener)
@@ -1349,4 +1363,15 @@ class AutoModeService : AccessibilityService() {
         scope.cancel()
         super.onDestroy()
     }
+}
+
+/**
+ * Lo que la app le cuenta al servicio sobre los botones: si los está usando todos (probar botones, grabar una macro:
+ * ahí la guía es un botón más) y si salió manteniendo B (ese B no debe llegarle al juego que queda al frente).
+ */
+object AppKeys {
+    @Volatile var capturing = false
+    @Volatile var swallowB = false
+    /** Por si el soltar de B nunca llega (se desconectó el control). */
+    @Volatile var swallowUntil = 0L
 }
