@@ -359,8 +359,8 @@ private fun PermissionsPanel(s: AppState, a: MainActivity) {
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         PermRow(tr("Shizuku (opcional)", "Shizuku (optional)"), shizuku == Shell.State.READY,
-            tr("Bypass y límite de carga, ocultar Game Assistant, FPS, apps corriendo, la guía en emuladores, WiFi y Bluetooth, arrastrar con el mouse y la tablet apagada con un monitor",
-                "Bypass and charge limit, hiding Game Assistant, FPS, running apps, the guide in emulators, Wi-Fi and Bluetooth, dragging with the mouse and the tablet off with a monitor"),
+            tr("Bypass y límite de carga, ocultar Game Assistant, FPS, apps corriendo, WiFi y Bluetooth, arrastrar con el mouse y la tablet apagada con un monitor",
+                "Bypass and charge limit, hiding Game Assistant, FPS, running apps, Wi-Fi and Bluetooth, dragging with the mouse and the tablet off with a monitor"),
             off = if (shizuku == Shell.State.NO_PERMISSION) tr("Falta el permiso", "Permission missing") else tr("No está iniciado", "Not started")
         ) {
             val launch = remember { Shell.launchIntent(a) }

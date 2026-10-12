@@ -167,24 +167,17 @@ object AutoRules {
     enum class Guide(val key: String) { TAP_BACK("guide_tap_back"), HOLD_PANEL("guide_hold_panel"), RB_SHOT("guide_rb_shot"), LB_BACK("guide_lb_back"), HOLD_LOCK("guide_hold_lock") }
 
     /**
-     * Qué hace tocar la guía en una app: Atrás (lo normal), el botón guía tal cual (el emulador lo puede usar para lo
-     * que quieras: en RetroArch, asignarlo a salir o al menú), Vista + Menú (salir de RetroArch con sus atajos) o
-     * nada. Los dos del medio se aprietan como si fuera el control, con Shizuku ([KeyInject]); mantener sigue
-     * abriendo el panel sin que el juego reciba nada.
+     * Qué hace tocar la guía en una app: Atrás (lo normal), nada, o pasarla al juego (la app no la toma: el emulador
+     * recibe la guía real del G9 y la puede asignar; mantener tampoco abre el panel, se usa L3 + R3). Enviar botones
+     * desde la app no sirve: Android 15 los marca como de un dispositivo "Virtual" y RetroArch no los toma como del
+     * jugador 1 (probado el 12 oct 2026; ver CONTEXTO).
      */
-    // "Botón guía" (mandarlo tal cual) se quitó: Android 15 marca todo botón enviado por software como de un dispositivo
-    // "Virtual" (aunque se le dé el id del G9; RetroArch decía "Virtual (0/0)"), así que un emulador no lo puede asignar
-    // como la guía del control. Las combinaciones sí sirven: RetroArch le aplica a "Virtual" su configuración de respaldo.
-    // PASS: la guía no la toma la app (ni tocar ni mantener): le llega al juego tal cual, desde el control real. Es lo
-    // único que un emulador acepta como la guía del jugador 1 (lo enviado por software llega como "Virtual").
-    // GUIDE: la app manda la guía apretada 3 s (para que el emulador alcance a asignarla); llega como "Virtual".
-    enum class GuideTap { BACK, VIEW_MENU, GUIDE, PASS, NOTHING;
+    enum class GuideTap { BACK, PASS, NOTHING;
         val label get() = when (this) {
-            BACK -> tr("Atrás", "Back"); VIEW_MENU -> tr("Vista + Menú", "View + Menu"); GUIDE -> tr("Botón guía", "Guide button")
-            PASS -> tr("Pasar al juego", "Pass to the game"); NOTHING -> tr("Nada", "Nothing")
+            BACK -> tr("Atrás", "Back"); PASS -> tr("Pasar al juego", "Pass to the game"); NOTHING -> tr("Nada", "Nothing")
         }
     }
-    /** RetroArch sale con Vista + Menú (sus atajos de fábrica en Android): esa es su opción de entrada. */
+    /** RetroArch: pasar la guía al juego (se asigna en RetroArch al menú o a salir). */
     fun guideTap(ctx: Context, pkg: String?): GuideTap = pkg?.let { p ->
         runCatching { GuideTap.valueOf(sp(ctx).getString("guide_tap_app_$p", null)!!) }.getOrNull()
             ?: if (p.startsWith("com.retroarch")) GuideTap.PASS else null
@@ -786,14 +779,12 @@ class AutoModeService : AccessibilityService() {
         // Otro botón del mismo control con la guía apretada (Vista + Menú, navegar el panel): no es "mantener para apagar".
         else if (event.action == KeyEvent.ACTION_DOWN && event.deviceId == guideDevice && guideDownAt > 0) guideDownAt = 0
         // Los botones que aprieta la app como si fuera el control (la guía en RetroArch) pasan sin tocar.
-        if (android.os.SystemClock.uptimeMillis() < injectingUntil) return false
         // Qué control se usó por última vez: con otro control (8BitDo, por ejemplo) el G9 se queda como está.
         if (event.action == KeyEvent.ACTION_DOWN && KeyEvent.isGamepadButton(k)) {
             val now = android.os.SystemClock.uptimeMillis()
             // En X-Input el G9 se llama "Microsoft X-Box 360 pad" (el nombre del driver de Xbox por USB).
             val name = event.device?.name.orEmpty()
             if (name.contains("G9", true) || name.contains("x-box 360", true)) lastG9Key = now else lastOtherPad = now
-            event.device?.takeIf { !it.isVirtual }?.let { lastPadDevice = it.id }
         }
         if (event.action == KeyEvent.ACTION_UP && delivered.remove(k)) {
             handleKey(event)   // para que el resto (L3 + R3, la guía) se entere de que se soltó
@@ -1041,54 +1032,12 @@ class AutoModeService : AccessibilityService() {
     /** Se cruzó un umbral con la pantalla apagada o bloqueada: se avisa al desbloquear (si sigue baja y sin cargador). */
     private var lowPending = false
 
-    /** Mientras la app aprieta botones como el control (hasta este momento), el servicio no los toma. */
-    @Volatile private var injectingUntil = 0L
-    /** El control que apretó la guía: los botones que se envían salen de él. */
-    private var legionDevice = 0
-    /** El último control real (no virtual) que apretó un botón. */
-    private var lastPadDevice = 0
-
-    /**
-     * De qué control salen los botones enviados: el que apretó la guía si Android lo conoce y es real; si no, el
-     * último que se usó; si no, el primer gamepad conectado. Con un id que no existe, el emulador lo toma como un
-     * teclado virtual (RetroArch decía "virtual 0/0") y no como el control.
-     */
-    private fun injectDevice(): Int {
-        // Un control de verdad: gamepad, no virtual y con botón guía (descarta dispositivos raros que se declaran
-        // gamepad, como el 11 que salió en la prueba).
-        fun real(id: Int) = android.view.InputDevice.getDevice(id)?.takeIf {
-            !it.isVirtual && (it.sources and android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD &&
-                it.hasKeys(KeyEvent.KEYCODE_BUTTON_MODE)[0]
-        }
-        val pads = android.view.InputDevice.getDeviceIds().toList().mapNotNull { real(it) }
-        return real(legionDevice)?.id ?: real(lastPadDevice)?.id
-            ?: pads.firstOrNull { it.name.contains("G9", true) || it.name.contains("x-box 360", true) }?.id ?: pads.firstOrNull()?.id ?: legionDevice
-    }
-
-    /** Tocar la guía en esta app: Atrás, o apretar botones como el control (con Shizuku), o nada. */
+    /** Tocar la guía en esta app: Atrás o nada (con "Pasar al juego" la guía ni siquiera llega aquí). */
     private fun guideTap() {
         val app = currentApp()
-        val tap = AutoRules.guideTap(this, app)
-        val keys = when (tap) {
-            AutoRules.GuideTap.BACK -> {
-                Log.i(TAG, "guía en $app: Atrás")
-                if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK); return
-            }
-            AutoRules.GuideTap.NOTHING, AutoRules.GuideTap.PASS -> return
-            AutoRules.GuideTap.VIEW_MENU -> intArrayOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START) to 200
-            AutoRules.GuideTap.GUIDE -> intArrayOf(KeyEvent.KEYCODE_BUTTON_MODE) to 3000
-        }
-        if (Shell.state != Shell.State.READY) {
-            panel.message(tr("Enviar ${tap.label} necesita Shizuku.", "Sending ${tap.label} needs Shizuku."))
-            return
-        }
-        injectingUntil = android.os.SystemClock.uptimeMillis() + keys.second + 1500
-        val dev = injectDevice()
-        scope.launch {
-            val ok = Shell.run(Shell.keyInject(dev, keys.second, *keys.first), timeoutSec = 8) != null
-            injectingUntil = android.os.SystemClock.uptimeMillis() + 200
-            Log.i(TAG, "guía en $app: ${tap.name} desde el dispositivo $dev (guía: $legionDevice, último: $lastPadDevice) ${if (ok) "enviado" else "falló"}")
-        }
+        if (AutoRules.guideTap(this, app) != AutoRules.GuideTap.BACK) return
+        Log.i(TAG, "guía en $app: Atrás")
+        if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK)
     }
 
     private fun legionKey(e: KeyEvent): Boolean {
@@ -1106,7 +1055,6 @@ class AutoModeService : AccessibilityService() {
                 }
                 legionOwned = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming &&
                     AutoRules.guideTap(this, currentApp()) != AutoRules.GuideTap.PASS
-                legionDevice = e.device?.id ?: e.deviceId
                 Log.i(TAG, "guía apretada: dispositivo ${e.deviceId} (${e.device?.name}), en $lastPackage")
                 if (legionOwned) {
                     legionPending = true

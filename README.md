@@ -24,7 +24,7 @@ The app has three sections (LT / RT switch between them, LB / RB between tabs):
 | **Battery** | Own charge limit (70–90 %), manual and automatic bypass charging, low-battery notice (15, 10 and 5 %, like the Switch), power use per app, and **game sessions**: watts, CPU and temperatures per game, performance mode and refresh rate, to compare modes with real data. |
 | **Screen** | 16:9 for an external monitor (automatic per monitor in mirror mode), and the tablet's screen dimmed, backlight-off or off while the monitor is on. |
 | **Game** | Screenshot notice and sound, the game panel's look (background, transparency, shape and size, mini monitor), the performance monitor, refresh rate for all games, Game Assistant settings. |
-| **Controls** | What the guide button does (tap: Back; hold: game panel; + RB: screenshot, hold RB for a burst; + LB: hold Back; hold 5 s: the G9 turns off and the tablet locks), per-emulator tap action (View + Menu quits RetroArch), L3 + R3 for controllers without a guide button, swapped volume buttons. |
+| **Controls** | What the guide button does (tap: Back; hold: game panel; + RB: screenshot, hold RB for a burst; + LB: hold Back; hold 5 s: the G9 turns off and the tablet locks), per-emulator tap action (Back, nothing, or pass the guide to the game so the emulator can bind it), L3 + R3 for controllers without a guide button, swapped volume buttons. |
 | **Test controller** | Buttons, triggers and sticks of any controller, with the connected controllers and stick values to spot drift. |
 
 ### Game panel
@@ -73,7 +73,7 @@ Most things need nothing extra.
 
 - **16:9, brightness from the panel, gesture lock and auto brightness in games:** grant once from a computer (it stays):
   `adb shell pm grant io.github.sudodiego.g9control android.permission.WRITE_SECURE_SETTINGS`
-- **Bypass and charge limit, hiding Game Assistant and its performance mode, FPS in the monitor, running apps (RAM, CPU, stop), Wi-Fi and Bluetooth toggles, dragging with the virtual mouse, the tablet's screen off with a monitor, emulator shortcuts, and keeping the chosen refresh rate in power-saving mode:** [Shizuku](https://shizuku.rikka.app/) running. The app only asks it for a fixed list of commands. Without it, those things are dimmed and the app explains what's missing.
+- **Bypass and charge limit, hiding Game Assistant and its performance mode, FPS in the monitor, running apps (RAM, CPU, stop), Wi-Fi and Bluetooth toggles, dragging with the virtual mouse, the tablet's screen off with a monitor, and keeping the chosen refresh rate in power-saving mode:** [Shizuku](https://shizuku.rikka.app/) running. The app only asks it for a fixed list of commands. Without it, those things are dimmed and the app explains what's missing.
 
 ## Limitations
 

@@ -62,15 +62,6 @@ object Shell {
         "app_process -Djava.class.path=${app?.applicationInfo?.sourceDir} /system/bin ${ScreenPower::class.java.name} $args"
     private val SCREEN = Regex("power [02]|light -1")
 
-    // Apretar botones como si fuera el control (con su id), para que un emulador los tome: ver KeyInject.
-    fun keyInject(device: Int, holdMs: Int, vararg keys: Int) =
-        "app_process -Djava.class.path=${app?.applicationInfo?.sourceDir} /system/bin ${KeyInject::class.java.name} $device $holdMs ${keys.joinToString(" ")}"
-    private val KEY_INJECT_ARGS = Regex("-?\\d{1,6} \\d{1,4}( \\d{1,3}){1,4}")
-    private fun isKeyInject(cmd: String): Boolean {
-        val prefix = "app_process -Djava.class.path=${app?.applicationInfo?.sourceDir} /system/bin ${KeyInject::class.java.name} "
-        return app != null && cmd.startsWith(prefix) && KEY_INJECT_ARGS.matches(cmd.removePrefix(prefix))
-    }
-
     // WiFi y Bluetooth desde el panel: una app ya no puede encenderlos ni apagarlos (Android 10 y 13), el shell sí.
     const val WIFI_ON = "svc wifi enable"
     const val WIFI_OFF = "svc wifi disable"
@@ -97,7 +88,7 @@ object Shell {
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
             WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || PIDOF.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
-            (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd("")))) || isKeyInject(cmd)
+            (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */
     var state by mutableStateOf(State.NOT_RUNNING)

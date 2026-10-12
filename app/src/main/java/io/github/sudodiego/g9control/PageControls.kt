@@ -86,7 +86,6 @@ private fun GuideTapPanel(a: MainActivity) {
         }
     }
     if (apps.isEmpty()) return
-    val ready = Shell.state == Shell.State.READY
     CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Tocar la guía en…", "Tapping guide in…"), tr("Mantener sigue abriendo el panel", "Holding still opens the panel")) {
             apps.forEach { (pkg, label) ->
@@ -96,8 +95,8 @@ private fun GuideTapPanel(a: MainActivity) {
                 if (tap == AutoRules.GuideTap.PASS) Text(tr("Aquí el panel se abre con L3 + R3 (la guía es del juego).", "Here the panel opens with L3 + R3 (the guide belongs to the game)."),
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
             }
-            Hint(tr("«Pasar al juego»: la guía le llega al emulador como el botón del G9 (mantenerla tampoco abre el panel; usa L3 + R3). En RetroArch asígnala en Ajustes → Entrada → Teclas rápidas → «Cerrar RetroArch» o «Mostrar menú». «Vista + Menú» lo aprieta la app (necesita Shizuku) y RetroArch lo toma como otro control: solo sirve si nadie usó el G9 antes.",
-                "“Pass to the game”: the emulator gets the guide as the G9's button (holding it won't open the panel either; use L3 + R3). In RetroArch bind it under Settings → Input → Hotkeys → “Quit RetroArch” or “Menu toggle”. “View + Menu” is pressed by the app (needs Shizuku) and RetroArch treats it as another controller: it only works if the G9 wasn't used first."))
+            Hint(tr("«Pasar al juego»: la guía le llega al emulador como el botón del G9; en RetroArch asígnala en Ajustes → Entrada → Teclas rápidas («Mostrar menú» o «Cerrar RetroArch»).",
+                "\u201cPass to the game\u201d: the emulator gets the guide as the G9's button; in RetroArch bind it under Settings → Input → Hotkeys (\u201cMenu toggle\u201d or \u201cQuit RetroArch\u201d)."))
         }
     }
 }

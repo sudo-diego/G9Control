@@ -24,7 +24,7 @@ Tiene tres secciones (LT / RT cambian de sección, LB / RB de pestaña):
 | **Batería** | Límite de carga propio (70–90 %), bypass manual y automático, aviso de batería baja (15, 10 y 5 %, como la Switch), consumo por app y **sesiones de juego**: W, CPU y temperaturas por juego, modo de rendimiento y Hz, para comparar modos con datos de verdad. |
 | **Pantalla** | 16:9 para un monitor (automático por monitor en espejo) y la pantalla de la tablet oscura, sin luz o apagada mientras está el monitor. |
 | **Juego** | Aviso y sonido de las capturas, el aspecto del panel (fondo, transparencia, forma y tamaño, mini monitor), el monitor de rendimiento, la frecuencia en juegos y Game Assistant. |
-| **Controles** | Qué hace el botón guía (tocar: Atrás; mantener: panel; + RB: captura, mantener RB: ráfaga; + LB: Atrás mantenido; 5 s: el G9 se apaga y la tablet se bloquea), qué hace tocarla en cada emulador (Vista + Menú sale de RetroArch), L3 + R3 para controles sin botón guía y el volumen invertido. |
+| **Controles** | Qué hace el botón guía (tocar: Atrás; mantener: panel; + RB: captura, mantener RB: ráfaga; + LB: Atrás mantenido; 5 s: el G9 se apaga y la tablet se bloquea), qué hace tocarla en cada emulador (Atrás, nada, o pasarla al juego para que el emulador la asigne), L3 + R3 para controles sin botón guía y el volumen invertido. |
 | **Probar control** | Botones, gatillos y sticks de cualquier control, con los controles conectados y los sticks en números para ver si tienen deriva. |
 
 ### Panel de juego
@@ -73,7 +73,7 @@ Casi todo funciona sin nada más.
 
 - **16:9, brillo desde el panel, bloquear gestos y brillo automático en juegos:** un permiso que se da una vez desde un computador (queda):
   `adb shell pm grant io.github.sudodiego.g9control android.permission.WRITE_SECURE_SETTINGS`
-- **Bypass y límite de carga, ocultar Game Assistant y su modo de rendimiento, FPS en el monitor, apps corriendo (RAM, CPU, detener), encender o apagar WiFi y Bluetooth, arrastrar con el mouse virtual, la pantalla de la tablet apagada con un monitor, atajos de emuladores y mantener los Hz elegidos en modo Ahorro:** [Shizuku](https://shizuku.rikka.app/) corriendo. La app solo le pide una lista fija de comandos. Sin él, eso se ve atenuado y la app explica qué falta.
+- **Bypass y límite de carga, ocultar Game Assistant y su modo de rendimiento, FPS en el monitor, apps corriendo (RAM, CPU, detener), encender o apagar WiFi y Bluetooth, arrastrar con el mouse virtual, la pantalla de la tablet apagada con un monitor y mantener los Hz elegidos en modo Ahorro:** [Shizuku](https://shizuku.rikka.app/) corriendo. La app solo le pide una lista fija de comandos. Sin él, eso se ve atenuado y la app explica qué falta.
 
 ## Límites
 
