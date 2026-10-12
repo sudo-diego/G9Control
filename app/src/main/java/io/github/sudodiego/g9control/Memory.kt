@@ -85,7 +85,8 @@ object Memory {
 
     private fun hist(ctx: Context) = ctx.getSharedPreferences("memory_history", Context.MODE_PRIVATE).also { h ->
         // La primera versión contaba también las que abrías tú: ese historial no sirve.
-        if (h.getInt("v", 0) < 2) h.edit().clear().putInt("v", 2).apply()
+        // v3 (12 oct 2026): antes de confirmar en dos revisiones, abrirla uno mismo podía contar como "volvió sola".
+        if (h.getInt("v", 0) < 3) h.edit().clear().putInt("v", 3).apply()
     }
 
     /** La abriste tú (estuvo al frente) después de detenerla: si después está corriendo, no volvió sola. */

@@ -190,8 +190,12 @@ private fun ShortcutsHelp(s: AppState, a: MainActivity) {
     fun on(g: AutoRules.Guide) = guide && AutoRules.guide(a, g)
     val chord = AutoRules.gamePanel(a)
     val panel = listOfNotNull(if (on(AutoRules.Guide.HOLD_PANEL)) tr("Mantener guía", "Hold guide") else null, if (chord) "L3 + R3" else null)
-    val shot = listOfNotNull(if (on(AutoRules.Guide.RB_SHOT)) tr("Guía + RB", "Guide + RB") else null, if (chord) tr("mantener L3 + R3", "hold L3 + R3") else null)
-    val back = listOfNotNull(if (on(AutoRules.Guide.TAP_BACK)) tr("Tocar guía", "Tap guide") else null)
+    val shot = listOfNotNull(if (on(AutoRules.Guide.RB_SHOT)) tr("Guía + RB", "Guide + RB") else null, if (chord) tr("mantener L3 + R3", "hold L3 + R3") else null,
+        if (AutoRules.touchpadShot(a)) tr("M dos veces (DS5)", "M twice (DS5)") else null)
+    val back = listOfNotNull(if (on(AutoRules.Guide.TAP_BACK)) tr("Tocar guía", "Tap guide") else null,
+        if (on(AutoRules.Guide.LB_BACK)) tr("Guía + LB (mantenido)", "Guide + LB (held)") else null)
+    val lock = on(AutoRules.Guide.HOLD_LOCK)
+    val streamMenu = AutoRules.streamBack(a)
     Panel(tr("Atajos", "Shortcuts"), trailing = { TextButton(onClick = { s.page = Page.CONTROLS }) { Text(tr("Controles", "Controls")) } }) {
         if (!s.autoServiceOn) Text(tr("Apagados: falta el servicio de accesibilidad.", "Off: the accessibility service is missing."),
             fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -201,6 +205,8 @@ private fun ShortcutsHelp(s: AppState, a: MainActivity) {
             if (panel.isNotEmpty()) HelpRow(tr("Panel de juego", "Game panel"), panel.joinToString(" · "))
             if (shot.isNotEmpty()) HelpRow(tr("Captura", "Screenshot"), shot.joinToString(" · "))
             if (back.isNotEmpty()) HelpRow(tr("Atrás", "Back"), back.joinToString(" · "))
+            if (lock) HelpRow(tr("Bloquear la tablet", "Lock the tablet"), tr("Mantener guía 5 s (el G9 se apaga)", "Hold guide 5 s (the G9 turns off)"))
+            if (streamMenu) HelpRow(tr("Menú al transmitir", "Menu while streaming"), "Start + Select")
         }
     }
 }
