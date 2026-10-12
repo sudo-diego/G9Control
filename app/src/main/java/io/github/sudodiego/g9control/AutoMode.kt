@@ -1354,11 +1354,17 @@ class AutoModeService : AccessibilityService() {
      */
     private val raHinted = mutableSetOf<String>()
     private val raChecked = mutableSetOf<String>()
-    private val raStranded = mutableSetOf<String>()
+    /** Cuándo se avisó por última vez, por emulador, que el proxy quedó apagado. */
+    private val raStranded = mutableMapOf<String, Long>()
+    private val RA_REPEAT_MS = 3 * 60_000L
     private fun raProxyHint(pkg: String) {
         if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && RaProxy.installed(this)) scope.launch {
-            if (RaProxy.stranded(this@AutoModeService) && pkg !in raStranded) { raStranded += pkg; main.postDelayed({ panel.raStrandedHint() }, 1500) }
-            else if (RaProxy.activeNow == true) raStranded.clear()
+            // Grave (cero logros): cada vez que se entra al emulador, como mucho una vez cada 3 min (antes una sola vez y,
+            // gastada en una prueba, al entrar a jugar no avisó).
+            val now = android.os.SystemClock.uptimeMillis()
+            if (now - (raStranded[pkg] ?: -RA_REPEAT_MS) >= RA_REPEAT_MS && RaProxy.stranded(this@AutoModeService)) {
+                raStranded[pkg] = now; main.postDelayed({ panel.raStrandedHint() }, 1500)
+            }
         }
         // Proxy encendido: ¿el emulador está listo? (sesión, apunta al proxy). Una vez por emulador y encendido.
         if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && Shell.state == Shell.State.READY && RaProxy.installed(this)) scope.launch {
