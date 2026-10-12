@@ -108,6 +108,10 @@ object AutoRules {
         sp(ctx).getBoolean("shot_by_game_$pkg", pkg.startsWith("com.retroarch"))
     fun setShotByGame(ctx: Context, pkg: String, v: Boolean) = sp(ctx).edit().putBoolean("shot_by_game_$pkg", v).apply()
 
+    /** Aviso de RAOfflineProxy al abrir un emulador sin internet con el proxy apagado. */
+    fun raProxyHint(ctx: Context) = sp(ctx).getBoolean("ra_proxy_hint", true)
+    fun setRaProxyHint(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("ra_proxy_hint", v).apply()
+
     /** Al empezar a transmitir desde el PC, recordar que las capturas van con M dos veces o L3 + R3. */
     fun streamTip(ctx: Context) = sp(ctx).getBoolean("stream_tip", true)
     fun setStreamTip(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("stream_tip", v).apply()
@@ -720,6 +724,7 @@ class AutoModeService : AccessibilityService() {
         lastPackage = pkg
         Memory.openedByUser(this, pkg)
         RecentApps.push(this, pkg)
+        raProxyHint(pkg)
         panel.hide()
         panel.onAppChanged()
         // Bypass automático: otra app, otra decisión ("solo en juegos"). Lo manual sigue valiendo hasta desconectar el
@@ -1335,6 +1340,22 @@ class AutoModeService : AccessibilityService() {
         super.onConfigurationChanged(newConfig)
         ThemeState.systemDark = (newConfig.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
+    }
+
+    /**
+     * Al abrir un emulador con logros sin internet: si RAOfflineProxy está instalado y apagado, un aviso corto para
+     * encenderlo (sin él los logros no quedan en cola). Una vez por emulador mientras siga sin internet. Si no se puede
+     * saber si está encendido, no se avisa (sería un aviso de más).
+     */
+    private val raHinted = mutableSetOf<String>()
+    private fun raProxyHint(pkg: String) {
+        if (RaProxy.online(this)) { raHinted.clear(); return }
+        if (!RaProxy.isEmulator(pkg) || pkg in raHinted || !AutoRules.raProxyHint(this) || !RaProxy.installed(this)) return
+        scope.launch {
+            if (RaProxy.readActive(this@AutoModeService) != false) return@launch
+            raHinted += pkg
+            main.postDelayed({ panel.raProxyHint() }, 1500)
+        }
     }
 
     /** Abrir el panel desde la app (botón en Juego → Panel de juego). */

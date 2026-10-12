@@ -204,7 +204,7 @@ fun GamePanelPage(s: AppState, a: MainActivity) {
     TwoPane(
         // Capturas, monitor y frecuencia los hace el servicio de accesibilidad; Game Assistant tiene sus propios permisos.
         first = { Gate(s.autoServiceOn) { GamePanelSettings(s, a) } },
-        second = { Gate(s.autoServiceOn) { GamesHzPanel(a) }; GameAssistantSettings(s, a) }
+        second = { Gate(s.autoServiceOn) { GamesHzPanel(a) }; GameAssistantSettings(s, a); RaProxyPanel(s, a) }
     )
 }
 
@@ -297,6 +297,42 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                     perfFull = it; AutoRules.setPerfFull(a, it)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Logros sin internet con RAOfflineProxy (ver [RaProxy]): su estado, qué es, prepararlo (cerrar los emuladores y
+ * abrirlo, como pide su guía) y el aviso al abrir un emulador sin internet. Si no está instalado, dónde conseguirlo.
+ */
+@Composable
+private fun RaProxyPanel(s: AppState, a: MainActivity) {
+    val installed = remember { RaProxy.installed(a) }
+    val scope = rememberCoroutineScope()
+    var active by remember { mutableStateOf(RaProxy.activeNow) }
+    var hint by remember { mutableStateOf(AutoRules.raProxyHint(a)) }
+    LaunchedEffect(Unit) { if (installed) active = RaProxy.readActive(a) }
+    Panel(tr("Logros sin internet", "Offline achievements"), trailing = {
+        if (installed) Text(when (active) { true -> tr("Activo", "On"); false -> tr("Apagado", "Off"); null -> "" },
+            fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
+    }) {
+        Text(tr("RAOfflineProxy guarda los logros de RetroAchievements sin internet y los envía al volver (modo casual).",
+            "RAOfflineProxy keeps RetroAchievements unlocks offline and sends them when you're back online (casual mode)."),
+            fontSize = 14.sp)
+        if (!installed) {
+            Hint(tr("No está instalado: búscalo como RAOfflineProxy en GitHub u Obtainium. En esta tablet se usa con «Manual Emulator Setup» y Shizuku.",
+                "Not installed: look for RAOfflineProxy on GitHub or Obtainium. On this tablet use \u201cManual Emulator Setup\u201d and Shizuku."))
+            return@Panel
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Su guía pide los emuladores cerrados antes de encenderlo.
+            Button(onClick = { scope.launch { RaProxy.prepare(a) } }) { Text(tr("Preparar y abrir", "Prepare and open")) }
+            OutlinedButton(onClick = { RaProxy.open(a) }) { Text(tr("Abrir", "Open")) }
+        }
+        Hint(tr("«Preparar» cierra RetroArch, Dolphin y los demás emuladores (con Shizuku) y abre RAOfflineProxy para encenderlo. Apágalo con su Stop proxy: así deja todo como estaba (TBF no lo deja detener mientras está activo).",
+            "\u201cPrepare\u201d closes RetroArch, Dolphin and other emulators (with Shizuku) and opens RAOfflineProxy to turn it on. Turn it off with its Stop proxy: that restores everything (TBF won't stop it while it's on)."))
+        SwitchRow(tr("Aviso sin internet", "Offline notice"), hint, tr("Al abrir un emulador sin internet y con el proxy apagado", "When opening an emulator offline with the proxy off")) {
+            hint = it; AutoRules.setRaProxyHint(a, it)
         }
     }
 }

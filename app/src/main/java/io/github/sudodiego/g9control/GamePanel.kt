@@ -64,6 +64,7 @@ import androidx.compose.material.icons.outlined.EnergySavingsLeaf
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Screenshot
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.SportsEsports
 import androidx.compose.material.icons.outlined.Tune
@@ -217,6 +218,10 @@ class GamePanel(private val svc: AutoModeService) {
         svc.setPanelSticks(true)
         poke()
         main.removeCallbacks(live); main.postDelayed(live, LIVE_MS)
+        if (RaProxy.isEmulator(svc.foregroundApp) && RaProxy.installed(svc)) scope.launch {
+            val before = RaProxy.activeNow
+            if (RaProxy.readActive(svc) != before && isOpen) refresh()
+        }
         // Bypass: igual, lo que se sabe al instante y se confirma en segundo plano (también fuera de los juegos).
         if (Shell.state == Shell.State.READY) scope.launch {
             val before = ZuiBattery.bypassNow
@@ -436,6 +441,10 @@ class GamePanel(private val svc: AutoModeService) {
             if (AutoRules.lowBatteryOverToast(svc)) NoticePos.entries.first { it.h == 0 && it.v == 1 } else null)
     }
 
+    /** Emulador sin internet y RAOfflineProxy apagado: el atajo para encenderlo (el porqué está en la app). */
+    fun raProxyHint() = flash.show(flash.sample(), tr("Sin internet", "Offline"),
+        tr("Para tus logros, enciende RAOfflineProxy", "For your achievements, turn on RAOfflineProxy"), 4500)
+
     /** Al empezar a transmitir: la guía va al PC, así que las capturas se sacan de otra forma. */
     fun streamTip() {
         // Solo el atajo; la explicación (la guía va al PC) está en Controles.
@@ -585,6 +594,10 @@ class GamePanel(private val svc: AutoModeService) {
         if (closeArmed != pkg) { closeArmed = pkg; main.postDelayed(disarm, 3000); refresh(); return }
         closeArmed = null
         val name = RecentApps.label(svc, pkg)
+        if (pkg == RaProxy.PACKAGE && RaProxy.activeNow == true) {
+            toast(tr("Apágalo con Stop proxy en su app: cerrado así, los emuladores quedan sin logros", "Turn it off with Stop proxy in its app: closed like this, emulators lose achievements"))
+            refresh(); return
+        }
         RecentApps.forget(svc, pkg)
         if (Shell.state == Shell.State.READY) {
             scope.launch { Memory.stop(svc, pkg) }
@@ -655,6 +668,13 @@ class GamePanel(private val svc: AutoModeService) {
                 Icons.Outlined.PowerSettingsNew, active = true, sub = tr("Bypass, rendimiento y más", "Bypass, performance and more"), run = ::fixShizuku))
         // El juego. La captura toma solo la ventana del juego: no hace falta esperar a que el panel desaparezca.
         add(PanelItem(tr("Captura", "Screenshot"), Icons.Outlined.Screenshot, sub = tr("Guía + RB", "Guide + RB")) { hide(); screenshot() })
+        // Logros sin internet (RAOfflineProxy): en un emulador, si está instalado. Encendido = en color; A lo abre.
+        if (RaProxy.isEmulator(svc.foregroundApp) && RaProxy.installed(svc)) {
+            val on = RaProxy.activeNow
+            add(PanelItem(tr("Logros", "Achievements"), Icons.Outlined.Star,
+                sub = when (on) { true -> tr("Sin internet: activo", "Offline: on"); false -> tr("Sin internet: apagado", "Offline: off"); null -> "RAOfflineProxy" },
+                active = on == true) { hide(); RaProxy.open(svc) })
+        }
         if (ZuiGame.inGame(svc)) {
             // Oculto: abrirlo. Visible: solo ocultarlo (abrirlo ya está a mano con su pestaña).
             val gaVisible = gaShownByUs || ZuiGame.hiddenNow == false

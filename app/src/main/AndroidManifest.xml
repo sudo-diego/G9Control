@@ -18,6 +18,8 @@
 
     <!-- Recientes del panel: traer la tarea de un juego al frente tal como quedó (como Recientes de Android). -->
     <uses-permission android:name="android.permission.REORDER_TASKS" />
+    <!-- Saber si hay internet (aviso de RAOfflineProxy). No da acceso a internet: la app sigue sin ese permiso. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Para listar las apps instaladas en la página de cambio automático. -->
     <queries>
@@ -34,6 +36,7 @@
         <package android:name="com.zui.game.service" />
         <!-- Shizuku: abrirlo desde la pestaña Tablet si no está iniciado. -->
         <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="com.raofflineproxy" />
     </queries>
 
     <application

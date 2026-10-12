@@ -88,6 +88,13 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema, para que
 - **Capturas con BFI / CRT beam simulator:** la captura de Android toma un solo cuadro y con esos filtros cada cuadro muestra una parte (salían grises o medio negras). Por eso la captura la saca el emulador.
 - Atajos de fábrica en Android: Vista habilita; Vista + A menú, Vista + X cargar estado, Vista + Menú salir; `input_hotkey_block_delay = 5` cuadros.
 
+## RAOfflineProxy (integrado el 12 oct 2026)
+
+- Qué es: logros de RetroAchievements sin internet (GPL-3.0, aprobado por RetroAchievements). Corre un servidor en `127.0.0.1:8080` y apunta los emuladores a él: RetroArch `cheevos_custom_host = "127.0.0.1:8080"`, Dolphin `Config/RetroAchievements.ini` → `HostUrl = 127.0.0.1:8080`. Sin internet guarda los logros en cola y los manda al volver. Solo modo casual. En Android 15 se usa con "Manual Emulator Setup" (cambia la configuración con Shizuku; el modo automático no puede elegir `Android/data`). Versión instalada: 2.1.0-alpha1 (`com.raofflineproxy`).
+- **Su estado se lee sin permisos:** proveedor público `content://com.raofflineproxy.config` → `proxy_running=1, proxy_host, proxy_port, proxy_value` (probado con `adb shell content query`). Respaldo con Shizuku: `dumpsys activity services com.raofflineproxy` (`ProxyService` en primer plano). Tiene `BootReceiver` (se enciende al iniciar la tablet).
+- **Cerrado a la fuerza** deja a los emuladores apuntando a un servidor que no existe (sin logros ni con internet): se apaga con su "Stop proxy", que restaura la configuración; si se cayó, abrirlo una vez la restaura.
+- **En TBF (`RaProxy.kt`):** aviso al abrir un emulador sin internet con el proxy apagado ("Sin internet · Para tus logros, enciende RAOfflineProxy", una vez por emulador); mosaico "Logros" en el panel dentro de un emulador (activo/apagado, A lo abre); TBF no lo deja detener mientras está activo (Memoria y Recientes); tarjeta "Logros sin internet" en Juego con "Preparar y abrir" (cierra los emuladores con Shizuku, como pide su guía, y lo abre). `ACCESS_NETWORK_STATE` para saber si hay internet (la app sigue sin permiso de internet).
+
 ## Aprendido el 12 oct 2026
 
 - **Panel ↔ límite de carga de ZUI:** enchufada y detenida en el límite, Android dice "no carga" (`status 4`) y la corriente es ~0: el panel decía "Entra 0.1 W" y su ícono no tenía enchufe. Ahora "Límite 80 % · Sin cargar" y enchufe (`ZuiBattery.heldLabel`), también en Inicio y Batería.
@@ -111,7 +118,7 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema, para que
 ## Pendientes (revisar al empezar la próxima sesión)
 - **Probar con el control** (no se pudo sin el G9): mantener la guía dentro de la app abre el panel; salir con B mantenido no aprieta B en el juego; Y dos veces cierra una reciente; volumen con audífonos sobre 73 %; aviso al transmitir en Artemis.
 - **Retraso del G9 con audífonos Bluetooth en Ahorro** (lo vio el usuario en el auto, con una versión anterior; hoy no se repitió). Probar: Ahorro + audífonos BT + G9; si se repite, mirar el códec (LDAC exige CPU; AAC/SBC menos) y si Equilibrado lo quita.
-- **RAOfflineProxy** (logros de RetroAchievements sin internet, GPL-3.0, aprobado por RetroAchievements): en Android 15 se usa con "Manual Emulator Setup" (Shizuku). Integración pensada (facilitar, no copiar): aviso en el panel sin internet con un emulador con logros y el proxy apagado; cerrar los emuladores al encender el proxy; indicador de proxy activo. AetherSX2 no está soportado (solo ARMSX2).
+- **RAOfflineProxy:** integrado el 12 oct 2026 (ver "RAOfflineProxy" arriba). Falta probarlo con el control y sin internet.
 - **Revisión exhaustiva** de lo antiguo (que siga la lógica y el diseño actuales) y de animaciones.
 - Benchmarks: el mismo juego unos minutos en cada modo (desenchufada) para "Sesiones de juego".
 - M dos veces en Android sin la captura del sistema (necesitaría un proceso shell con `EVIOCGRAB`, como Key Mapper).

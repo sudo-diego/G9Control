@@ -68,6 +68,9 @@ object Memory {
 
     /** Detener una app, como el botón Detener de Android (la app y sus servicios). Con Shizuku. */
     suspend fun stop(ctx: Context, pkg: String): Boolean {
+        // RAOfflineProxy encendido: cerrado a la fuerza deja a los emuladores apuntando a un servidor que no existe (sin
+        // logros ni con internet). Se apaga con su botón Stop proxy, que deja todo como estaba.
+        if (pkg == RaProxy.PACKAGE && RaProxy.readActive(ctx) == true) return false
         val ok = Shell.run(Shell.stopApp(pkg)) != null
         if (ok) hist(ctx).edit().putLong("stop_$pkg", System.currentTimeMillis()).apply()
         return ok
