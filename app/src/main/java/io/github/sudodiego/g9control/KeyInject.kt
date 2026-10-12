@@ -34,8 +34,8 @@ object KeyInject {
         // Primero un toque corto al primer botón: la primera vez que RetroArch recibe algo del dispositivo "Virtual" lo usa
         // para registrarlo ("Virtual (0/0)") y no lo cuenta (había que tocar la guía dos veces). Un botón que no usa
         // (BUTTON_16) no sirve: lo ignora sin registrar nada. Si ya estaba registrado, este toque ya hace lo suyo.
-        send(KeyEvent.ACTION_DOWN, keys[0]); Thread.sleep(80); send(KeyEvent.ACTION_UP, keys[0])
-        Thread.sleep(400)
+        // Solo con un botón (la guía): en una combinación el primero suelto (Vista = Select) haría algo en el juego.
+        if (keys.size == 1) { send(KeyEvent.ACTION_DOWN, keys[0]); Thread.sleep(80); send(KeyEvent.ACTION_UP, keys[0]); Thread.sleep(400) }
         // 200 ms entre botones: RetroArch activa sus atajos unos cuadros después de apretar el primero
         // (input_hotkey_block_delay, 5 cuadros ≈ 83 ms); con 40 ms el segundo a veces llegaba antes y no hacía nada.
         keys.forEachIndexed { i, k -> send(KeyEvent.ACTION_DOWN, k); if (i < keys.size - 1) Thread.sleep(200) }
