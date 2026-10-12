@@ -600,8 +600,8 @@ class AutoModeService : AccessibilityService() {
         Log.d(TAG, "app al frente al arrancar: $pkg${if (streaming) " (transmitiendo)" else ""}")
         // Los Hz elegidos para esa app (si no, al reiniciar el servicio se perdían hasta cambiar de app).
         RefreshRate.applyFor(this, pkg)
-        // Un emulador ya al frente (por ejemplo, al actualizar TBF jugando): revisar los logros igual.
-        raProxyHint(pkg)
+        // Un emulador ya al frente al arrancar el servicio: no se sabe si está en el juego o en su menú; se revisa al
+        // cambiar de pantalla (en el menú, por ejemplo iniciando sesión, la alerta no debe saltar).
     }
 
     private var unlockTries = 0
@@ -729,17 +729,17 @@ class AutoModeService : AccessibilityService() {
         if (streaming != wasStreaming) { Log.d(TAG, "transmitiendo: $streaming ($pkg, $cls)"); updatePadWatch() }
         // Dentro del mismo emulador, del menú al juego (Dolphin: EmulationActivity): también se revisan los logros.
         if (pkg == lastPackage && RaProxy.isEmulator(pkg) && cls.startsWith(pkg.substringBefore(".aarch64")) && cls != raLastClass) {
-            raLastClass = cls; raProxyHint(pkg)
+            raLastClass = cls; raProxyHint(pkg, cls)
         }
         if (pkg == lastPackage) return
         raLastClass = cls
+        raProxyHint(pkg, cls)
         appInFront = false
         val wasHidden = hiddenForApp
         hiddenForApp = false
         lastPackage = pkg
         Memory.openedByUser(this, pkg)
         RecentApps.push(this, pkg)
-        raProxyHint(pkg)
         panel.hide()
         panel.onAppChanged()
         // Bypass automático: otra app, otra decisión ("solo en juegos"). Lo manual sigue valiendo hasta desconectar el
@@ -1404,11 +1404,17 @@ class AutoModeService : AccessibilityService() {
     private val RA_REPEAT_MS = 3 * 60_000L
     /** Apretar A en una alerta (se va a arreglar): al volver al emulador se revisa de nuevo, sin esperar los 3 min. */
     fun raAlertsReset() = raAlerted.clear()
-    private fun raProxyHint(pkg: String) {
+    /**
+     * Pantalla de juego del emulador (no su menú ni sus ajustes): la alerta solo ahí. En el menú de Dolphin saltaba
+     * al entrar a sus ajustes para iniciar sesión, en bucle. null = no se sabe (al arrancar el servicio): cuenta.
+     */
+    private fun isGameScreen(cls: String?) = cls == null || cls.contains("Emulation") || cls.contains("RetroActivity")
+
+    private fun raProxyHint(pkg: String, cls: String? = null) {
         // Sin logros por algo que se arregla (proxy apagado con los emuladores apuntándole, o el emulador sin sesión):
         // la alerta roja al centro, con A para arreglarlo y B para seguir. Cada vez que se entra al emulador, como
         // mucho una vez cada 3 min (una sola vez no bastaba: se gastó en una prueba y al entrar a jugar no avisó).
-        if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && RaProxy.installed(this)) scope.launch {
+        if (RaProxy.isEmulator(pkg) && isGameScreen(cls) && AutoRules.raProxyHint(this) && RaProxy.installed(this)) scope.launch {
             val now = android.os.SystemClock.uptimeMillis()
             // La pausa de 3 min es por problema (proxy apagado / sin sesión): arreglar uno y volver no debe tapar el otro.
             fun recent(kind: String) = now - (raAlerted["$pkg:$kind"] ?: -RA_REPEAT_MS) < RA_REPEAT_MS
