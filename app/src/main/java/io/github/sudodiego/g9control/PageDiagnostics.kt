@@ -353,10 +353,45 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
             "3. Each emulator needs to be signed in to RetroAchievements (shown above; it also works offline with the proxy on). Offline playtime isn't recorded."))
         Hint(tr("Para encenderlo: «Preparar y abrir» cierra los emuladores (Shizuku) y abre RAOfflineProxy; ahí, Start proxy. Para apagarlo, su Stop proxy (deja todo como estaba; TBF no lo deja detener mientras está activo).",
             "To turn it on: “Prepare and open” closes the emulators (Shizuku) and opens RAOfflineProxy; there, Start proxy. To turn it off, its Stop proxy (restores everything; TBF won't stop it while it's on)."))
+        DolphinSignOutFix(a)
         SwitchRow(tr("Aviso sin internet", "Offline notice"), hint, tr("Al abrir un emulador sin internet y con el proxy apagado", "When opening an emulator offline with the proxy off")) {
             hint = it; AutoRules.setRaProxyHint(a, it)
         }
     }
+}
+
+/**
+ * Workaround opcional de Dolphin (cierra la sesión de RetroAchievements solo): guardar la contraseña en su archivo de
+ * configuración para que vuelva a iniciar sesión solo. Explica el riesgo; TBF no guarda la contraseña (ver
+ * [RaProxy.setDolphinPassword]). Con Shizuku y Dolphin instalado.
+ */
+@Composable
+private fun DolphinSignOutFix(a: MainActivity) {
+    val hasDolphin = remember { runCatching { a.packageManager.getApplicationInfo("org.dolphinemu.dolphinemu", 0) }.isSuccess }
+    if (!hasDolphin || Shell.state != Shell.State.READY) return
+    val scope = rememberCoroutineScope()
+    var saved by remember { mutableStateOf<Boolean?>(null) }
+    var pwd by remember { mutableStateOf("") }
+    var msg by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { saved = RaProxy.dolphinHasPassword() }
+    Text(tr("Dolphin cierra la sesión solo (workaround)", "Dolphin keeps signing out (workaround)"), fontSize = 14.sp,
+        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+    Hint(tr("Es un error de Dolphin en Android. Lo que le funciona a varios: guardar tu contraseña de RetroAchievements en su configuración, así vuelve a iniciar sesión solo. Ojo: queda escrita sin cifrar en el archivo de Dolphin (la puede leer otra app con acceso a sus archivos o un PC conectado). TBF no la guarda. No a todos les funciona.",
+        "It's a Dolphin bug on Android. What works for several people: saving your RetroAchievements password in its config so it signs back in by itself. Note: it's stored unencrypted in Dolphin's file (another app with access to its files, or a connected PC, can read it). TBF doesn't keep it. It doesn't work for everyone."))
+    if (saved == true) {
+        InfoRow(tr("Contraseña en Dolphin", "Password in Dolphin"), tr("Guardada", "Saved"))
+        OutlinedButton(onClick = { scope.launch { msg = if (RaProxy.setDolphinPassword(null)) tr("Quitada", "Removed") else tr("No se pudo", "Couldn't"); saved = RaProxy.dolphinHasPassword() } }) {
+            Text(tr("Quitarla", "Remove it"))
+        }
+    } else {
+        OutlinedTextField(pwd, { pwd = it }, label = { Text(tr("Contraseña de RetroAchievements", "RetroAchievements password")) }, singleLine = true,
+            visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+        Button(onClick = {
+            val p = pwd; pwd = ""
+            scope.launch { msg = if (RaProxy.setDolphinPassword(p)) tr("Guardada (Dolphin se cerró para aplicarla)", "Saved (Dolphin was closed to apply it)") else tr("No se pudo", "Couldn't"); saved = RaProxy.dolphinHasPassword() }
+        }, enabled = pwd.isNotBlank()) { Text(tr("Guardar en Dolphin", "Save to Dolphin")) }
+    }
+    msg?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }
 }
 
 /** Cómo se ve el panel de juego: su fondo (aparte del de la app) y el mini monitor. */

@@ -94,7 +94,7 @@ object RaProxy {
 
     suspend fun setup(pkg: String?): Setup? = when {
         pkg == null -> null
-        pkg.startsWith("com.retroarch") -> Shell.run(Shell.RA_CFG)?.let { cfg ->
+        pkg.startsWith("com.retroarch") -> Shell.run(if (pkg.endsWith("aarch64")) Shell.RA64_CFG else Shell.RA_CFG)?.let { cfg ->
             fun v(k: String) = Regex("(?m)^$k[ \\t]*=[ \\t]*\"([^\"\\n]*)\"").find(cfg)?.groupValues?.get(1).orEmpty()
             Setup("RetroArch", v("cheevos_custom_host").startsWith("127.0.0.1"), v("cheevos_token").isNotBlank())
         }
@@ -105,6 +105,29 @@ object RaProxy {
         }
         else -> null
     }
+
+    /**
+     * Workaround de un error de Dolphin en Android: cierra la sesión de RetroAchievements solo (hilo de r/DolphinEmulator,
+     * oct 2026). Con `Password = …` en su `RetroAchievements.ini` vuelve a iniciar sesión solo. Opcional: la contraseña
+     * queda escrita tal cual en ese archivo (cualquier app con acceso a los archivos de Dolphin, o un PC conectado, la
+     * puede leer). TBF no la guarda: la escribe en el archivo de Dolphin y la olvida. Con Shizuku; Dolphin se cierra antes
+     * (al cerrarse reescribe su configuración). [password] null la quita.
+     */
+    suspend fun setDolphinPassword(password: String?): Boolean {
+        val ini = Shell.run(Shell.DOLPHIN_RA) ?: return false
+        if (Shell.run(Shell.stopApp("org.dolphinemu.dolphinemu")) == null) return false
+        val lines = ini.lines().filterNot { it.trimStart().startsWith("Password") }.toMutableList()
+        while (lines.isNotEmpty() && lines.last().isBlank()) lines.removeAt(lines.size - 1)
+        if (password != null) {
+            val at = lines.indexOfFirst { it.trim() == "[Achievements]" }
+            if (at >= 0) lines.add(at + 1, "Password = $password") else { lines += "[Achievements]"; lines += "Password = $password" }
+        }
+        return Shell.writeFile(Shell.DOLPHIN_RA_PATH, lines.joinToString("\n") + "\n")
+    }
+
+    /** ¿Ya tiene la contraseña guardada (el workaround)? Null si no se pudo leer. */
+    suspend fun dolphinHasPassword(): Boolean? =
+        Shell.run(Shell.DOLPHIN_RA)?.lines()?.any { Regex("^Password[ \\t]*=[ \\t]*\\S").containsMatchIn(it) }
 
     /** Lo último que se supo del emulador al frente (para el mosaico del panel). */
     @Volatile var setupNow: Setup? = null
