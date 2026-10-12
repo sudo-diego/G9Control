@@ -62,9 +62,9 @@ class MainActivity : ComponentActivity() {
         state.profiles = Profiles.load(this)
         SkinState.skin = Prefs.skin(this)
         ThemeState.load(this)
-        // La ventana transparente se decide al crearla: cambiarla después deja restos de los cuadros anteriores.
-        wallpaperWindow = ThemeState.background == AppBackground.WALLPAPER
-        if (wallpaperWindow) showWallpaper(true)
+        // Ventana siempre translúcida, con un fondo que reemplaza los píxeles (VeilDrawable): así el fondo de pantalla
+        // se pone y se quita sin recrear la actividad (recrearla mandaba al Inicio y dejaba la barra de estado sin fondo).
+        window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
         Lang.load(this)
         state.showSetup = !Prefs.setupDone(this)
         state.status = tr("Conecta el G9 por USB en modo Android.", "Connect the G9 over USB in Android mode.")
@@ -74,12 +74,11 @@ class MainActivity : ComponentActivity() {
                 val dark = isDarkTheme()
                 // Fondo de pantalla (el animado de Wallpaper Engine también): Android lo dibuja detrás de la ventana.
                 val wallpaper = ThemeState.background == AppBackground.WALLPAPER
-                androidx.compose.runtime.LaunchedEffect(wallpaper) { if (wallpaper != wallpaperWindow) recreate() }
                 // El velo del fondo de pantalla lo pinta la ventana (cubre también la barra de estado; con la
                 // navegación por gestos el contenido empieza debajo de ella y ahí quedaba el fondo sin oscurecer).
                 val dim = ThemeState.backgroundDim
                 androidx.compose.runtime.LaunchedEffect(wallpaper, dim, dark) {
-                    if (wallpaper) window.setBackgroundDrawable(VeilDrawable(wallpaperVeil(dark, dim)))
+                    showWallpaper(wallpaper, dark, dim)
                 }
                 androidx.compose.runtime.LaunchedEffect(dark) {
                     val style = if (dark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -879,8 +878,6 @@ class MainActivity : ComponentActivity() {
     }
     fun pickPanelBackground() = panelBackgroundLauncher.launch(arrayOf("image/*"))
 
-    private var wallpaperWindow = false
-
     /**
      * Fondo de la ventana con el fondo de pantalla: el velo REEMPLAZA los píxeles (modo SRC) en vez de sumarse. Con un
      * ColorDrawable translúcido la ventana no se limpiaba entre cuadros: el velo se apilaba hasta tapar el fondo y
@@ -900,17 +897,15 @@ class MainActivity : ComponentActivity() {
         return if (dark) android.graphics.Color.argb(alpha, 0x0A, 0x0F, 0x1F) else android.graphics.Color.argb(alpha, 0xEA, 0xF0, 0xFA)
     }
 
-    /** Ventana transparente con el fondo de pantalla detrás (antes de mostrarla). */
-    private fun showWallpaper(on: Boolean) {
+    /**
+     * Con el fondo de pantalla: Android lo dibuja detrás y la ventana pone el velo encima. Sin él: la ventana es opaca
+     * del color de fondo del tema (lo que se vea bajo la barra de estado coincide con la app).
+     */
+    private fun showWallpaper(on: Boolean, dark: Boolean, dim: Int) {
         val flag = android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER
-        if (on) {
-            window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
-            window.setBackgroundDrawable(VeilDrawable(android.graphics.Color.TRANSPARENT))
-            window.addFlags(flag)
-        } else {
-            window.clearFlags(flag)
-            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.BLACK))
-        }
+        if (on) window.addFlags(flag) else window.clearFlags(flag)
+        window.setBackgroundDrawable(VeilDrawable(
+            if (on) wallpaperVeil(dark, dim) else if (dark) android.graphics.Color.rgb(0x0A, 0x0F, 0x1F) else android.graphics.Color.rgb(0xEA, 0xF0, 0xFA)))
     }
 
     fun saveProfiles(list: List<Profile>) {
