@@ -289,7 +289,7 @@ Analizado con jadx el 9 oct 2026 (v2.3.0.4534, `/system/priv-app/ZuiGameHelper`)
 - `Gcm.kt` (paquetes), `G9Usb.kt` (USB), `ModeSwitcher.kt` (modo y `Prefs`), `Profiles.kt`, `Theme.kt`, `ControllerArt.kt` (dibujo vectorial del G9).
 - `AutoMode.kt`: `AutoModeService` (accesibilidad): cambio de modo por app, retiene Vista/Menú mientras la guía los pide, bloqueo opcional.
 - `ModeGuide.kt`: guía y avisos de cambio de modo (ventana de accesibilidad con Compose). Su `OverlayOwner` lo comparte el panel de juego.
-- `GamePanel.kt`: panel de juego (L3 + R3). `ZuiGame.kt`: lo que se lee de Game Assistant de ZUI (modo juego, pestaña lateral, abrir sus ajustes).
+- **Panel de juego (dividido el 12 oct 2026):** `GamePanel.kt` la lógica (qué mosaicos hay, qué hacen, navegación, actualización en vivo, alertas de logros); `PanelLook.kt` cómo se ve (colores según `ThemeState.panelLight`, medidas por forma y tamaño, `PanelCard`, mosaicos, barras, mini monitor, ícono de batería); `PanelOverlays.kt` lo que dibuja aparte en sus ventanas (`SystemLevels` brillo y volumen, `FreezeCover` + `PerfRing` del cambio de rendimiento, `RaAlert` alerta roja, `ShotFlash` avisos, `ShotSounds`). `ZuiGame.kt`: lo que se lee de Game Assistant de ZUI (modo juego, pestaña lateral, abrir sus ajustes). `RaProxy.kt`: RAOfflineProxy. `RecentApps.kt`: recientes del panel.
 - `HoldTracker.kt`: seguimiento de Vista + Menú, el mismo para la guía y la franja de la app.
 - `ModeTiles.kt`: íconos de ajustes rápidos Android, X-Input y DS5 (con el logo G9). `UsbAttachActivity.kt`: guarda el permiso USB al conectar sin abrir la app.
 
