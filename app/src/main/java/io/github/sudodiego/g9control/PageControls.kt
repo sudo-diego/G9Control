@@ -67,19 +67,18 @@ private fun GuidePanel(a: MainActivity) {
                     row(AutoRules.Guide.LB_BACK).value = it; AutoRules.setGuide(a, AutoRules.Guide.LB_BACK, it)
                 }
             }
-            SwitchRow(tr("Aviso al transmitir", "Notice when streaming"), streamTip, tr("Cómo sacar capturas en Artemis o Moonlight", "How to take screenshots in Artemis or Moonlight")) {
+            SwitchRow(tr("Aviso al transmitir", "Notice when streaming"), streamTip, tr("Panel, menú y capturas en Artemis o Moonlight", "Panel, menu and screenshots in Artemis or Moonlight")) {
                 streamTip = it; AutoRules.setStreamTip(a, it)
             }
-            Hint(tr("Transmitiendo desde el PC (Artemis, Moonlight) la guía va al PC: ahí las capturas se sacan con M dos veces (G9 en DS5) o manteniendo L3 + R3. En el G9, mantener la guía 5 s lo apaga.",
-                "While streaming from a PC (Artemis, Moonlight) the guide goes to the PC: there, take screenshots with M twice (G9 in DS5) or by holding L3 + R3. On the G9, holding the guide 5 s turns it off."))
+            Hint(tr("Transmitiendo (Artemis, Moonlight) la guía va al PC: el panel se abre con L3 + R3, el menú de la app con Start + Select y las capturas con M dos veces (DS5) o manteniendo L3 + R3.",
+                "While streaming (Artemis, Moonlight) the guide goes to the PC: open the panel with L3 + R3, the app menu with Start + Select, and take screenshots with M twice (DS5) or by holding L3 + R3."))
         }
     }
 }
 
 /**
- * Tocar la guía en cada juego o emulador instalado: Atrás (lo normal) o, con Shizuku, apretar botones como el
- * control. En RetroArch, Vista + Menú sale (sus atajos de fábrica); "Botón guía" deja asignarlo en RetroArch a lo
- * que quieras (se manda apretado 1 s, lo que RetroArch pide para asignar).
+ * Tocar la guía en cada juego o emulador instalado: Atrás (lo normal), nada, o pasarla al juego (el emulador recibe la
+ * guía real y la asigna como tecla de atajos; mantenerla sigue abriendo el panel y Guía + RB sigue siendo captura).
  */
 @Composable
 private fun GuideTapPanel(a: MainActivity) {
@@ -97,8 +96,6 @@ private fun GuideTapPanel(a: MainActivity) {
                 Text(label, fontSize = 15.sp)
                 ChoiceChips(AutoRules.GuideTap.entries.map { it to it.label }, tap) { tap = it; AutoRules.setGuideTap(a, pkg, it) }
                 if (tap == AutoRules.GuideTap.PASS) {
-                    Text(tr("Mantener la guía sigue abriendo el panel; tocarla le llega al juego.", "Holding the guide still opens the panel; a tap goes to the game."),
-                        fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
                     // Capturas nítidas con shaders como BFI o CRT beam simulator: que las saque el emulador.
                     var byGame by remember(pkg) { mutableStateOf(AutoRules.shotByGame(a, pkg)) }
                     SwitchRow(tr("Guía + RB: captura del emulador", "Guide + RB: emulator screenshot"), byGame,
@@ -107,8 +104,8 @@ private fun GuideTapPanel(a: MainActivity) {
                     }
                 }
             }
-            Hint(tr("«Pasar al juego»: la guía le llega al emulador como el botón del G9; Guía + RB sigue sacando capturas. En RetroArch: Ajustes → Entrada → Teclas rápidas → «Tecla para activar teclas rápidas» = la guía, y «Mostrar menú» = otro botón (se usa Guía + ese botón).",
-                "\u201cPass to the game\u201d: the emulator gets the guide as the G9's button; in RetroArch bind it under Settings → Input → Hotkeys (\u201cMenu toggle\u201d or \u201cQuit RetroArch\u201d)."))
+            Hint(tr("«Pasar al juego»: el emulador recibe la guía. En RetroArch, en Teclas rápidas: «Tecla para activar teclas rápidas» = la guía y «Mostrar menú» = otro botón (queda Guía + ese botón).",
+                "\u201cPass to the game\u201d: the emulator gets the guide. In RetroArch Hotkeys: \u201cHotkey enable\u201d = the guide and \u201cMenu toggle\u201d = another button (it becomes Guide + that button)."))
         }
     }
 }

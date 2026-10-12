@@ -187,10 +187,11 @@ private class PanelUi {
 }
 
 /**
- * Panel de juego: menú flotante que se abre con L3 + R3 desde cualquier app. Se maneja con el control
- * sin quitarle el foco al juego, porque el servicio de accesibilidad se queda con los botones mientras
- * está abierto: LB/RB (o la cruceta, si llega como tecla) mueven, A elige y B cierra. En X-Input y DS5
- * la cruceta llega como eje y el servicio no la ve; por eso LB/RB. También se puede tocar.
+ * Panel de juego: menú flotante sobre cualquier app (mantener la guía, L3 + R3, el botón de accesibilidad o "Abrir el
+ * panel" en la app). Se maneja con el control sin quitarle el foco al juego: el servicio se queda con los botones y,
+ * con el panel abierto, con los sticks y la cruceta (`motionEventSources`, que en X-Input y DS5 llega como eje):
+ * se mueve con stick o cruceta, A elige, B cierra o vuelve, Y hace la otra acción. También se puede tocar. Además
+ * maneja los avisos (captura, batería baja, logros), la imagen congelada del rendimiento y la alerta roja de logros.
  */
 class GamePanel(private val svc: AutoModeService) {
     private val wm = svc.getSystemService(WindowManager::class.java)
@@ -1489,7 +1490,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
 
 /**
  * Mini monitor del panel: RAM libre, consumo (ahora y el promedio del último minuto), la CPU y la temperatura de la
- * batería. Se actualiza cada 2 s mientras el panel está abierto.
+ * batería. Se actualiza cada 2 s mientras el panel está abierto (el resto del panel, cada 1,5 s: ver `live`).
  */
 @Composable
 private fun PanelStats() {

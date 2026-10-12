@@ -161,8 +161,8 @@ fun MacroEditor(s: AppState, a: MainActivity) {
                     Text(tr("Cargar", "Load"), color = c.primary, fontSize = 14.sp)
                 }
             }
-            Hint(tr("Una macro aprieta un botón después de otro, nunca dos a la vez: los atajos de emulador (Vista + Menú…) se hacen con «Tocar la guía» en Controles.",
-                "A macro presses one button after another, never two at once: emulator shortcuts (View + Menu…) go through “Tapping guide” in Controls."))
+            Hint(tr("Una macro aprieta un botón después de otro, nunca dos a la vez.",
+                "A macro presses one button after another, never two at once."))
         }
     }
     val right: @Composable ColumnScope.() -> Unit = {

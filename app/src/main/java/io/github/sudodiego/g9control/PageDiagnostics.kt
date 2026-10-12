@@ -349,10 +349,10 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
             "1. Leave it always on. Online it passes your achievements right away; offline it keeps them and sends them by itself when you're back online (anywhere)."))
         Hint(tr("2. Abre cada juego una vez con internet y el proxy encendido: así guarda sus logros para jugarlo sin conexión.",
             "2. Open each game once online with the proxy on: that saves its achievements for playing offline."))
-        Hint(tr("3. Cada emulador necesita la sesión iniciada en RetroAchievements (arriba dice si falta; sin internet también se puede, con el proxy encendido). El tiempo jugado sin internet no se registra.",
-            "3. Each emulator needs to be signed in to RetroAchievements (shown above; it also works offline with the proxy on). Offline playtime isn't recorded."))
-        Hint(tr("Para encenderlo: «Preparar y abrir» cierra los emuladores (Shizuku) y abre RAOfflineProxy; ahí, Start proxy. Para apagarlo, su Stop proxy (deja todo como estaba; TBF no lo deja detener mientras está activo).",
-            "To turn it on: “Prepare and open” closes the emulators (Shizuku) and opens RAOfflineProxy; there, Start proxy. To turn it off, its Stop proxy (restores everything; TBF won't stop it while it's on)."))
+        Hint(tr("3. Cada emulador necesita la sesión iniciada en RetroAchievements (arriba dice si falta). En Dolphin, después de iniciarla sal con Atrás: si se cierra a la fuerza, la pierde. El tiempo jugado sin internet no se registra.",
+            "3. Each emulator needs to be signed in to RetroAchievements (shown above). In Dolphin, press Back to exit after signing in: if it's force-closed, it loses it. Offline playtime isn't recorded."))
+        Hint(tr("«Preparar y abrir» cierra los emuladores y abre RAOfflineProxy para Start (después de reiniciar, abrirlo basta: se enciende solo). Apágalo con su Stop proxy, que deja todo como estaba.",
+            "“Prepare and open” closes the emulators and opens RAOfflineProxy for Start (after a reboot, opening it is enough: it turns on by itself). Turn it off with its Stop proxy, which restores everything."))
         DolphinSignOutFix(a)
         SwitchRow(tr("Aviso sin internet", "Offline notice"), hint, tr("Al abrir un emulador sin internet y con el proxy apagado", "When opening an emulator offline with the proxy off")) {
             hint = it; AutoRules.setRaProxyHint(a, it)
@@ -376,8 +376,8 @@ private fun DolphinSignOutFix(a: MainActivity) {
     LaunchedEffect(Unit) { saved = RaProxy.dolphinHasPassword() }
     Text(tr("Dolphin cierra la sesión solo (workaround)", "Dolphin keeps signing out (workaround)"), fontSize = 14.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-    Hint(tr("Es un error de Dolphin en Android. Lo que le funciona a varios: guardar tu contraseña de RetroAchievements en su configuración, así vuelve a iniciar sesión solo. Ojo: queda escrita sin cifrar en el archivo de Dolphin (la puede leer otra app con acceso a sus archivos o un PC conectado). TBF no la guarda. No a todos les funciona. Escríbela con cuidado: si está mal, Dolphin cierra la sesión cada vez que la intenta usar.",
-        "It's a Dolphin bug on Android. What works for several people: saving your RetroAchievements password in its config so it signs back in by itself. Note: it's stored unencrypted in Dolphin's file (another app with access to its files, or a connected PC, can read it). TBF doesn't keep it. It doesn't work for everyone. Type it carefully: if it's wrong, Dolphin signs out every time it tries it."))
+    Hint(tr("Error de Dolphin en Android. A algunos les sirve guardar la contraseña en su configuración para que vuelva a iniciar sesión solo (en Dolphin 2609a no sirvió). Queda sin cifrar en su archivo; TBF no la guarda. Si está mal escrita, Dolphin cierra la sesión cada vez.",
+        "A Dolphin bug on Android. Saving the password in its config so it signs back in by itself helps some people (it didn't in Dolphin 2609a). It's stored unencrypted in its file; TBF doesn't keep it. If it's mistyped, Dolphin signs out every time."))
     if (saved == true) {
         InfoRow(tr("Contraseña en Dolphin", "Password in Dolphin"), tr("Guardada", "Saved"))
         OutlinedButton(onClick = { scope.launch { msg = if (RaProxy.setDolphinPassword(null)) tr("Quitada", "Removed") else tr("No se pudo", "Couldn't"); saved = RaProxy.dolphinHasPassword() } }) {

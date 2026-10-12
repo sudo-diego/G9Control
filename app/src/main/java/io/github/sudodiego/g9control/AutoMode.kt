@@ -997,7 +997,8 @@ class AutoModeService : AccessibilityService() {
 
     /**
      * Botón Legion (Home del control, llega como BUTTON_MODE en los tres modos): tocar = Atrás, mantener 0,5 s
-     * = panel de juego. Dentro de G9 Control llega normal (lo usa la prueba de botones), y en las apps de streaming
+     * = panel de juego. Dentro de TBF también (tocar no hace nada), salvo probando botones o grabando una macro
+     * ([AppKeys.capturing]: ahí llega normal); en las apps de streaming
      * también ([AutoRules.STREAMING]: ahí es el botón guía del PC o la consola). Llega con algo de retraso: el
      * firmware espera por si es un doble toque o Home + cruceta. Devuelve si el evento es nuestro.
      */

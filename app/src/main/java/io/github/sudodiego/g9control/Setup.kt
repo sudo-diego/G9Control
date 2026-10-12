@@ -30,8 +30,8 @@ fun SetupDialog(s: AppState, a: MainActivity, onClose: () -> Unit) {
             Column(Modifier.padding(28.dp)) {
                 Text(tr("Configuración inicial", "Quick setup"), fontSize = 24.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    tr("Cuatro pasos para dejar TBF Companion listo. Los que se marcan en verde ya están hechos.",
-                        "Four steps to get TBF Companion ready. Steps marked green are already done."),
+                    tr("Lo que está en verde ya está listo. Solo el primer paso es necesario.",
+                        "Green steps are already done. Only the first one is required."),
                     fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(16.dp))
@@ -39,49 +39,42 @@ fun SetupDialog(s: AppState, a: MainActivity, onClose: () -> Unit) {
                     Modifier.weight(1f).verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    // Lo esencial: el panel, las capturas, los avisos y todo lo automático vienen del servicio.
                     Step(
-                        1, s.padMode != null, tr("Conecta el control", "Connect the controller"),
-                        tr("Coloca la tablet en el G9. Debe estar en modo Android (indicador azul oscuro). Si está en X-Input (verde) " +
-                            "o DS5 (blanco), mantén Vista + Menú unos 2 segundos hasta llegar a Android.",
-                            "Dock the tablet in the G9. It must be in Android mode (dark blue indicator). If it's in X-Input (green) " +
-                                "or DS5 (white), hold View + Menu for about 2 seconds until it reaches Android.")
-                    )
-                    Step(
-                        2, s.connected, tr("Permite el acceso USB", "Allow USB access"),
-                        tr("Cuando Android pregunte si TBF Companion puede acceder al control, marca «Usar siempre» (o «Abrir siempre») " +
-                            "y acepta. Así la app y el cambio automático funcionan sin volver a preguntar.",
-                            "When Android asks whether TBF Companion can access the controller, check “Always” (or “Always open”) " +
-                                "and accept. That way the app and automatic switching work without asking again.")
-                    ) {
-                        if (!s.connected && s.padMode == PadMode.ANDROID) Button(onClick = { a.readAll() }) { Text(tr("Conectar", "Connect")) }
-                    }
-                    Step(
-                        3, s.autoServiceOn, tr("Cambio automático (opcional)", "Automatic switching (optional)"),
-                        tr("Para que el control cambie solo a X-Input o DS5 al abrir un juego, para la guía de Vista + Menú y para " +
-                            "el panel de juego (L3 + R3), activa el servicio de accesibilidad de TBF Companion. Ve qué app está en " +
-                            "pantalla y los botones del control, y saca capturas del juego cuando se lo pides. Android avisará que " +
-                            "puede leer la pantalla: lo pide para saber cuál es la ventana del juego y capturarla sola; la app no " +
-                            "lee sus textos, no ve lo que escribes y no se conecta a internet.",
-                            "To switch the controller to X-Input or DS5 automatically when you open a game, for the View + Menu " +
-                                "guide and for the game panel (L3 + R3), turn on TBF Companion's accessibility service. It sees which app is " +
-                                "on screen and the controller's buttons, and takes game screenshots when you ask. Android will warn that " +
-                                "it can read the screen: it needs that to know which window is the game and capture only that; the app " +
-                                "doesn't read its text, doesn't see what you type and doesn't connect to the internet.")
+                        1, s.autoServiceOn, tr("Activa TBF Companion en Accesibilidad", "Turn on TBF Companion in Accessibility"),
+                        tr("Con esto, mantener el botón guía (o L3 + R3) abre el panel de juego en cualquier app, y funcionan las capturas y los avisos. " +
+                            "Android avisará que puede leer la pantalla: TBF solo mira qué app está al frente y los botones del control; no lee textos ni se conecta a internet.",
+                            "With this, holding the guide button (or L3 + R3) opens the game panel in any app, and screenshots and notices work. " +
+                                "Android will warn that it can read the screen: TBF only looks at which app is in front and the controller's buttons; it doesn't read text or connect to the internet.")
                     ) {
                         if (!s.autoServiceOn) OutlinedButton(onClick = { AutoRules.openServiceSettings(a) }) {
                             Text(tr("Abrir accesibilidad", "Open accessibility"))
                         }
                     }
                     Step(
-                        4, null, tr("Íconos de ajustes rápidos (opcional)", "Quick settings tiles (optional)"),
-                        tr("Desliza dos veces hacia abajo desde arriba de la pantalla, toca el lápiz (editar) y arrastra " +
-                            "«Android», «X-Input» y «DS5» (los del logo G9) a tus íconos. Cambian el modo con un toque.",
-                            "Swipe down twice from the top of the screen, tap the pencil (edit) and drag " +
-                                "“Android”, “X-Input” and “DS5” (the ones with the G9 logo) into your tiles. They switch mode with one tap.")
+                        2, Shell.state == Shell.State.READY, tr("Shizuku (opcional)", "Shizuku (optional)"),
+                        tr("Agrega el bypass y el límite de carga, los modos de rendimiento, ver y cerrar apps, y que Ahorro no baje la pantalla a 30 Hz. " +
+                            "Se instala aparte; en Ajustes → Permisos está cómo activarlo.",
+                            "Adds bypass and charge limit, performance modes, seeing and closing apps, and keeping Saver from dropping the screen to 30 Hz. " +
+                                "It's installed separately; Settings → Permissions explains how to turn it on.")
+                    )
+                    Step(
+                        3, s.connected, tr("Si tienes el control G9", "If you have the G9 controller"),
+                        tr("Coloca la tablet en el G9 en modo Android (luz azul oscuro; desde X-Input o DS5, mantén Vista + Menú unos 2 s). " +
+                            "Cuando Android pregunte si TBF Companion puede usar el control, marca «Usar siempre».",
+                            "Dock the tablet in the G9 in Android mode (dark blue light; from X-Input or DS5, hold View + Menu about 2 s). " +
+                                "When Android asks whether TBF Companion can use the controller, check “Always”.")
+                    ) {
+                        if (!s.connected && s.padMode == PadMode.ANDROID) Button(onClick = { a.readAll() }) { Text(tr("Conectar", "Connect")) }
+                    }
+                    Step(
+                        4, null, tr("Íconos de modo del G9 (opcional)", "G9 mode tiles (optional)"),
+                        tr("En los ajustes rápidos (desliza dos veces hacia abajo), toca el lápiz y agrega «Android», «X-Input» y «DS5» (con el logo G9): cambian el modo con un toque.",
+                            "In quick settings (swipe down twice), tap the pencil and add “Android”, “X-Input” and “DS5” (with the G9 logo): they switch mode with one tap.")
                     )
                     Hint(
-                        tr("El firmware del control no se actualiza desde esta app. Si alguna vez lo necesitas, usa la app oficial de Legion una vez.",
-                            "This app doesn't update the controller firmware. If you ever need to, use the official Legion app once.")
+                        tr("El firmware del G9 no se actualiza desde esta app. Si alguna vez lo necesitas, usa la app oficial de Legion una vez.",
+                            "This app doesn't update the G9 firmware. If you ever need to, use the official Legion app once.")
                     )
                 }
                 Spacer(Modifier.height(12.dp))
