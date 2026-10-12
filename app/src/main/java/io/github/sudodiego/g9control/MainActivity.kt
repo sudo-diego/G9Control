@@ -227,7 +227,7 @@ class MainActivity : ComponentActivity() {
             s.hold.onKey(e.keyCode, e.action == KeyEvent.ACTION_DOWN)
         }
         markTested()
-        // Mantener B: 1 s sale de la prueba (o de la grabación); 2 s sale de la app. Actúa sin soltarlo. En el editor
+        // Mantener B: 1 s sale de la prueba (o de la grabación), sin soltarlo; 2 s sale de la app, al soltarlo. En el editor
         // de macros B cierra la macro (lo dice la barra de abajo): mantenerlo no sale de la app.
         if (e.keyCode == KeyEvent.KEYCODE_BUTTON_B && !(s.editingMacro != null && !s.capturing)) when (e.action) {
             KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
@@ -240,6 +240,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.ACTION_UP -> {
                 bHandler.removeCallbacks(bHold)
                 s.bHold = null
+                if (exitOnRelease) { exitOnRelease = false; bHoldFired = false; moveTaskToBack(true); return true }
                 if (bHoldFired) { bHoldFired = false; return true }   // ese B ya hizo su acción
             }
         }
@@ -250,6 +251,8 @@ class MainActivity : ComponentActivity() {
 
     private val bHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var bHoldFired = false
+    /** Se mantuvo B 2 s: la app se va al soltarlo. */
+    private var exitOnRelease = false
     private val bHold = Runnable {
         bHoldFired = true
         val s = state
@@ -257,11 +260,9 @@ class MainActivity : ComponentActivity() {
         when {
             s.macroRecording -> stopMacroRecording()
             s.testMode -> s.testMode = false
-            else -> {
-                // B sigue apretado: que no le llegue al juego que queda al frente (lo filtra el servicio hasta soltarlo).
-                AppKeys.swallowB = true; AppKeys.swallowUntil = android.os.SystemClock.uptimeMillis() + 8000
-                moveTaskToBack(true)
-            }
+            // Salir de la app: al SOLTAR B (ver ACTION_UP). Si se sale con B apretado, las repeticiones que Android genera
+            // mientras se mantiene (después del filtro del servicio, no se pueden bloquear) le llegan al juego que queda al frente.
+            else -> exitOnRelease = true
         }
     }
 

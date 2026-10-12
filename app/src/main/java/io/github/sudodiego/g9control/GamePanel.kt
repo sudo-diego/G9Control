@@ -1150,10 +1150,10 @@ class GamePanel(private val svc: AutoModeService) {
         val dp = svc.resources.displayMetrics.density
         val v = android.widget.TextView(svc).apply {
             this.text = text
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(if (light) 0xFF14203A.toInt() else android.graphics.Color.WHITE)
             textSize = 14f
             setPadding((16 * dp).toInt(), (10 * dp).toInt(), (16 * dp).toInt(), (10 * dp).toInt())
-            background = android.graphics.drawable.GradientDrawable().apply { setColor(0xEE0E1424.toInt()); cornerRadius = 16 * dp }
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(if (light) 0xF2F3F6FB.toInt() else 0xEE0E1424.toInt()); cornerRadius = 16 * dp }
         }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
@@ -1831,15 +1831,16 @@ private class ShotFlash(private val svc: AccessibilityService) {
         val text = android.widget.LinearLayout(svc).apply {
             orientation = android.widget.LinearLayout.VERTICAL
             setPadding(px(14), 0, px(6), 0)
-            addView(android.widget.TextView(svc).apply { text = title; setTextColor(android.graphics.Color.WHITE); textSize = 15f })
-            line?.let { l -> addView(android.widget.TextView(svc).apply { text = l; setTextColor(0xFF9AA6BF.toInt()); textSize = 13f }) }
+            addView(android.widget.TextView(svc).apply { text = title; setTextColor(if (light) 0xFF14203A.toInt() else android.graphics.Color.WHITE); textSize = 15f })
+            line?.let { l -> addView(android.widget.TextView(svc).apply { text = l; setTextColor(if (light) 0xFF56607A.toInt() else 0xFF9AA6BF.toInt()); textSize = 13f }) }
         }
         val card = android.widget.LinearLayout(svc).apply {
             orientation = android.widget.LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(px(8), px(8), px(16), px(8))
+            // Con el tema del panel (claro u oscuro), como todo lo que se dibuja sobre el juego.
             background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xEE0E1424.toInt()); cornerRadius = 16 * dp
+                setColor(if (light) 0xF2F3F6FB.toInt() else 0xEE0E1424.toInt()); cornerRadius = 16 * dp
             }
             addView(image, android.widget.LinearLayout.LayoutParams(thumb.width, thumb.height))
             addView(text)
@@ -1888,7 +1889,7 @@ private class ShotFlash(private val svc: AccessibilityService) {
             val stroke = 2.5f * dp
             val body = android.graphics.RectF(4 * dp, 14 * dp, 40 * dp, 34 * dp)
             val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-            p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = stroke; p.color = 0xFFE6EAF2.toInt()
+            p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = stroke; p.color = if (light) 0xFF14203A.toInt() else 0xFFE6EAF2.toInt()
             c.drawRoundRect(body, 4 * dp, 4 * dp, p)
             p.style = android.graphics.Paint.Style.FILL
             c.drawRoundRect(android.graphics.RectF(41 * dp, 20 * dp, 44 * dp, 28 * dp), 1.5f * dp, 1.5f * dp, p)

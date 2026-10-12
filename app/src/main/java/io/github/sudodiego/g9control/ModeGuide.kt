@@ -315,12 +315,17 @@ internal class OverlayOwner : LifecycleOwner, SavedStateRegistryOwner {
 // Dibujo de la guía
 // ---------------------------------------------------------------------------------------------
 
-private val CARD = Color(0xFF111A2C)
-private val CARD_DONE = Color(0xFF145A35)
-private val ACCENT = Color(0xFF5CC8FF)
-private val OK = Color(0xFF3DDC84)
-private val MUTED = Color(0xFF9AA6BF)
-private val LINE = Color(0xFF2A3550)
+// Con el tema de lo que se dibuja sobre el juego (Ajustes → Juego → Panel de juego → Tema): en claro, tarjetas
+// blancas azuladas con texto marino; en oscuro, azul marino con texto blanco.
+private val lightUi get() = ThemeState.panelLight
+private val CARD get() = if (lightUi) Color(0xFFF3F6FB) else Color(0xFF111A2C)
+private val CARD_DONE get() = if (lightUi) Color(0xFFD7F3E3) else Color(0xFF145A35)
+private val ACCENT get() = if (lightUi) Color(0xFF1E7FC8) else Color(0xFF5CC8FF)
+private val OK get() = if (lightUi) Color(0xFF1FA463) else Color(0xFF3DDC84)
+private val MUTED get() = if (lightUi) Color(0xFF56607A) else Color(0xFF9AA6BF)
+private val LINE get() = if (lightUi) Color(0xFFD5DCE8) else Color(0xFF2A3550)
+/** Texto principal sobre las tarjetas. */
+private val FG get() = if (lightUi) Color(0xFF14203A) else Color.White
 
 /** Estado que dibuja la guía. */
 private class GuideUi {
@@ -455,7 +460,7 @@ private fun GuideCard(ui: GuideUi) {
     Column(
         Modifier.padding(24.dp).width(500.dp).heightIn(min = 410.dp)
             .clip(RoundedCornerShape(32.dp)).background(bg)
-            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(32.dp))
+            .border(1.dp, FG.copy(alpha = 0.08f), RoundedCornerShape(32.dp))
             .padding(horizontal = 36.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -478,9 +483,9 @@ private fun GuideCard(ui: GuideUi) {
             }
         }
         Spacer(Modifier.height(18.dp))
-        Text(title, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+        Text(title, color = FG, fontSize = 26.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         Spacer(Modifier.height(6.dp))
-        Text(subtitle, color = if (ui.done) Color(0xFFCFF5DF) else MUTED, fontSize = 16.sp, textAlign = TextAlign.Center)
+        Text(subtitle, color = if (ui.done) (if (lightUi) Color(0xFF145A35) else Color(0xFFCFF5DF)) else MUTED, fontSize = 16.sp, textAlign = TextAlign.Center)
         Spacer(Modifier.height(22.dp))
         HoldBar(ui)
         Spacer(Modifier.height(22.dp))
@@ -559,7 +564,7 @@ private fun MiniHint(ui: GuideUi) {
                 Icon(Icons.Filled.Check, null, Modifier.size(18.dp), tint = Color.White)
             }
             Spacer(Modifier.width(10.dp))
-            Text(tr("Control en $target", "Controller in $target"), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(tr("Control en $target", "Controller in $target"), color = FG, fontSize = 15.sp, fontWeight = FontWeight.Medium)
         } else {
             RoundKey(menu = false, small = true)
             Spacer(Modifier.width(4.dp))
@@ -571,7 +576,7 @@ private fun MiniHint(ui: GuideUi) {
                 else if (now != null) tr("Control en $now · mantén Vista + Menú para ", "Controller in $now · hold View + Menu to ") +
                     (if (ui.target == PadMode.ANDROID) tr("volver a $target", "return to $target") else tr("cambiar a $target", "switch to $target"))
                 else tr("Cambiando de modo…", "Switching mode…"),
-                color = Color.White, fontSize = 15.sp
+                color = FG, fontSize = 15.sp
             )
         }
     }
@@ -581,16 +586,16 @@ private fun MiniHint(ui: GuideUi) {
 @Composable
 private fun Banner(ui: GuideUi) {
     Row(
-        Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f))
+        Modifier.clip(RoundedCornerShape(50)).background(if (lightUi) Color.White.copy(alpha = 0.88f) else Color.Black.copy(alpha = 0.55f))
             .padding(start = 8.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(14.dp), contentAlignment = Alignment.Center) {
             if (ui.done) Icon(Icons.Filled.Check, null, Modifier.size(14.dp), tint = OK)
-            else CircularProgressIndicator(Modifier.size(11.dp), color = Color.White.copy(alpha = 0.8f), strokeWidth = 1.5.dp)
+            else CircularProgressIndicator(Modifier.size(11.dp), color = FG.copy(alpha = 0.8f), strokeWidth = 1.5.dp)
         }
         Spacer(Modifier.width(6.dp))
-        Text(ui.target?.label ?: "", color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(ui.target?.label ?: "", color = FG.copy(alpha = 0.9f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -610,12 +615,12 @@ private fun ButtonsHint() {
 @Composable
 internal fun RoundKey(menu: Boolean, small: Boolean = false) {
     Box(
-        Modifier.size(if (small) 28.dp else 64.dp).clip(CircleShape).background(Color(0xFF0B1120))
+        Modifier.size(if (small) 28.dp else 64.dp).clip(CircleShape).background(if (lightUi) Color.White else Color(0xFF0B1120))
             .border(if (small) 1.dp else 2.dp, ACCENT, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.size(if (small) 13.dp else 30.dp)) {
-            val c = Color(0xFFD6DAE0)
+            val c = if (lightUi) Color(0xFF14203A) else Color(0xFFD6DAE0)
             val sw = size.width * 0.09f
             if (menu) {
                 for (f in listOf(0.22f, 0.5f, 0.78f)) {
@@ -665,12 +670,12 @@ private fun Stepper(path: List<PadMode>, current: PadMode?, done: Boolean) {
                     contentAlignment = Alignment.Center
                 ) {
                     if (state == 2) Icon(Icons.Filled.Check, null, Modifier.size(24.dp), tint = Color.White)
-                    else Text("${i + 1}", color = if (state == 1) Color(0xFF052238) else MUTED, fontWeight = FontWeight.Bold)
+                    else Text("${i + 1}", color = if (state == 1) (if (lightUi) Color.White else Color(0xFF052238)) else MUTED, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
                     mode.label, fontSize = 14.sp, textAlign = TextAlign.Center,
-                    color = if (state == 0) MUTED else Color.White,
+                    color = if (state == 0) MUTED else FG,
                     fontWeight = if (state == 1) FontWeight.Bold else FontWeight.Normal
                 )
             }
