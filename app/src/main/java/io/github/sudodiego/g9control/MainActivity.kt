@@ -75,6 +75,12 @@ class MainActivity : ComponentActivity() {
                 // Fondo de pantalla (el animado de Wallpaper Engine también): Android lo dibuja detrás de la ventana.
                 val wallpaper = ThemeState.background == AppBackground.WALLPAPER
                 androidx.compose.runtime.LaunchedEffect(wallpaper) { if (wallpaper != wallpaperWindow) recreate() }
+                // El velo del fondo de pantalla lo pinta la ventana (cubre también la barra de estado; con la
+                // navegación por gestos el contenido empieza debajo de ella y ahí quedaba el fondo sin oscurecer).
+                val dim = ThemeState.backgroundDim
+                androidx.compose.runtime.LaunchedEffect(wallpaper, dim, dark) {
+                    if (wallpaper) window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(wallpaperVeil(dark, dim)))
+                }
                 androidx.compose.runtime.LaunchedEffect(dark) {
                     val style = if (dark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
                     else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
@@ -874,6 +880,12 @@ class MainActivity : ComponentActivity() {
     fun pickPanelBackground() = panelBackgroundLauncher.launch(arrayOf("image/*"))
 
     private var wallpaperWindow = false
+
+    /** Color del velo sobre el fondo de pantalla: azul marino (u hielo en claro) con la opacidad de "Oscurecer". */
+    private fun wallpaperVeil(dark: Boolean, dim: Int): Int {
+        val alpha = ((0.15f + 0.75f * dim / 100f) * 255).toInt().coerceIn(0, 255)
+        return if (dark) android.graphics.Color.argb(alpha, 0x0A, 0x0F, 0x1F) else android.graphics.Color.argb(alpha, 0xEA, 0xF0, 0xFA)
+    }
 
     /** Ventana transparente con el fondo de pantalla detrás (antes de mostrarla). */
     private fun showWallpaper(on: Boolean) {

@@ -46,11 +46,9 @@ fun Backdrop() {
             val uri = ThemeState.backgroundUri
             if (uri == null) GradientBackdrop(dark) else ImageBackdrop(uri, ThemeState.backgroundBlur, ThemeState.backgroundLoop, dark)
         }
-        // El fondo de pantalla lo dibuja Android detrás de la ventana (transparente): aquí solo el velo.
-        AppBackground.WALLPAPER -> {
-            val a = 0.15f + 0.75f * ThemeState.backgroundDim / 100f
-            Box(Modifier.fillMaxSize().background((if (dark) Color(0xFF0A0F1F) else Color(0xFFEAF0FA)).copy(alpha = a)))
-        }
+        // El fondo de pantalla lo dibuja Android detrás de la ventana; el velo lo pinta el fondo de la ventana
+        // (MainActivity), que cubre también la barra de estado. Aquí nada.
+        AppBackground.WALLPAPER -> Unit
     }
 }
 

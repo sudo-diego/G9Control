@@ -59,10 +59,18 @@ object RefreshRate {
         main.removeCallbacks(verify)
         // Si se había forzado con los ajustes del sistema (por Ahorro de energía), se devuelven al cambiar de app o de Hz.
         if (forced != pkg to want) restoreSettings(ctx)
-        if (want != null) {
-            verifyFor = { check(ctx, pkg, want) }
-            main.postDelayed(verify, 2000)
-        }
+        verifyFor = want?.let { w -> { check(ctx, pkg, w) } }
+        if (want != null) main.postDelayed(verify, 2000)
+    }
+
+    /**
+     * La pantalla cambió de frecuencia (lo avisa el servicio): si hay una elegida y no es esa, se revisa en 1,5 s. Pasa
+     * al cambiar a Ahorro dentro del juego: ZUI baja a 30 Hz después de que la app ya lo había revisado.
+     */
+    fun onDisplayChanged() {
+        if (verifyFor == null) return
+        main.removeCallbacks(verify)
+        main.postDelayed(verify, 1500)
     }
 
     /**

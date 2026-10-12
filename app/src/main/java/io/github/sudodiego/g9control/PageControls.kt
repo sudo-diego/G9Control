@@ -94,9 +94,9 @@ private fun GuideTapPanel(a: MainActivity) {
                 Text(label, fontSize = 15.sp)
                 ChoiceChips(AutoRules.GuideTap.entries.map { it to it.label }, tap) { tap = it; AutoRules.setGuideTap(a, pkg, it) }
             }
-            Hint(if (ready) tr("Botón guía y Vista + Menú se aprietan como si fuera el control: el emulador los recibe de verdad.",
-                    "Guide button and View + Menu are pressed as the controller: the emulator really gets them.")
-                else tr("Botón guía y Vista + Menú necesitan Shizuku; sin él, se hace Atrás.", "Guide button and View + Menu need Shizuku; without it, Back."))
+            Hint(if (ready) tr("Vista + Menú se aprieta por ti: en RetroArch sale del juego (sus atajos de fábrica).",
+                    "View + Menu is pressed for you: in RetroArch it quits the game (its default shortcuts).")
+                else tr("Vista + Menú necesita Shizuku; sin él, se hace Atrás.", "View + Menu needs Shizuku; without it, Back."))
         }
     }
 }

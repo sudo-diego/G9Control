@@ -109,6 +109,11 @@ fun BatteryNowPanel(a: MainActivity) {
         if (!(b.plugged && !b.charging)) watts?.let { InfoRow(if (b.charging) tr("Entra", "Charging at") else tr("Consumo", "Draw"), "%.1f W".format(it)) }
         if (!b.plugged) PowerLog.recentAvg?.let { InfoRow(tr("Promedio del último minuto", "Last minute average"), "%.1f W".format(it)) }
         if (b.cycles >= 0) InfoRow(tr("Ciclos de carga", "Charge cycles"), "${b.cycles}")
+        var low by remember { mutableStateOf(AutoRules.lowBattery(a)) }
+        SwitchRow(tr("Aviso de batería baja", "Low battery notice"), low, tr("Tarjeta a 15, 10 y 5 % sin cargador", "Card at 15, 10 and 5 % unplugged")) {
+            low = it; AutoRules.setLowBattery(a, it)
+        }
+        TextButton(onClick = { AutoRules.preview(a, "battery") }) { Text(tr("Ver el aviso", "Show the notice")) }
     }
 }
 

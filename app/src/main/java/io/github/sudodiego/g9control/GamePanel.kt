@@ -164,6 +164,8 @@ private class PanelUi {
     var mode by mutableStateOf<String?>(null)
     /** Con la forma automática, el alto de la ventana queda fijo al entrar a un submenú (si se achicara, ZUI la desliza). */
     var lockedHeight by mutableStateOf(false)
+    /** Opacidad del contenido (0..1): baja y sube al pasar a un submenú o volver (fundido). */
+    var fade by androidx.compose.runtime.mutableFloatStateOf(1f)
     /** Mini monitor (RAM, W, CPU, temperatura) debajo del encabezado. */
     var stats by mutableStateOf(true)
     /** En un submenú (rendimiento): encabezado sin batería ni hora, y B vuelve. */
@@ -269,6 +271,36 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     /** Del submenú (rendimiento, frecuencia) al panel, con su mosaico elegido. */
+    private var fadeAnim: android.animation.Animator? = null
+
+    /**
+     * Cambiar lo que muestra el panel con un fundido, como al abrirlo: el contenido se desvanece (110 ms), cambia y
+     * vuelve a aparecer (220 ms, desacelerando). Antes el contenido cambiaba de golpe y solo aparecía.
+     */
+    private fun crossfade(change: () -> Unit) {
+        fadeAnim?.cancel()
+        val out = android.animation.ValueAnimator.ofFloat(ui.fade, 0f).apply {
+            duration = 110
+            interpolator = android.view.animation.AccelerateInterpolator()
+            addUpdateListener { ui.fade = it.animatedValue as Float }
+        }
+        val back = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 220
+            interpolator = android.view.animation.DecelerateInterpolator()
+            addUpdateListener { ui.fade = it.animatedValue as Float }
+        }
+        out.addListener(object : android.animation.AnimatorListenerAdapter() {
+            private var cancelled = false
+            override fun onAnimationCancel(a: android.animation.Animator) { cancelled = true }
+            override fun onAnimationEnd(a: android.animation.Animator) {
+                if (cancelled) return
+                change()
+                fadeAnim = back.also { it.start() }
+            }
+        })
+        fadeAnim = out.also { it.start() }
+    }
+
     /** Antes de pasar a un submenú: la ventana conserva su alto (y la tarjeta queda al centro). */
     private fun keepHeight() {
         val v = view ?: return
@@ -326,9 +358,9 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     private fun pickHz(hz: Int?) {
-        val app = svc.foregroundApp ?: return backToMain()
+        val app = svc.foregroundApp ?: return crossfade { backToMain() }
         RefreshRate.setForApp(svc, app, hz)
-        backToMain()
+        crossfade { backToMain() }
         // Cuando la pantalla ya cambió (unos cientos de ms), el mosaico muestra los Hz nuevos.
         RefreshRate.applyFor(svc, app) { main.postDelayed({ refresh() }, 400) }
     }
@@ -337,6 +369,7 @@ class GamePanel(private val svc: AutoModeService) {
     private var inPerfMenu = false
 
     fun hide() {
+        fadeAnim?.cancel(); fadeAnim = null; ui.fade = 1f
         main.removeCallbacks(timeout)
         main.removeCallbacks(stickRepeat)
         stickDir = 0 to 0
@@ -359,6 +392,15 @@ class GamePanel(private val svc: AutoModeService) {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
+    /**
+     * Batería baja, como en la Switch: la tarjeta de los avisos con el ícono en rojo, el nivel y cuánto queda. Se queda
+     * 6 s (un toast se olvida y la tablet se apagaba).
+     */
+    fun lowBattery(level: Int, left: String?) {
+        flash.show(flash.batteryIcon(level), tr("Batería baja · $level %", "Low battery · $level %"),
+            listOfNotNull(left?.let { tr("Quedan $it", "$it left") }, tr("Conecta el cargador", "Plug in the charger")).joinToString(" · "), 6000)
+    }
+
     /** Ejemplo del aviso de captura (desde Ajustes), con una miniatura de muestra y el sonido elegido. */
     fun previewShot() {
         flash.show(flash.sample())
@@ -378,8 +420,8 @@ class GamePanel(private val svc: AutoModeService) {
         val item = ui.items.getOrNull(ui.sel)
         if (ui.editing && item?.adjust != null) {
             when (e.keyCode) {
-                KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_DPAD_LEFT -> { item.adjust.invoke(-1); refresh() }
-                KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_DPAD_RIGHT -> { item.adjust.invoke(1); refresh() }
+                KeyEvent.KEYCODE_DPAD_LEFT -> { item.adjust.invoke(-1); refresh() }
+                KeyEvent.KEYCODE_DPAD_RIGHT -> { item.adjust.invoke(1); refresh() }
                 KeyEvent.KEYCODE_BUTTON_Y -> if (e.repeatCount == 0) { item.alt?.invoke(); refresh() }
                 KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK ->
                     if (e.repeatCount == 0) ui.editing = false
@@ -388,8 +430,6 @@ class GamePanel(private val svc: AutoModeService) {
             return true
         }
         when (e.keyCode) {
-            KeyEvent.KEYCODE_BUTTON_L1 -> move(-1)
-            KeyEvent.KEYCODE_BUTTON_R1 -> move(1)
             KeyEvent.KEYCODE_DPAD_LEFT -> moveGrid(-1, 0)
             KeyEvent.KEYCODE_DPAD_RIGHT -> moveGrid(1, 0)
             KeyEvent.KEYCODE_DPAD_UP -> moveGrid(0, -1)
@@ -399,7 +439,7 @@ class GamePanel(private val svc: AutoModeService) {
             }
             // B o tocar el botón Legion lo cierran (mantenerlo es lo que lo abre).
             // En un submenú B vuelve al panel.
-            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> if (e.repeatCount == 0) { if (inPerfMenu) backToMain() else hide() }
+            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> if (e.repeatCount == 0) { if (inPerfMenu) crossfade { backToMain() } else hide() }
             KeyEvent.KEYCODE_BUTTON_MODE -> if (e.repeatCount == 0) hide()
             // Y: la otra acción del mosaico (WiFi y Bluetooth: encender o apagar sin abrir la lista).
             KeyEvent.KEYCODE_BUTTON_Y -> if (e.repeatCount == 0 && item?.alt != null && item.adjust == null) { item.alt.invoke(); refresh() }
@@ -486,11 +526,6 @@ class GamePanel(private val svc: AutoModeService) {
         ui.sel = sel.coerceAtMost(ui.items.size - 1)
     }
 
-    private fun move(d: Int) {
-        val n = ui.items.size
-        if (n > 0) ui.sel = (ui.sel + d + n) % n
-    }
-
     private fun poke() {
         main.removeCallbacks(timeout)
         main.postDelayed(timeout, 10_000)
@@ -551,7 +586,7 @@ class GamePanel(private val svc: AutoModeService) {
             // Sin él y con Game Assistant a la vista: abre su panel, que tiene el botón de modo. Oculto y sin Shizuku: no sale.
             if (ready)
                 add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed,
-                    sub = ZuiGame.knownPerf(svc.foregroundApp)?.label ?: tr("Elegir", "Choose")) { showPerfMenu() })
+                    sub = ZuiGame.knownPerf(svc.foregroundApp)?.label ?: tr("Elegir", "Choose")) { crossfade { showPerfMenu() } })
             else if (AutoRules.gaHidden(svc) != true)
                 add(PanelItem(tr("Rendimiento", "Performance"), Icons.Outlined.Speed, sub = tr("En Game Assistant", "In Game Assistant")) { afterHide { openGameAssistant() } })
         }
@@ -593,7 +628,7 @@ class GamePanel(private val svc: AutoModeService) {
         val hzNow = RefreshRate.current(svc)
         val hzChosen = RefreshRate.forApp(svc, svc.foregroundApp)
         add(PanelItem(tr("Frecuencia", "Refresh rate"), Icons.Outlined.DisplaySettings, active = hzChosen != null,
-            sub = (hzNow?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { showHzMenu() })
+            sub = (hzNow?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { crossfade { showHzMenu() } })
         if (Aspect.available(svc)) {
             val wide = Aspect.is169(svc)
             add(PanelItem("16:9", Icons.Outlined.AspectRatio, PanelRow.SCREEN,
@@ -1149,9 +1184,6 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
     // Con forma fija el alto es el de la proporción y las filas de mosaicos se reparten lo que queda.
     val fixed = dims.height != null
     val shape = RoundedCornerShape(28.dp)
-    // Al entrar o salir de un submenú el contenido aparece desvaneciéndose, como el panel al abrirse.
-    val fade = remember { androidx.compose.animation.core.Animatable(1f) }
-    LaunchedEffect(ui.sub, ui.title) { fade.snapTo(0f); fade.animateTo(1f, androidx.compose.animation.core.tween(180)) }
     Surface(color = if (ThemeState.panelSeeThrough) Color.Transparent else PANEL_BG, shape = shape,
         modifier = modifier.then(dims.height?.let { Modifier.height(it) } ?: Modifier),
         border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
@@ -1162,7 +1194,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
             if (!ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
         }
         Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width).then(if (fixed) Modifier.fillMaxHeight() else Modifier)
-            .graphicsLayer { alpha = fade.value }) {
+            .graphicsLayer { alpha = ui.fade; val s = 0.97f + 0.03f * ui.fade; scaleX = s; scaleY = s }) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // El nombre ocupa lo que necesita (hasta la mitad); el resto empuja la batería y la hora a la derecha.
                 Text(ui.title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
@@ -1224,7 +1256,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
             Text(
                 ui.items.getOrNull(ui.sel)?.takeIf { ui.editing }?.hint
                     ?: if (ui.sub) tr("A elegir · B volver", "A select · B back")
-                    else tr("Stick, cruceta o LB / RB mover · A elegir · B cerrar", "Stick, D-pad or LB / RB move · A select · B close"),
+                    else tr("Stick o cruceta mover · A elegir · B cerrar", "Stick or D-pad move · A select · B close"),
                 color = PANEL_MUTED, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
@@ -1582,7 +1614,10 @@ private class ShotFlash(private val svc: AccessibilityService) {
         return Bitmap.createScaledBitmap(bmp, (bmp.width * h / bmp.height).coerceAtLeast(1), h, true)
     }
 
-    fun show(thumb: Bitmap) {
+    fun show(thumb: Bitmap) = show(thumb, tr("Captura guardada", "Screenshot saved"), null, 2200)
+
+    /** La misma tarjeta con otra imagen y texto (batería baja): [ms] lo que se queda antes de salir. */
+    fun show(thumb: Bitmap, title: String, line: String?, ms: Long) {
         hide()
         val px = { v: Int -> (v * dp).toInt() }
         val image = android.widget.ImageView(svc).apply {
@@ -1593,11 +1628,11 @@ private class ShotFlash(private val svc: AccessibilityService) {
             }
             clipToOutline = true
         }
-        val text = android.widget.TextView(svc).apply {
-            text = tr("Captura guardada", "Screenshot saved")
-            setTextColor(android.graphics.Color.WHITE)
-            textSize = 15f
+        val text = android.widget.LinearLayout(svc).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
             setPadding(px(14), 0, px(6), 0)
+            addView(android.widget.TextView(svc).apply { text = title; setTextColor(android.graphics.Color.WHITE); textSize = 15f })
+            line?.let { l -> addView(android.widget.TextView(svc).apply { text = l; setTextColor(0xFF9AA6BF.toInt()); textSize = 13f }) }
         }
         val card = android.widget.LinearLayout(svc).apply {
             orientation = android.widget.LinearLayout.HORIZONTAL
@@ -1642,7 +1677,26 @@ private class ShotFlash(private val svc: AccessibilityService) {
                 return true
             }
         })
-        main.postDelayed(slideOut, 2200)
+        main.postDelayed(slideOut, ms)
+    }
+
+    /** Ícono de batería baja (48 dp): contorno claro, relleno rojo con el nivel y la punta a la derecha. */
+    fun batteryIcon(level: Int): Bitmap {
+        val s = (48 * dp).toInt()
+        return Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888).also { b ->
+            val c = android.graphics.Canvas(b)
+            val stroke = 2.5f * dp
+            val body = android.graphics.RectF(4 * dp, 14 * dp, 40 * dp, 34 * dp)
+            val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+            p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = stroke; p.color = 0xFFE6EAF2.toInt()
+            c.drawRoundRect(body, 4 * dp, 4 * dp, p)
+            p.style = android.graphics.Paint.Style.FILL
+            c.drawRoundRect(android.graphics.RectF(41 * dp, 20 * dp, 44 * dp, 28 * dp), 1.5f * dp, 1.5f * dp, p)
+            p.color = 0xFFFF5A5F.toInt()
+            val inner = body.width() - 2 * (stroke + 1.5f * dp)
+            c.drawRoundRect(android.graphics.RectF(body.left + stroke + 1.5f * dp, body.top + stroke + 1.5f * dp,
+                body.left + stroke + 1.5f * dp + inner * (level.coerceIn(3, 100) / 100f), body.bottom - stroke - 1.5f * dp), 2 * dp, 2 * dp, p)
+        }
     }
 
     /** Posición y animación con que se mostró (se leen al mostrar: si cambian en Ajustes, sale igual que entró). */

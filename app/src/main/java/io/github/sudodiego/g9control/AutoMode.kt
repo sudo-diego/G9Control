@@ -99,6 +99,11 @@ object AutoRules {
     fun shizukuTile(ctx: Context) = sp(ctx).getBoolean("shizuku_tile", true)
     fun setShizukuTile(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("shizuku_tile", v).apply()
 
+    /** Aviso de batería baja (tarjeta a 15, 10 y 5 % sin cargador). */
+    fun lowBattery(ctx: Context) = sp(ctx).getBoolean("low_battery", true)
+    fun setLowBattery(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery", v).apply()
+    val LOW_LEVELS = listOf(15, 10, 5)
+
     /** Ráfaga de capturas: mantener RB (con el botón guía) sigue sacando una por segundo. */
     fun burstShots(ctx: Context) = sp(ctx).getBoolean("burst_shots", true)
     fun setBurstShots(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("burst_shots", v).apply()
@@ -162,10 +167,12 @@ object AutoRules {
      * nada. Los dos del medio se aprietan como si fuera el control, con Shizuku ([KeyInject]); mantener sigue
      * abriendo el panel sin que el juego reciba nada.
      */
-    enum class GuideTap { BACK, GUIDE, VIEW_MENU, NOTHING;
+    // "Botón guía" (mandarlo tal cual) se quitó: Android 15 marca todo botón enviado por software como de un dispositivo
+    // "Virtual" (aunque se le dé el id del G9; RetroArch decía "Virtual (0/0)"), así que un emulador no lo puede asignar
+    // como la guía del control. Las combinaciones sí sirven: RetroArch le aplica a "Virtual" su configuración de respaldo.
+    enum class GuideTap { BACK, VIEW_MENU, NOTHING;
         val label get() = when (this) {
-            BACK -> tr("Atrás", "Back"); GUIDE -> tr("Botón guía", "Guide button")
-            VIEW_MENU -> tr("Vista + Menú", "View + Menu"); NOTHING -> tr("Nada", "Nothing")
+            BACK -> tr("Atrás", "Back"); VIEW_MENU -> tr("Vista + Menú", "View + Menu"); NOTHING -> tr("Nada", "Nothing")
         }
     }
     /** RetroArch sale con Vista + Menú (sus atajos de fábrica en Android): esa es su opción de entrada. */
@@ -312,9 +319,10 @@ class AutoModeService : AccessibilityService() {
                     smartOn = false
                     scope.launch { if (ZuiBattery.readBypass() == true) ZuiBattery.setBypass(false, manual = false) }
                 }
-                Intent.ACTION_BATTERY_CHANGED -> { lastBattery = i; evaluateBypass() }
+                Intent.ACTION_BATTERY_CHANGED -> { lastBattery = i; evaluateBypass(); checkLowBattery(i) }
                 AutoRules.ACTION_PREVIEW -> when (val kind = i.getStringExtra("kind") ?: "banner") {
                     "shot" -> panel.previewShot()
+                    "battery" -> panel.lowBattery(15, ZuiBattery.dischargeTimeLeft(this@AutoModeService, PowerLog.recentAvg)?.let { ZuiBattery.formatTime(it) })
                     else -> guide.preview(kind)
                 }
                 AutoRules.ACTION_DARKEN -> if (Monitor.woken) toggleTabletScreen()
@@ -495,7 +503,11 @@ class AutoModeService : AccessibilityService() {
     private val displayListener = object : android.hardware.display.DisplayManager.DisplayListener {
         override fun onDisplayAdded(id: Int) = later()
         override fun onDisplayRemoved(id: Int) = later()
-        override fun onDisplayChanged(id: Int) { if (id != android.view.Display.DEFAULT_DISPLAY) later() }
+        override fun onDisplayChanged(id: Int) {
+            if (id != android.view.Display.DEFAULT_DISPLAY) later()
+            // La pantalla de la tablet cambió de frecuencia: que se mantenga la elegida (Ahorro la baja a 30).
+            else RefreshRate.onDisplayChanged()
+        }
         fun later() { main.removeCallbacks(monitorCheck); main.postDelayed(monitorCheck, 1500) }
     }
     private val monitorModeObserver = object : android.database.ContentObserver(main) {
@@ -617,6 +629,14 @@ class AutoModeService : AccessibilityService() {
             addAction(AutoRules.ACTION_SWITCH)
             addAction(AutoRules.ACTION_DARKEN)
         }, if (android.os.Build.VERSION.SDK_INT >= 33) Context.RECEIVER_NOT_EXPORTED else 0)
+        // Prueba desde el PC: hace lo mismo que tocar la guía en la app al frente (solo adb: pide DUMP, que el shell
+        // tiene y una app normal no). `adb shell am broadcast -a io.github.sudodiego.g9control.TEST_GUIDE_TAP`.
+        registerReceiver(object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) {
+                main.post { if (i.getStringExtra("what") == "battery") panel.lowBattery(15, "1 h 20 min") else guideTap() }
+            }
+        }, IntentFilter(ACTION_TEST_GUIDE_TAP), android.Manifest.permission.DUMP, main,
+            if (android.os.Build.VERSION.SDK_INT >= 33) Context.RECEIVER_EXPORTED else 0)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -919,6 +939,23 @@ class AutoModeService : AccessibilityService() {
         }
     }
 
+    /** El último umbral avisado (15, 10, 5); se olvida al enchufar o al pasar de 20 %. */
+    private var lowWarned = 101
+
+    /** Batería baja sin cargador: una tarjeta al cruzar cada umbral (no un toast que se olvida). */
+    private fun checkLowBattery(i: Intent) {
+        val level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val plugged = i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0
+        if (plugged || level > 20) { lowWarned = 101; return }
+        if (level < 0 || !AutoRules.lowBattery(this)) return
+        val step = AutoRules.LOW_LEVELS.firstOrNull { level <= it && it < lowWarned } ?: return
+        // Varios umbrales de golpe (se encendió con 4 %): solo el más bajo.
+        lowWarned = AutoRules.LOW_LEVELS.filter { level <= it }.minOrNull() ?: step
+        val left = ZuiBattery.dischargeTimeLeft(this, PowerLog.recentAvg)?.let { ZuiBattery.formatTime(it) }
+        Log.i(TAG, "batería baja: $level %")
+        panel.lowBattery(level, left)
+    }
+
     /** Mientras la app aprieta botones como el control (hasta este momento), el servicio no los toma. */
     @Volatile private var injectingUntil = 0L
     /** El control que apretó la guía: los botones que se envían salen de él. */
@@ -932,10 +969,15 @@ class AutoModeService : AccessibilityService() {
      * teclado virtual (RetroArch decía "virtual 0/0") y no como el control.
      */
     private fun injectDevice(): Int {
+        // Un control de verdad: gamepad, no virtual y con botón guía (descarta dispositivos raros que se declaran
+        // gamepad, como el 11 que salió en la prueba).
         fun real(id: Int) = android.view.InputDevice.getDevice(id)?.takeIf {
-            !it.isVirtual && (it.sources and android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD
-        }?.id
-        return real(legionDevice) ?: real(lastPadDevice) ?: android.view.InputDevice.getDeviceIds().toList().firstNotNullOfOrNull { real(it) } ?: legionDevice
+            !it.isVirtual && (it.sources and android.view.InputDevice.SOURCE_GAMEPAD) == android.view.InputDevice.SOURCE_GAMEPAD &&
+                it.hasKeys(KeyEvent.KEYCODE_BUTTON_MODE)[0]
+        }
+        val pads = android.view.InputDevice.getDeviceIds().toList().mapNotNull { real(it) }
+        return real(legionDevice)?.id ?: real(lastPadDevice)?.id
+            ?: pads.firstOrNull { it.name.contains("G9", true) }?.id ?: pads.firstOrNull()?.id ?: legionDevice
     }
 
     /** Tocar la guía en esta app: Atrás, o apretar botones como el control (con Shizuku), o nada. */
@@ -944,8 +986,6 @@ class AutoModeService : AccessibilityService() {
         val keys = when (tap) {
             AutoRules.GuideTap.BACK -> { if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK); return }
             AutoRules.GuideTap.NOTHING -> return
-            // 3 s apretado: al asignar un botón, RetroArch pide mantenerlo (con 1,1 s no alcanzaba).
-            AutoRules.GuideTap.GUIDE -> intArrayOf(KeyEvent.KEYCODE_BUTTON_MODE) to 3000
             AutoRules.GuideTap.VIEW_MENU -> intArrayOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START) to 150
         }
         if (Shell.state != Shell.State.READY) {
@@ -976,6 +1016,7 @@ class AutoModeService : AccessibilityService() {
                 }
                 legionOwned = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming
                 legionDevice = e.device?.id ?: e.deviceId
+                Log.i(TAG, "guía apretada: dispositivo ${e.deviceId} (${e.device?.name}), en $lastPackage")
                 if (legionOwned) {
                     legionPending = true
                     if (AutoRules.guide(this, AutoRules.Guide.HOLD_PANEL)) main.postDelayed(legionHold, 500)
@@ -1202,7 +1243,10 @@ class AutoModeService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
-    companion object { internal const val TAG = "G9Auto" }
+    companion object {
+        internal const val TAG = "G9Auto"
+        const val ACTION_TEST_GUIDE_TAP = "io.github.sudodiego.g9control.TEST_GUIDE_TAP"
+    }
 
     override fun onDestroy() {
         if (mouseOn) mouse.stop()
