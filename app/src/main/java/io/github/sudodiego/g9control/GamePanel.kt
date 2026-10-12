@@ -442,14 +442,14 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     /** Emulador sin internet y RAOfflineProxy apagado: el atajo para encenderlo (el porqué está en la app). */
-    fun raProxyHint() = flash.show(flash.sample(), tr("Sin internet", "Offline"),
+    fun raProxyHint() = flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Sin internet", "Offline"),
         tr("Para tus logros, enciende RAOfflineProxy", "For your achievements, turn on RAOfflineProxy"), 4500)
 
     /** Al empezar a transmitir: la guía va al PC, así que las capturas se sacan de otra forma. */
     fun streamTip() {
         // Solo el atajo; la explicación (la guía va al PC) está en Controles.
         val ds5 = ModeSwitcher.detect() == PadMode.DS5
-        flash.show(flash.sample(), tr("Capturas", "Screenshots"),
+        flash.show(flash.appIcon(svc.foregroundApp), tr("Capturas", "Screenshots"),
             if (ds5) tr("M dos veces o mantener L3 + R3", "M twice or hold L3 + R3") else tr("Mantener L3 + R3", "Hold L3 + R3"), 4000)
     }
 
@@ -1928,6 +1928,15 @@ private class ShotFlash(private val svc: AccessibilityService) {
     private class Out(val x: Float = 0f, val y: Float = 0f, val alpha: Float = 1f, val scale: Float = 1f)
 
     /** Miniatura de muestra para la vista previa: un degradado del tamaño de una captura. */
+    /** Ícono de una app (56 dp) para los avisos que no son capturas: se reconoce de qué se trata. */
+    fun appIcon(pkg: String?): Bitmap = pkg?.let { p ->
+        runCatching {
+            val d = svc.packageManager.getApplicationIcon(p)
+            val s = (56 * dp).toInt()
+            Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888).also { b -> d.setBounds(0, 0, s, s); d.draw(android.graphics.Canvas(b)) }
+        }.getOrNull()
+    } ?: sample()
+
     fun sample(): Bitmap {
         val h = (56 * dp).toInt()
         val w = h * 16 / 10
