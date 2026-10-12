@@ -1,113 +1,98 @@
-# G9 Control
+# TBF Companion
 
-**App de código abierto y sin cuenta para configurar el Legion Gaming Controller G9 en la tablet Lenovo Legion Y700 Gen 3.**
+**Una compañera para jugar en la tablet Lenovo Legion Y700 Gen 3, libre y sin cuenta, que además configura todo el Legion Gaming Controller G9.**
 
 [English](README.md)
 
-> **No está afiliada a Lenovo.** "Legion" y "Lenovo" son marcas de Lenovo. Esta es una app independiente y no oficial. Se comunica con el control por USB con un protocolo reconstruido estudiando la app oficial y probando el control; no contiene código ni recursos de la app oficial.
+> **No está afiliada con Lenovo.** "Legion" y "Lenovo" son marcas de Lenovo. Es una app independiente y no oficial. Habla con el G9 por USB con un protocolo reconstruido estudiando la app oficial y probando el control; no contiene código ni recursos de la app oficial.
 
-> **Esta app está hecha con vibe coding.** Todo el código, la investigación del protocolo y este README los escribió Claude (la IA de Anthropic) mediante Claude Code. Yo no escribí el código: describí lo que quería, probé cada versión en mi tablet y mi control, y conté qué funcionaba y qué no.
+> **Esta app está hecha con IA.** Todo el código, la investigación y este README los escribió Claude (la IA de Anthropic) con Claude Code. Yo describí lo que quería, probé cada versión en mi tablet y mi control, y conté qué funcionaba y qué no.
 
-![Inicio](docs/screenshots/home.png)
+## Qué es
 
-## Por qué
+Una capa de consola para jugar en la Y700: un panel que se abre desde cualquier juego, capturas limpias con un aviso como el de la Switch, herramientas de batería y calor, frecuencia de pantalla por juego, y una app que se maneja entera con el control. Sirve con **cualquier control**; el **G9** tiene su propia sección para configurar todo lo que el hardware permite.
 
-La app oficial de Legion funciona, pero pide una cuenta y trae un launcher y muchas cosas extra. G9 Control hace una sola cosa: configurar el control. Sin cuenta, sin acceso a internet y sin publicidad.
+Sin cuenta, sin permiso de internet, sin publicidad. Lo que necesita más permisos que una app normal se ve atenuado hasta activarlo, y la app dice por qué.
 
-Además hace cosas que la oficial no puede:
+Tiene tres secciones (LT / RT cambian de sección, LB / RB de pestaña):
 
-- **Cambia a modo DS5 por software.** La app oficial manda un modo que deja el G9 en Xbox.
-- **Cambia de modo solo según el juego** (X-Input o DS5), con una guía en pantalla para volver a Android.
-- **Graba macros con el propio control**, con un editor de línea de tiempo, y permite que los traseros copien Home o las diagonales de los sticks.
-- **Perfiles** con respaldo en archivo, **medición del desvío de los sticks** y **navegación completa con el control**.
-- **Cuida la memoria del control**: solo escribe lo que cambió, después de una pausa breve, y nunca en bucle.
-
-## Funciones
+### Tablet (cualquier control)
 
 | | |
 |---|---|
-| **Luces** | Las dos tiras y el botón Home: fijo, respiración, arcoíris, apagado; color, velocidad y brillo. |
-| **Sticks y gatillos** | Zonas muertas internas y externas con vista en vivo, recorrido de los gatillos, gatillo rápido, medición del desvío. |
-| **Vibración** | Cinco niveles por lado, prueba con los gatillos. |
-| **Controles** | Prueba de botones, intercambio A↔B / X↔Y, bloqueo de diagonales de la cruceta, intercambio stick izquierdo ↔ cruceta. |
-| **Traseros** | L4, R4, L5 y R5 copian cualquier botón (incluidos Home y las direcciones de los sticks) o una macro. |
-| **Perfiles** | Guardar, aplicar y respaldar configuraciones completas. |
-| **Juegos** | Eliges en qué modo se abre cada app; el control cambia al abrirla. |
-| **Panel de juego** | Manteniendo el botón Legion (o con L3 + R3), en cualquier app: un panel como los ajustes rápidos de Android, con barras de brillo y volumen, captura, Game Assistant, rendimiento, bypass, pantalla 16:9, Atrás, Inicio, Recientes, ajustes rápidos y modo del control. Se maneja con el stick, la cruceta, LB/RB o el dedo, sin quitarle el foco al juego. |
-| **Capturas** | Solo del juego (sin el puntero ni superposiciones), con un aviso con miniatura y sonido como en la Switch. Legion + RB (mantener RB saca una ráfaga) o mantener L3 + R3. |
-| **Monitor de rendimiento** | Barra sobre el juego con FPS, CPU (frecuencia y temperatura), GPU (uso y temperatura) y batería; se enciende desde el panel. Los FPS necesitan Shizuku. |
-| **Rendimiento** | Ahorro, Equilibrado o Bestia (los de Game Assistant) desde el control, sin tocar la pantalla. Necesita Shizuku. |
-| **Bypass charging** | Jugando enchufada, el cargador alimenta la tablet y la batería no carga ni se calienta. Manual (también desde el panel) o automático, con la batería y la temperatura mínimas que elijas. Necesita Shizuku. |
-| **Límite de carga** | Enchufada, al llegar al nivel que elijas (70 a 90 %) se activa el bypass: la batería deja de cargar. El de ZUI corta siempre en 80 %. Necesita Shizuku. |
-| **Pantalla 16:9** | Para un monitor externo: la imagen lo llena sin bordes. |
-| **Monitor externo** | Al conectarlo en modo espejo pasa sola a 16:9 (en todos los monitores o según cada uno) y vuelve a 16:10 al desconectarlo. La pantalla de la tablet puede quedar oscura, sin luz o apagada mientras tanto (sin luz y apagada necesitan Shizuku). |
-| **Botón Legion** | Tocar: Atrás. Mantener: panel de juego. Con RB: captura. Con LB: mantener Atrás (sale del juego en Dolphin; con Shizuku). Transmitiendo desde el PC (Artemis, Moonlight…) es el botón guía. |
-| **Brillo automático en juegos** | Game Assistant lo apaga al entrar a un juego; G9 Control puede dejarlo como esté. |
-| **Otro control** | Si juegas con otro control (un 8BitDo, por ejemplo), el G9 no cambia de modo ni pide volver a Android. |
-| **Volumen invertido** | Opcional: el botón de abajo de la tablet sube el volumen y el de arriba lo baja. |
-| **Ajustes rápidos** | Íconos Android, X-Input y DS5. |
-| **Idiomas** | Español e inglés. |
+| **Inicio** | Batería (W ahora, promedio del último minuto y autonomía; cargando, tiempo hasta el límite o a 100 %), temperatura, Hz, CPU; mosaicos de bypass, monitor y 16:9; memoria con las apps corriendo; controles conectados. |
+| **Batería** | Límite de carga propio (70–90 %), bypass manual y automático, aviso de batería baja (15, 10 y 5 %, como la Switch), consumo por app y **sesiones de juego**: W, CPU y temperaturas por juego, modo de rendimiento y Hz, para comparar modos con datos de verdad. |
+| **Pantalla** | 16:9 para un monitor (automático por monitor en espejo) y la pantalla de la tablet oscura, sin luz o apagada mientras está el monitor. |
+| **Juego** | Aviso y sonido de las capturas, el aspecto del panel (fondo, transparencia, forma y tamaño, mini monitor), el monitor de rendimiento, la frecuencia en juegos y Game Assistant. |
+| **Controles** | Qué hace el botón guía (tocar: Atrás; mantener: panel; + RB: captura, mantener RB: ráfaga; + LB: Atrás mantenido; 5 s: el G9 se apaga y la tablet se bloquea), qué hace tocarla en cada emulador (Vista + Menú sale de RetroArch), L3 + R3 para controles sin botón guía y el volumen invertido. |
+| **Probar control** | Botones, gatillos y sticks de cualquier control, con los controles conectados y los sticks en números para ver si tienen deriva. |
+
+### Panel de juego
+
+Mantén el botón guía (o L3 + R3, o el botón de accesibilidad) en cualquier app: un panel como los ajustes rápidos de Android sobre el juego, sin quitarle el foco. Mini monitor (RAM libre, W, CPU, temperatura de la batería), brillo y volumen, captura, Game Assistant, modo de rendimiento, Hz para esta app, bloquear gestos, apps recientes para volver a ellas (como un juego en suspensión), 16:9, WiFi y Bluetooth, mouse virtual, Atrás / Inicio / Recientes y el modo del G9. Se mueve con el stick o la cruceta, A elige y B cierra. Fondo: transparente, degradado o tu propia imagen o GIF, también translúcidos.
+
+### G9
+
+| | |
+|---|---|
+| **Modos** | Android, X-Input y **DS5** (el mejor en Android: vibración, giroscopio, touchpad), que la app oficial no puede poner. Cambia solo por juego, con una guía en pantalla de Vista + Menú para volver. |
+| **Luces, sticks, vibración** | Tiras de luz y el botón Home; zonas muertas y rango de gatillos con vista en vivo; gatillo rápido; intensidad de vibración. |
+| **Traseros y macros** | L4, R4, L5 y R5 como cualquier botón (también Home y las direcciones de los sticks) o una macro, elegidos en una grilla con forma de control; macros grabadas con el control, con línea de tiempo. |
+| **Perfiles** | Configuraciones completas con respaldo en archivo. |
+
+Cuida la memoria del control: solo escribe lo que cambió, después de una pausa corta.
+
+### Ajustes
+
+Idioma, tema, fondo de la app (degradado animado, imagen o GIF, **tu fondo de pantalla animado** —también Wallpaper Engine— o liso) y los permisos en un solo lugar.
 
 ## Requisitos
 
-- Lenovo Legion Y700 Gen 3 con el Legion Gaming Controller G9 (el control está hecho para esta tablet).
-- Probada con el firmware 0.52 del control en ZUI 17 (Android 15). Android 10 o superior.
+- Lenovo Legion Y700 Gen 3 (probada con ZUI 17, Android 15). La sección Tablet sirve con cualquier control; la del G9 necesita el Legion Gaming Controller G9 (probado con firmware 0.52).
 
-## Instalación
+## Instalar
 
-1. Descarga `G9Control-x.y.z.apk` desde [Releases](../../releases).
-2. Ábrela en la tablet. Si Android lo pide, permite instalar apps desde ese origen.
-3. Abre G9 Control. Una configuración inicial te guía con el resto:
-   - Coloca la tablet en el G9 en **modo Android** (indicador azul oscuro). Si está en X-Input (verde) o DS5 (blanco), mantén **Vista + Menú** unos 2 segundos.
-   - Cuando Android pida acceso USB, marca **Usar siempre** y acepta.
-   - Opcional: activa el **servicio de accesibilidad** para el cambio automático (ver abajo).
-   - Opcional: agrega los íconos **Android / X-Input / DS5** a los ajustes rápidos.
+1. Descarga la APK de [Releases](../../releases) y ábrela en la tablet (permite instalar desde ese origen si lo pide).
+2. Abre TBF Companion; una configuración inicial te guía.
+   - Para el G9: acopla la tablet en **modo Android** (luz azul oscuro; desde X-Input o DS5 mantén **Vista + Menú** 2 s) y permite el acceso USB con **Siempre**.
+   - Activa el **servicio de accesibilidad** para el panel, los atajos y todo lo automático.
 
 ### Sobre el servicio de accesibilidad
 
-El cambio automático por juego, la guía de Vista + Menú, los íconos de ajustes rápidos (desde X-Input/DS5), el panel de juego, el botón Legion, el volumen invertido, el bypass automático, el límite de carga y el monitor externo usan un servicio de accesibilidad. Android lo inicia solo al encender la tablet: no hace falta abrir la app. Esto es lo que hace con él:
+El panel de juego, los atajos, las capturas, el cambio por juego y lo automático usan un servicio de accesibilidad, que:
 
-- **Ve qué app está en pantalla** (cambios de ventana), para cambiar el modo según el juego.
-- **Ve los botones del control**, para seguir Vista + Menú en la guía, manejar el panel de juego y el botón Legion y, solo si lo eliges, bloquear los botones mientras hay un aviso en pantalla. Si inviertes el volumen, también los botones de volumen de la tablet. Mientras el panel está abierto también ve los sticks y la cruceta, para moverse en él (no llegan al juego).
-- **Saca capturas cuando se lo pides** (desde el panel, con Legion + RB, con L3 + R3 mantenidos o con M dos veces en DS5): solo de la ventana del juego, guardadas en la tablet (Imágenes/Screenshots). Mientras cambia el modo de rendimiento muestra una imagen congelada del juego, que solo está en memoria y no se guarda.
-- **Hace gestos solo sobre el Game Assistant de la tablet** (Lenovo ZUI): el deslizamiento que abre su panel desde la pestaña lateral y el toque en su botón de rendimiento.
+- ve qué app está en pantalla (cambios de ventana) y los botones del control (y, con el panel abierto, los sticks, para que no lleguen al juego);
+- saca capturas cuando lo pides, solo de la ventana del juego, guardadas en la tablet;
+- hace gestos solo sobre Game Assistant de la tablet (abrir su panel y cambiar su modo de rendimiento).
 
-Para capturar solo la ventana del juego, Android exige el permiso de ver el contenido de las ventanas: sin él no dice cuál es la ventana del juego. Por eso, al activarlo, Android avisa que la app puede leer la pantalla. G9 Control usa ese permiso solo para la lista de ventanas (cuál es la del juego): no lee sus textos ni sus botones y no ve lo que escribes. La app no tiene permiso de internet, así que nada sale de la tablet.
+Para capturar solo la ventana del juego Android pide el permiso de ver el contenido de las ventanas; la app lo usa solo para la lista de ventanas, nunca su texto. La app no tiene permiso de internet: nada sale de la tablet. Si Android dice **"Ajuste restringido"**: Ajustes → Apps → TBF Companion → ⋮ → **Permitir ajustes restringidos**.
 
-Si Android muestra **«Ajuste restringido»** al activarlo: Ajustes → Apps → G9 Control → ⋮ (arriba a la derecha) → **Permitir ajustes restringidos**, y vuelve a intentarlo.
+### Opcional: Shizuku y un permiso de adb
 
-### Opcional: Shizuku y un permiso por adb
+Casi todo funciona sin nada más.
 
-Casi todo funciona sin nada extra. Dos cosas necesitan más permisos que los de una app normal:
-
-- **Pantalla 16:9, brillo desde el panel y brillo automático en juegos:** un permiso que se da una sola vez desde un computador y queda (también tras reiniciar o actualizar):
+- **16:9, brillo desde el panel, bloquear gestos y brillo automático en juegos:** un permiso que se da una vez desde un computador (queda):
   `adb shell pm grant io.github.sudodiego.g9control android.permission.WRITE_SECURE_SETTINGS`
-- **Bypass charging, límite de carga, modo de rendimiento, ocultar Game Assistant, mantener Atrás y apagar la pantalla de la tablet con un monitor:** [Shizuku](https://shizuku.rikka.app/) iniciado (hay que iniciarlo tras cada reinicio de la tablet). En Ajustes → Permisos, toca **Dar permiso**. La ROM solo deja estas funciones a apps del sistema, y el shell de Shizuku cuenta como tal. G9 Control solo le pide una lista fija de comandos: activar o leer el bypass y el límite de carga de ZUI, mostrar u ocultar Game Assistant, leer su registro para saber el modo, mantener Atrás, apagar o encender el panel (o solo su luz) y, si falta el permiso de arriba, cambiar el tamaño de pantalla. Sin Shizuku, lo que lo necesita sale atenuado en el panel y elegirlo abre Shizuku.
+- **Bypass y límite de carga, ocultar Game Assistant y su modo de rendimiento, FPS en el monitor, apps corriendo (RAM, CPU, detener), encender o apagar WiFi y Bluetooth, arrastrar con el mouse virtual, la pantalla de la tablet apagada con un monitor, atajos de emuladores y mantener los Hz elegidos en modo Ahorro:** [Shizuku](https://shizuku.rikka.app/) corriendo. La app solo le pide una lista fija de comandos. Sin él, eso se ve atenuado y la app explica qué falta.
 
-Ajustes → Permisos muestra el estado de todo esto y cómo activarlo, e Inicio avisa si falta algo que estás usando.
+## Límites
 
-## Limitaciones
-
-- **No actualiza el firmware.** Es a propósito: una actualización que falla puede dejar el control inservible. Si alguna vez lo necesitas, usa la app oficial de Legion una vez.
-- La app solo configura el control en **modo Android**. En X-Input y DS5 el control no tiene canal de configuración, así que volver a Android siempre es con Vista + Menú (la app te guía).
-- En modo Android, los juegos hacen vibrar la tablet, no el control (comportamiento del firmware).
-- En modo Android, M dos veces saca la captura del sistema (Android la procesa antes que cualquier app). Para una captura limpia, Legion + RB.
-- Android deja a la app sacar una captura por segundo como mucho: las ráfagas van a ese ritmo.
-- Mantener el botón Legion 5 segundos apaga el G9 (es del firmware).
-- Transmitiendo desde el PC, el botón Legion va al PC: Legion + RB no captura ahí; con el G9 en DS5 sirve mantener L3 + R3 (Artemis no deja pasar M dos veces, porque captura el puntero). Con el control tomado por Artemis por USB (X-Input) Android no ve ningún botón.
-- Algunas apps abiertas se cierran al cambiar entre 16:9 y 16:10 (por ejemplo Dolphin): conviene cambiarlo antes de abrirlas.
-- Con un monitor, si la pantalla de la tablet queda apagada sin querer (por ejemplo, si G9 Control se cerró a la fuerza), **apretar dos veces el botón de encendido** siempre la vuelve a encender. Desconectar el monitor también sirve. Con el monitor conectado al USB-C el G9 no responde: usa otro control (por Bluetooth, por ejemplo).
+- **Sin actualizaciones de firmware** del G9, a propósito (una actualización fallida puede dejarlo inservible).
+- El G9 solo se configura en **modo Android**; volver desde X-Input o DS5 es siempre con Vista + Menú (la app te guía).
+- Android 15 marca los botones enviados por software como de un dispositivo "Virtual": los emuladores aceptan combinaciones como Vista + Menú, pero no se pueden asignar como un botón propio del G9.
+- En modo Android los juegos hacen vibrar la tablet, no el G9; su jack de 3,5 mm no funciona en Android (firmware).
+- Capturas: como mucho una por segundo (el límite de Android para servicios de accesibilidad).
+- Transmitiendo desde un PC (Artemis, Moonlight…) el botón guía va al PC.
+- Algunas apps se cierran al cambiar entre 16:9 y 16:10 (Dolphin, por ejemplo).
 
 ## Compilar
-
-Con Android Studio (o solo el JDK que trae):
 
 ```
 ./gradlew assembleRelease
 ```
 
-Sin un archivo `keystore.properties`, la versión release se firma con la clave de depuración. Las notas del protocolo y todo lo que se probó están en [CONTEXTO.md](CONTEXTO.md).
+Sin un archivo `keystore.properties` la release se firma con la clave de depuración. Las notas del protocolo y todo lo probado están en [CONTEXTO.md](CONTEXTO.md).
 
 ## Licencia
 
-[GPL-3.0](LICENSE). Puedes usarla, estudiarla, modificarla y compartirla; las versiones modificadas deben seguir siendo de código abierto con la misma licencia.
+[GPL-3.0](LICENSE).
