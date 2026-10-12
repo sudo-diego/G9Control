@@ -354,7 +354,7 @@ private fun HintBar(s: AppState) {
             else if (s.editingMacro != null) listOf("A" to tr("Elegir", "Select"), "B" to tr("Cerrar macro", "Close macro"), "LB RB" to tr("Pestañas", "Tabs"))
             // LB RB solo donde hay pestañas (Ajustes tiene una sola página).
             else listOfNotNull("A" to tr("Elegir", "Select"), if (s.section.pages.size > 1) "LB RB" to tr("Pestañas", "Tabs") else null,
-                "LT RT" to tr("Secciones", "Sections"), "B" to tr("Mantén 3 s para salir", "Hold 3 s to exit"))
+                "LT RT" to tr("Secciones", "Sections"), "B" to tr("Mantén 2 s para salir", "Hold 2 s to exit"))
             hints.forEach { (k, v) ->
                 Spacer(Modifier.width(18.dp))
                 // El aro de B es la cuenta atrás de mantener (salir de la app, de la prueba); cerrar la macro es un toque.

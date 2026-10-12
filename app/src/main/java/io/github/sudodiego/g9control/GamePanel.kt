@@ -126,6 +126,8 @@ private class PanelItem(
     val set: ((Float) -> Unit)? = null, val hint: String? = null,
     /** Ícono de una app (recientes) en vez del de [icon]. */
     val appIcon: androidx.compose.ui.graphics.ImageBitmap? = null,
+    /** En rojo: lo que va a pasar no se deshace (cerrar una reciente, a la espera de confirmar). */
+    val danger: Boolean = false,
     val run: () -> Unit = {}
 )
 
@@ -214,6 +216,7 @@ class GamePanel(private val svc: AutoModeService) {
         if (view == null) create()
         svc.setPanelSticks(true)
         poke()
+        main.removeCallbacks(live); main.postDelayed(live, LIVE_MS)
         // Bypass: igual, lo que se sabe al instante y se confirma en segundo plano (también fuera de los juegos).
         if (Shell.state == Shell.State.READY) scope.launch {
             val before = ZuiBattery.bypassNow
@@ -379,10 +382,25 @@ class GamePanel(private val svc: AutoModeService) {
         RefreshRate.applyFor(svc, app) { main.postDelayed({ refresh() }, 400) }
     }
 
+    /**
+     * Mientras está abierto, encabezado y mosaicos se recalculan cada [LIVE_MS]: el brillo automático que va bajando,
+     * enchufar (tiempo de carga), el volumen con los botones, WiFi o Bluetooth cambiados por fuera. Antes solo al abrir
+     * o al tocar algo. No en el submenú de rendimiento ni durante un fundido; la selección se mantiene (por nombre).
+     */
+    private val live: Runnable = object : Runnable {
+        override fun run() {
+            if (!isOpen) return
+            if (!inPerfMenu && fadeAnim == null) { header(); refresh() }
+            main.postDelayed(this, LIVE_MS)
+        }
+    }
+    private val LIVE_MS = 1500L
+
     /** El panel muestra el submenú de rendimiento (no se reemplaza por la lista principal al confirmar algo). */
     private var inPerfMenu = false
 
     fun hide() {
+        main.removeCallbacks(live)
         fadeAnim?.cancel(); fadeAnim = null; ui.fade = 1f
         main.removeCallbacks(timeout)
         main.removeCallbacks(stickRepeat)
@@ -597,8 +615,8 @@ class GamePanel(private val svc: AutoModeService) {
         RecentApps.list(svc).filter { it != svc.foregroundApp }.take(COLUMNS).forEach { pkg ->
             val armed = closeArmed == pkg
             add(PanelItem(RecentApps.label(svc, pkg), Icons.Outlined.Layers, PanelRow.RECENT,
-                sub = if (armed) tr("Otra Y la cierra", "Y again closes") else tr("Volver", "Resume"),
-                active = armed, appIcon = RecentApps.icon(svc, pkg), alt = { closeRecent(pkg) }) { hide(); RecentApps.open(svc, pkg) })
+                sub = if (armed) tr("¿Cerrar? Pulsa Y", "Close? Press Y") else tr("Volver", "Resume"),
+                danger = armed, appIcon = RecentApps.icon(svc, pkg), alt = { closeRecent(pkg) }) { hide(); RecentApps.open(svc, pkg) })
         }
         // Arriba, brillo y volumen como barras (se arrastran con el dedo o se ajustan con A y ← →).
         // Cada barra con su botón al lado (brillo automático, silencio), que también se toca con el dedo.
@@ -1470,9 +1488,9 @@ private fun PanelToggle(item: PanelItem, selected: Boolean, onClick: () -> Unit)
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val fg = if (item.active) ON_TILE_ON else PANEL_FG
+    val fg = if (item.danger) Color.White else if (item.active) ON_TILE_ON else PANEL_FG
     Surface(
-        color = if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
+        color = if (item.danger) Color(0xFFE5484D) else if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
         border = if (selected) BorderStroke(2.5.dp, SELECTED) else if (glassPanel && !item.active) BorderStroke(1.dp, GLASS_EDGE) else null,
         modifier = modifier.clip(RoundedCornerShape(22.dp))
             .combinedClickable(onClick = onClick, onLongClick = item.alt)
@@ -1628,13 +1646,13 @@ private class FreezeCover(private val svc: AccessibilityService) {
         val t = android.widget.TextView(svc).apply {
             // El título no cambia en todo el proceso (si cambia al final no se alcanza a leer).
             text = tr("Rendimiento: $modeLabel", "Performance: $modeLabel")
-            setTextColor(android.graphics.Color.WHITE)
+            setTextColor(if (light) 0xFF14203A.toInt() else android.graphics.Color.WHITE)
             textSize = 16f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
         val s = android.widget.TextView(svc).apply {
             text = tr("Un momento…", "One moment…")
-            setTextColor(0xFF9AA6BF.toInt())
+            setTextColor(if (light) 0xFF56607A.toInt() else 0xFF9AA6BF.toInt())
             textSize = 13f
         }
         val texts = android.widget.LinearLayout(svc).apply {
@@ -1647,7 +1665,8 @@ private class FreezeCover(private val svc: AccessibilityService) {
             orientation = android.widget.LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(px(18), px(14), px(22), px(14))
-            background = android.graphics.drawable.GradientDrawable().apply { setColor(0xEE0E1424.toInt()); cornerRadius = 16 * dp }
+            // Con el tema del panel (claro u oscuro).
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(if (light) 0xF2F3F6FB.toInt() else 0xEE0E1424.toInt()); cornerRadius = 16 * dp }
             addView(icon, android.widget.LinearLayout.LayoutParams(px(40), px(40)))
             addView(texts)
             alpha = 0f
@@ -1725,7 +1744,7 @@ private class FreezeCover(private val svc: AccessibilityService) {
  * al centro y un halo se expande y se desvanece (como una luz que se prende). Si falla, el anillo queda gris.
  */
 private class PerfRing(ctx: Context) : android.view.View(ctx) {
-    private val accent = 0xFF5CC8FF.toInt()
+    private val accent = if (ThemeState.panelLight) 0xFF1E7FC8.toInt() else 0xFF5CC8FF.toInt()
     private val stroke = 3f * ctx.resources.displayMetrics.density
     private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         style = android.graphics.Paint.Style.STROKE; strokeWidth = stroke; strokeCap = android.graphics.Paint.Cap.ROUND; color = accent

@@ -307,6 +307,12 @@ private fun PanelLookPanel(a: MainActivity) {
     var stats by remember { mutableStateOf(Prefs.panelStats(a)) }
     var loop by remember { mutableStateOf(ThemeState.panelLoop) }
     Panel(tr("Panel de juego", "Game panel")) {
+        // Ver cómo queda sin salir de la app (también se abre manteniendo la guía, aquí y en cualquier app).
+        OutlinedButton(onClick = { AutoModeService.active?.openPanel() }, enabled = AutoModeService.active != null) {
+            Text(tr("Abrir el panel", "Open the panel"))
+        }
+        if (AutoModeService.active == null) Text(tr("Activa el servicio de accesibilidad para usar el panel.", "Turn on the accessibility service to use the panel."),
+            fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
         Text(tr("Fondo", "Background"), fontSize = 14.sp)
         ChoiceChips(PanelBackground.entries.map { it to it.label }, ThemeState.panelBackground) {
             if (it == PanelBackground.IMAGE && ThemeState.panelUri == null) a.pickPanelBackground()
@@ -329,12 +335,6 @@ private fun PanelLookPanel(a: MainActivity) {
         Text(tr("Forma", "Shape"), fontSize = 14.sp)
         ChoiceChips(PanelShape.entries.map { it to it.label }, ThemeState.panelShape) { ThemeState.panelShape = it; Prefs.setPanelShape(a, it) }
         SliderRow(tr("Tamaño (%)", "Size (%)"), ThemeState.panelScale, 60..120) { ThemeState.panelScale = it; Prefs.setPanelScale(a, it) }
-        // Ver cómo queda sin salir de la app (también se abre manteniendo la guía, aquí y en cualquier app).
-        OutlinedButton(onClick = { AutoModeService.active?.openPanel() }, enabled = AutoModeService.active != null) {
-            Text(tr("Abrir el panel", "Open the panel"))
-        }
-        if (AutoModeService.active == null) Text(tr("Activa el servicio de accesibilidad para usar el panel.", "Turn on the accessibility service to use the panel."),
-            fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
         SwitchRow(tr("Mini monitor", "Mini monitor"), stats, tr("RAM libre, watts, CPU y temperatura arriba del panel", "Free RAM, watts, CPU and temperature at the top of the panel")) {
             stats = it; Prefs.setPanelStats(a, it)
         }

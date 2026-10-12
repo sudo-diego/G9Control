@@ -786,6 +786,9 @@ class AutoModeService : AccessibilityService() {
     /** Botones del control cuya presión llegó a la app: su soltar tiene que llegar también. */
     private val delivered = mutableSetOf<Int>()
 
+    /** Botones del control que se apretaron con la app al frente (su soltar no le llega a otra app). */
+    private val pressedInApp = mutableSetOf<Int>()
+
     /**
      * Si la presión de un botón llegó a la app, su soltar llega siempre, aunque mientras tanto se haya abierto el
      * panel o la guía (si no, la app lo cree apretado para siempre: pasaba con el primer stick de L3 + R3).
@@ -794,10 +797,17 @@ class AutoModeService : AccessibilityService() {
         val k = event.keyCode
         // Soltar la guía cancela siempre el bloqueo de 5 s, antes que nada: con el panel abierto el soltar va al panel
         // y no llegaba a legionKey (la tablet se bloqueaba sola 5 s después de abrir el panel manteniendo la guía).
-        // Se salió de la app manteniendo B 3 s: ese B sigue apretado y no tiene que llegarle al juego que queda al frente.
-        if (k == KeyEvent.KEYCODE_BUTTON_B && AppKeys.swallowB) {
-            if (event.action == KeyEvent.ACTION_UP || android.os.SystemClock.uptimeMillis() > AppKeys.swallowUntil) AppKeys.swallowB = false
-            return true
+        // Botones apretados con la app al frente (salir manteniendo B): si al soltarlos ya está otra app, no le llegan
+        // (si no, el juego que queda al frente recibía ese B). No depende de que la app avise: se mira al soltar.
+        if (KeyEvent.isGamepadButton(k)) {
+            if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
+                if (appInFront || AppKeys.swallowB) pressedInApp += k else pressedInApp -= k
+            } else if (event.action == KeyEvent.ACTION_DOWN && k in pressedInApp && currentApp() != packageName) {
+                return true   // repetición de un botón que se apretó en la app
+            } else if (event.action == KeyEvent.ACTION_UP && pressedInApp.remove(k)) {
+                if (k == KeyEvent.KEYCODE_BUTTON_B) AppKeys.swallowB = false
+                if (currentApp() != packageName) { Log.d(TAG, "soltar de ${KeyEvent.keyCodeToString(k)} apretado en la app: no le llega a ${currentApp()}"); return true }
+            }
         }
         if (k == KeyEvent.KEYCODE_BUTTON_MODE) trackGuide(event)
         // Otro botón del mismo control con la guía apretada (Vista + Menú, navegar el panel): no es "mantener para apagar".

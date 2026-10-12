@@ -227,13 +227,13 @@ class MainActivity : ComponentActivity() {
             s.hold.onKey(e.keyCode, e.action == KeyEvent.ACTION_DOWN)
         }
         markTested()
-        // Mantener B: 1 s sale de la prueba (o de la grabación); 3 s sale de la app. Actúa sin soltarlo. En el editor
+        // Mantener B: 1 s sale de la prueba (o de la grabación); 2 s sale de la app. Actúa sin soltarlo. En el editor
         // de macros B cierra la macro (lo dice la barra de abajo): mantenerlo no sale de la app.
         if (e.keyCode == KeyEvent.KEYCODE_BUTTON_B && !(s.editingMacro != null && !s.capturing)) when (e.action) {
             KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
                 bHoldFired = false
                 bHandler.removeCallbacks(bHold)
-                val ms = if (s.capturing) 1000L else 3000L
+                val ms = if (s.capturing) 1000L else 2000L
                 s.bHold = android.os.SystemClock.uptimeMillis() to ms
                 bHandler.postDelayed(bHold, ms)
             }
