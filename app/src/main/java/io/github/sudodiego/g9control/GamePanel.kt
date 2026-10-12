@@ -409,6 +409,14 @@ class GamePanel(private val svc: AutoModeService) {
             if (AutoRules.lowBatteryOverToast(svc)) NoticePos.entries.first { it.h == 0 && it.v == 1 } else null)
     }
 
+    /** Al empezar a transmitir: la guía va al PC, así que las capturas se sacan de otra forma. */
+    fun streamTip() {
+        val pad = ModeSwitcher.detect()
+        flash.show(flash.sample(), tr("Transmitiendo: la guía va al PC", "Streaming: the guide goes to the PC"),
+            if (pad == PadMode.DS5) tr("Capturas: M dos veces o mantener L3 + R3", "Screenshots: M twice or hold L3 + R3")
+            else tr("Capturas: mantener L3 + R3", "Screenshots: hold L3 + R3"), 5000)
+    }
+
     /** Ejemplo del aviso de captura (desde Ajustes), con una miniatura de muestra y el sonido elegido. */
     fun previewShot() {
         flash.show(flash.sample())

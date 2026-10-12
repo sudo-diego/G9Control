@@ -99,6 +99,10 @@ object AutoRules {
     fun shizukuTile(ctx: Context) = sp(ctx).getBoolean("shizuku_tile", true)
     fun setShizukuTile(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("shizuku_tile", v).apply()
 
+    /** Al empezar a transmitir desde el PC, recordar que las capturas van con M dos veces o L3 + R3. */
+    fun streamTip(ctx: Context) = sp(ctx).getBoolean("stream_tip", true)
+    fun setStreamTip(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("stream_tip", v).apply()
+
     /** Aviso de batería baja (tarjeta a 15, 10 y 5 % sin cargador). */
     fun lowBattery(ctx: Context) = sp(ctx).getBoolean("low_battery", true)
     fun setLowBattery(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery", v).apply()
@@ -286,6 +290,11 @@ class AutoModeService : AccessibilityService() {
     private var lastPackage: String? = null
     /** Transmitiendo desde un PC o consola (el botón Legion pasa normal). */
     private var streaming = false
+        set(v) {
+            // Al empezar a transmitir: un aviso de cómo sacar capturas ahí (la guía va al PC).
+            if (v && !field && AutoRules.streamTip(this)) main.postDelayed({ panel.streamTip() }, 1500)
+            field = v
+        }
     /** App al frente (la última que no es pasajera). */
     /** La app al frente: la de las ventanas ahora (si el aviso de cambio no llegó, [lastPackage] quedaba viejo). */
     val foregroundApp: String? get() = currentApp()

@@ -40,6 +40,7 @@ private fun GuidePanel(a: MainActivity) {
     var on by remember { mutableStateOf(AutoRules.legionKeys(a)) }
     val states = remember { AutoRules.Guide.entries.associateWith { mutableStateOf(AutoRules.guide(a, it)) } }
     var burst by remember { mutableStateOf(AutoRules.burstShots(a)) }
+    var streamTip by remember { mutableStateOf(AutoRules.streamTip(a)) }
     CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Botón guía", "Guide button"), tr("Legion en el G9 · Xbox, PS u Home en otros", "Legion on the G9 · Xbox, PS or Home on others"),
             trailing = { Switch(on, { on = it; AutoRules.setLegionKeys(a, it) }, enabled = LocalGateOk.current) }) {
@@ -65,6 +66,9 @@ private fun GuidePanel(a: MainActivity) {
                     row(AutoRules.Guide.LB_BACK).value) {
                     row(AutoRules.Guide.LB_BACK).value = it; AutoRules.setGuide(a, AutoRules.Guide.LB_BACK, it)
                 }
+            }
+            SwitchRow(tr("Aviso al transmitir", "Notice when streaming"), streamTip, tr("Cómo sacar capturas en Artemis o Moonlight", "How to take screenshots in Artemis or Moonlight")) {
+                streamTip = it; AutoRules.setStreamTip(a, it)
             }
             Hint(tr("Transmitiendo desde el PC (Artemis, Moonlight) la guía va al PC: ahí las capturas se sacan con M dos veces (G9 en DS5) o manteniendo L3 + R3. En el G9, mantener la guía 5 s lo apaga.",
                 "While streaming from a PC (Artemis, Moonlight) the guide goes to the PC: there, take screenshots with M twice (G9 in DS5) or by holding L3 + R3. On the G9, holding the guide 5 s turns it off."))
