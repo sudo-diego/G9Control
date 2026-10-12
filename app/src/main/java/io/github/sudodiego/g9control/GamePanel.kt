@@ -340,10 +340,13 @@ class GamePanel(private val svc: AutoModeService) {
         stickDir = 0 to 0
         ui.editing = false
         svc.setPanelSticks(false)
-        view?.let { runCatching { wm.removeView(it) } }
-        view = null
-        owner?.destroy()
-        owner = null
+        // Se suelta al instante (deja de recibir botones) pero la ventana se va animada: se desvanece, o se desliza a la
+        // derecha en el lateral. Antes se quitaba de golpe y a veces no se veía ninguna animación de salida.
+        val v = view; val o = owner
+        view = null; owner = null
+        if (v != null) v.animate().alpha(0f).translationX(if (ThemeState.panelSide) v.width * 0.5f else 0f).setDuration(160)
+            .withEndAction { runCatching { wm.removeView(v) }; o?.destroy() }.start()
+        else o?.destroy()
     }
 
     /** Al apagarse el servicio. */

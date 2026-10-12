@@ -57,6 +57,10 @@ object Prefs {
     fun setPanelSee(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_see", v).apply()
     fun panelTone(ctx: Context) = runCatching { PanelTone.valueOf(sp(ctx).getString("panel_tone", null)!!) }.getOrDefault(PanelTone.DARK)
     fun setPanelTone(ctx: Context, v: PanelTone) = sp(ctx).edit().putString("panel_tone", v.name).apply()
+    fun panelFit(ctx: Context) = runCatching { ImageFit.valueOf(sp(ctx).getString("panel_fit", null)!!) }.getOrDefault(ImageFit.FILL)
+    fun setPanelFit(ctx: Context, v: ImageFit) = sp(ctx).edit().putString("panel_fit", v.name).apply()
+    fun panelFocus(ctx: Context) = sp(ctx).getFloat("panel_focus", 0.5f)
+    fun setPanelFocus(ctx: Context, v: Float) = sp(ctx).edit().putFloat("panel_focus", v).apply()
     fun panelStyle(ctx: Context) = runCatching { PanelStyle.valueOf(sp(ctx).getString("panel_style", null)!!) }.getOrDefault(PanelStyle.CENTER)
     fun setPanelStyle(ctx: Context, v: PanelStyle) = sp(ctx).edit().putString("panel_style", v.name).apply()
 

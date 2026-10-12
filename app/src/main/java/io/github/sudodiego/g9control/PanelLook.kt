@@ -212,8 +212,7 @@ internal val SELECTED get() = if (light) Color(0xFF14203A) else Color.White
 // Con fondo (degradado o imagen) los mosaicos son de vidrio: translúcidos con un borde claro, como en la app.
 internal val TILE_GLASS get() = if (light) Color(0x99FFFFFF) else Color(0x2EFFFFFF)
 internal val GLASS_EDGE get() = if (light) Color(0x80FFFFFF) else Color(0x24FFFFFF)
-// Lateral: fondo liso del tema (la imagen va solo de cabecera), así que mosaicos sólidos, sin vidrio.
-internal val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN && !ThemeState.panelSide
+internal val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN
 // Transparente: los mosaicos llevan más cuerpo para leerse sobre cualquier juego.
 internal val TILE_CLEAR get() = if (light) Color(0xD0F4F7FC) else Color(0xB8141C30)
 /** Halo de los textos sueltos (secciones, hora, la línea de abajo): se leen sobre cualquier imagen o juego. */
@@ -222,7 +221,7 @@ internal val LABEL_STYLE get() = androidx.compose.ui.text.TextStyle(shadow = and
 /** Velo sobre el degradado o la imagen, para que se lea el texto. */
 internal val PANEL_VEIL get() = if (light) Color(0x99EEF2F8) else Color(0x660A0F1F)
 internal val tileColor get() = when {
-    ThemeState.panelBackground == PanelBackground.PLAIN || ThemeState.panelSide -> TILE
+    ThemeState.panelBackground == PanelBackground.PLAIN -> TILE
     ThemeState.panelSeeThrough -> TILE_CLEAR
     else -> TILE_GLASS
 }
@@ -268,8 +267,14 @@ internal fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int)
     // Con forma fija el alto es el de la proporción y las filas de mosaicos se reparten lo que queda.
     val fixed = dims.height != null
     val shape = RoundedCornerShape(28.dp)
+    // Como mucho el alto de la pantalla (en las unidades de la tarjeta, que vienen escaladas por el tamaño): con tamaños
+    // grandes se salía por arriba y por abajo. Si no cabe, la grilla se desplaza (hasta lo elegido, ver bringSelected).
+    val maxH = (ctx.resources.configuration.screenHeightDp / panelScale * 0.94f).dp
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    val rowTops = remember { androidx.compose.runtime.mutableStateMapOf<Int, Pair<Int, Int>>() }
+    BringSelected(ui, scroll, rowTops)
     Surface(color = if (ThemeState.panelSeeThrough) Color.Transparent else PANEL_BG, shape = shape,
-        modifier = modifier.then(dims.height?.let { Modifier.height(it) } ?: Modifier),
+        modifier = modifier.then(dims.height?.let { Modifier.height(it) } ?: Modifier.heightIn(max = maxH)),
         border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
       Box {
         // Fondo propio del panel (degradado, imagen o GIF) con un velo para que se lea sobre cualquier imagen.
@@ -286,7 +291,8 @@ internal fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int)
             PanelHeader(ui)
             if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
             Spacer(Modifier.height(16.dp))
-            PanelGrid(ui, fixed, if (fixed) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth(), onPick, onSet)
+            PanelGrid(ui, fixed, if (fixed) Modifier.weight(1f).fillMaxWidth() else Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(scroll),
+                onPick, onSet) { r, top, h -> rowTops[r] = top to h }
             Spacer(Modifier.height(14.dp))
             PanelFooter(ui, Modifier.align(Alignment.CenterHorizontally))
         }
@@ -307,24 +313,23 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
     val scroll = androidx.compose.foundation.rememberScrollState()
     // Dónde empieza cada fila dentro de la lista, para desplazarla hasta lo elegido.
     val rowTops = remember { androidx.compose.runtime.mutableStateMapOf<Int, Pair<Int, Int>>() }
-    LaunchedEffect(ui.sel, ui.items) {
-        val r = panelRows(ui.items).indexOfFirst { ui.sel in it }
-        val (top, h) = rowTops[r] ?: return@LaunchedEffect
-        val view = scroll.viewportSize
-        val margin = 40
-        when {
-            top - margin < scroll.value -> scroll.animateScrollTo((top - margin).coerceAtLeast(0))
-            top + h + margin > scroll.value + view -> scroll.animateScrollTo(top + h + margin - view)
+    BringSelected(ui, scroll, rowTops)
+    // El fondo elegido cubre todo el panel, como al centro (con su transparencia y mosaicos de vidrio); arriba se ve
+    // nítido, como cabecera, y hacia abajo lo cubre el velo para que se lea.
+    Surface(color = if (ThemeState.panelSeeThrough) Color.Transparent else PANEL_BG, shape = shape,
+        modifier = modifier.width(dims.width).fillMaxHeight(), border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
+      Box {
+        if (glassPanel) Box(Modifier.matchParentSize().clip(shape)) {
+            PanelBackdrop()
+            val veil = if (ThemeState.panelSeeThrough) PANEL_VEIL.copy(alpha = 0.6f * (1f - ThemeState.panelSee / 160f)) else PANEL_VEIL
+            Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                0f to veil.copy(alpha = 0f), 0.16f to veil.copy(alpha = veil.alpha * 0.4f), 0.3f to veil)))
         }
-    }
-    Surface(color = PANEL_BG, shape = shape, modifier = modifier.width(dims.width).fillMaxHeight()) {
         Column(Modifier.fillMaxSize().graphicsLayer { alpha = ui.fade }) {
-            // Cabecera: la imagen o el GIF del panel (con degradado, o liso: el color del tema), fundida hacia abajo.
-            if (!ui.sub) Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
-                if (ThemeState.panelBackground == PanelBackground.IMAGE || ThemeState.panelBackground == PanelBackground.GRADIENT) PanelBackdrop()
-                else Box(Modifier.matchParentSize().background(TILE_ON.copy(alpha = 0.35f)))
-                Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                    0.45f to Color.Transparent, 1f to PANEL_BG)))
+            // Cabecera: espacio para ver la imagen o el GIF arriba (con fondo liso, una franja del color de acento).
+            if (!ui.sub) Box(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
+                if (!glassPanel) Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0f to TILE_ON.copy(alpha = 0.35f), 1f to Color.Transparent)))
             }
             Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (ui.sub) 24.dp else 0.dp)) {
                 PanelHeader(ui)
@@ -335,16 +340,20 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
                 onPick, onSet) { r, top, h -> rowTops[r] = top to h }
             PanelFooter(ui, Modifier.align(Alignment.CenterHorizontally).padding(vertical = 12.dp))
         }
+      }
     }
 }
 
-/** Encabezado: la app al frente (o el submenú), el modo del G9, y batería, tiempo y hora. */
+/**
+ * Encabezado: la app al frente (o el submenú), el modo del G9, y tiempo (de carga o de batería), batería y hora. Al
+ * centro en una línea; en el lateral (angosto) en dos: el nombre arriba y la batería abajo.
+ */
 @Composable
 private fun PanelHeader(ui: PanelUi) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        // El nombre ocupa lo que necesita (hasta la mitad); el resto empuja la batería y la hora a la derecha.
+    val side = ThemeState.panelSide
+    @Composable fun title() {
         Text(ui.title, color = PANEL_FG, fontSize = 18.sp, style = LABEL_STYLE, fontWeight = FontWeight.SemiBold, maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp).weight(1f, fill = false))
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = if (side) 260.dp else 340.dp))
         // Modo del control, pequeño, como recordatorio.
         if (!ui.sub) ui.mode?.let { m ->
             Spacer(Modifier.width(10.dp))
@@ -355,14 +364,40 @@ private fun PanelHeader(ui: PanelUi) {
                 Text(m, color = PANEL_MUTED, fontSize = 12.sp)
             }
         }
+    }
+    @Composable fun battery() {
+        if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
+        ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE); Spacer(Modifier.width(6.dp)) }
+        if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held); Spacer(Modifier.width(8.dp)) }
+        Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE)
+    }
+    if (side) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) { title() }
+            // En un submenú solo el título: lo demás ya se vio en el panel.
+            if (!ui.sub) { Spacer(Modifier.height(4.dp)); Row(verticalAlignment = Alignment.CenterVertically) { battery() } }
+        }
+    } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        title()
         Spacer(Modifier.weight(1f))
-        // En un submenú solo el título: lo demás ya se vio en el panel.
-        if (!ui.sub) {
-            if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
-            // Lateral (angosto): sin el tiempo restante, que ya está en el mini monitor.
-            if (!ThemeState.panelSide) ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE); Spacer(Modifier.width(6.dp)) }
-            if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held); Spacer(Modifier.width(8.dp)) }
-            Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE)
+        if (!ui.sub) battery()
+    }
+}
+
+/**
+ * Desplaza la grilla para que lo elegido quede a la vista, solo cuando cambia lo elegido (no con cada actualización:
+ * si no, al deslizar con el dedo volvía a lo elegido). [rowTops]: dónde empieza y cuánto mide cada fila.
+ */
+@Composable
+private fun BringSelected(ui: PanelUi, scroll: androidx.compose.foundation.ScrollState, rowTops: Map<Int, Pair<Int, Int>>) {
+    LaunchedEffect(ui.sel) {
+        val r = panelRows(ui.items).indexOfFirst { ui.sel in it }
+        val (top, h) = rowTops[r] ?: return@LaunchedEffect
+        val view = scroll.viewportSize
+        val margin = 40
+        when {
+            top - margin < scroll.value -> scroll.animateScrollTo((top - margin).coerceAtLeast(0))
+            top + h + margin > scroll.value + view -> scroll.animateScrollTo(top + h + margin - view)
         }
     }
 }

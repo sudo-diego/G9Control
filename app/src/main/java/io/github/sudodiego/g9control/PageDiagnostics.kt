@@ -424,8 +424,8 @@ private fun PanelLookPanel(a: MainActivity) {
             fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
         Text(tr("Estilo", "Style"), fontSize = 14.sp)
         ChoiceChips(PanelStyle.entries.map { it to it.label }, ThemeState.panelStyle) { ThemeState.panelStyle = it; Prefs.setPanelStyle(a, it) }
-        if (ThemeState.panelSide) Hint(tr("Pegado a la derecha, de alto completo, como el acceso rápido del Steam Deck. La imagen o el GIF va de cabecera.",
-            "Docked to the right, full height, like the Steam Deck's quick access menu. The image or GIF becomes the header."))
+        if (ThemeState.panelSide) Hint(tr("Pegado a la derecha, de alto completo, como el acceso rápido del Steam Deck. El fondo se ve nítido arriba, como cabecera.",
+            "Docked to the right, full height, like the Steam Deck's quick access menu. The background shows clearly at the top, as a header."))
         Text(tr("Fondo", "Background"), fontSize = 14.sp)
         ChoiceChips(PanelBackground.entries.map { it to it.label }, ThemeState.panelBackground) {
             if (it == PanelBackground.IMAGE && ThemeState.panelUri == null) a.pickPanelBackground()
@@ -434,24 +434,34 @@ private fun PanelLookPanel(a: MainActivity) {
         if (ThemeState.panelBackground == PanelBackground.CLEAR) {
             SliderRow(tr("Relleno", "Fill"), ThemeState.panelFill, 0..100) { ThemeState.panelFill = it; Prefs.setPanelFill(a, it) }
         }
-        // Transparencia: solo al centro (el lateral es liso y la imagen va de cabecera).
-        if (!ThemeState.panelSide && (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)) {
+        if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE) {
             // Liquid glass: el fondo elegido, pero dejando ver el juego detrás.
             SliderRow(tr("Transparencia", "Transparency"), ThemeState.panelSee, 0..100) { ThemeState.panelSee = it; Prefs.setPanelSee(a, it) }
         }
         if (ThemeState.panelBackground == PanelBackground.IMAGE) {
             OutlinedButton(onClick = { a.pickPanelBackground() }) { Text(tr("Cambiar imagen", "Change image")) }
+            // Cómo se acomoda (como los fondos de Windows) y, al rellenar, qué parte queda a la vista.
+            Text(tr("Ajuste", "Fit"), fontSize = 14.sp)
+            ChoiceChips(ImageFit.entries.map { it to it.label }, ThemeState.panelFit) { ThemeState.panelFit = it; Prefs.setPanelFit(a, it) }
+            if (ThemeState.panelFit == ImageFit.FILL) {
+                Text(tr("Encuadre", "Position"), fontSize = 14.sp)
+                ChoiceChips(listOf(0f to tr("Arriba", "Top"), 0.5f to tr("Centro", "Center"), 1f to tr("Abajo", "Bottom")), ThemeState.panelFocus) {
+                    ThemeState.panelFocus = it; Prefs.setPanelFocus(a, it)
+                }
+            }
             SliderRow(tr("Desenfoque", "Blur"), ThemeState.panelBlur, 0..100) { ThemeState.panelBlur = it; Prefs.setPanelBlur(a, it) }
             SwitchRow(tr("Repetir el GIF", "Loop the GIF"), loop) { loop = it; ThemeState.panelLoop = it; Prefs.setPanelLoop(a, it) }
         }
         Text(tr("Tema (panel, avisos y guías)", "Theme (panel, notices and guides)"), fontSize = 14.sp)
         ChoiceChips(PanelTone.entries.map { it to it.label }, ThemeState.panelTone) { ThemeState.panelTone = it; Prefs.setPanelTone(a, it) }
-        // Forma y tamaño son de la tarjeta al centro (la lateral ocupa el alto y tiene ancho fijo).
+        // Las columnas son de la tarjeta al centro (la lateral tiene 2); el tamaño vale para las dos.
         if (!ThemeState.panelSide) {
-            Text(tr("Forma", "Shape"), fontSize = 14.sp)
-            ChoiceChips(PanelShape.entries.map { it to it.label }, ThemeState.panelShape) { ThemeState.panelShape = it; Prefs.setPanelShape(a, it) }
-            SliderRow(tr("Tamaño (%)", "Size (%)"), ThemeState.panelScale, 60..120) { ThemeState.panelScale = it; Prefs.setPanelScale(a, it) }
+            Text(tr("Columnas", "Columns"), fontSize = 14.sp)
+            ChoiceChips(PanelShape.choices.map { it to it.label }, if (ThemeState.panelShape == PanelShape.R4_3) PanelShape.AUTO else ThemeState.panelShape) {
+                ThemeState.panelShape = it; Prefs.setPanelShape(a, it)
+            }
         }
+        SliderRow(tr("Tamaño (%)", "Size (%)"), ThemeState.panelScale, 60..120) { ThemeState.panelScale = it; Prefs.setPanelScale(a, it) }
         SwitchRow(tr("Mini monitor", "Mini monitor"), stats, tr("RAM libre, watts, CPU y temperatura arriba del panel", "Free RAM, watts, CPU and temperature at the top of the panel")) {
             stats = it; Prefs.setPanelStats(a, it)
         }

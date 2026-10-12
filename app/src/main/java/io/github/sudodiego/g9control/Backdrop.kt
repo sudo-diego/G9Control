@@ -73,7 +73,8 @@ private fun PanelBackdropLayer() {
         PanelBackground.GRADIENT -> GradientBackdrop(true)
         PanelBackground.IMAGE -> {
             val uri = ThemeState.panelUri
-            if (uri == null) GradientBackdrop(true) else ImageBackdrop(uri, ThemeState.panelBlur, ThemeState.panelLoop, true, "panel")
+            if (uri == null) GradientBackdrop(true) else ImageBackdrop(uri, ThemeState.panelBlur, ThemeState.panelLoop, true, "panel",
+                ThemeState.panelFit, ThemeState.panelFocus)
         }
     }
 }
@@ -113,7 +114,12 @@ object ImageCache {
 }
 
 @Composable
-private fun ImageBackdrop(uri: String, blur: Int, loop: Boolean, dark: Boolean, place: String = "app") {
+/**
+ * [fit] y [focus] (solo el panel): cómo se acomoda la imagen. Rellenar recorta con el encuadre elegido (arriba, centro
+ * o abajo, con una matriz); Ajustar la muestra entera (con bordes); Estirar la deforma al tamaño; Centrar, tamaño real.
+ */
+private fun ImageBackdrop(uri: String, blur: Int, loop: Boolean, dark: Boolean, place: String = "app",
+                          fit: ImageFit = ImageFit.FILL, focus: Float = 0.5f) {
     val ctx = LocalContext.current
     var drawable by remember(uri) { mutableStateOf(ImageCache.get(place, uri)) }
     LaunchedEffect(uri) {
@@ -123,8 +129,31 @@ private fun ImageBackdrop(uri: String, blur: Int, loop: Boolean, dark: Boolean, 
         val d = drawable
         if (d == null) GradientBackdrop(dark)
         else AndroidView(
-            factory = { ImageView(it).apply { scaleType = ImageView.ScaleType.CENTER_CROP } },
+            factory = { ImageView(it).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                // Rellenar con encuadre: la matriz depende del tamaño, se recalcula al medir.
+                addOnLayoutChangeListener { view, _, _, _, _, _, _, _, _ -> (view.tag as? Runnable)?.run() }
+            } },
             update = { v ->
+                v.scaleType = when (fit) {
+                    ImageFit.FILL -> ImageView.ScaleType.MATRIX
+                    ImageFit.FIT -> ImageView.ScaleType.FIT_CENTER
+                    ImageFit.STRETCH -> ImageView.ScaleType.FIT_XY
+                    ImageFit.CENTER -> ImageView.ScaleType.CENTER
+                }
+                val crop = Runnable {
+                    val w = v.width.toFloat(); val h = v.height.toFloat()
+                    val dw = d.intrinsicWidth.toFloat(); val dh = d.intrinsicHeight.toFloat()
+                    if (fit == ImageFit.FILL && w > 0 && h > 0 && dw > 0 && dh > 0) {
+                        val s = maxOf(w / dw, h / dh)
+                        v.imageMatrix = android.graphics.Matrix().apply {
+                            setScale(s, s)
+                            postTranslate((w - dw * s) / 2f, (h - dh * s) * focus.coerceIn(0f, 1f))
+                        }
+                    }
+                }
+                v.tag = crop
+                crop.run()
                 (d as? AnimatedImageDrawable)?.let { gif ->
                     // Repetir o quedarse en el último cuadro.
                     val want = if (loop) AnimatedImageDrawable.REPEAT_INFINITE else 0

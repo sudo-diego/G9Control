@@ -74,12 +74,17 @@ enum class AppBackground { GRADIENT, IMAGE, WALLPAPER, PLAIN;
 }
 
 /**
- * Forma del panel de juego: columnas de mosaicos y proporción de la tarjeta (ancho : alto). Automática = 4 columnas y
- * el alto que pida el contenido; las demás fijan el alto y los mosaicos se estiran para llenarlo.
+ * Ancho del panel al centro, en columnas de mosaicos (3 a 6); el alto lo pone el contenido. Antes eran proporciones
+ * fijas (16:9, 16:10, 4:3, 1:1) que estiraban o aplastaban los mosaicos para llenar el alto: se veían mal. Los nombres
+ * se mantienen por las preferencias guardadas (R4_3 = 4 columnas, como AUTO). [ratio] queda siempre en null.
  */
-enum class PanelShape(val cols: Int, val ratio: Float?) {
-    AUTO(4, null), R16_9(6, 16f / 9), R16_10(5, 1.6f), R4_3(4, 4f / 3), R1_1(3, 1f);
-    val label get() = when (this) { AUTO -> tr("Automática", "Automatic"); R16_9 -> "16:9"; R16_10 -> "16:10"; R4_3 -> "4:3"; R1_1 -> "1:1" }
+enum class PanelShape(val cols: Int, val ratio: Float? = null) {
+    AUTO(4), R16_9(6), R16_10(5), R4_3(4), R1_1(3);
+    val label get() = "$cols"
+    companion object {
+        /** Las que se ofrecen, de angosta a ancha. */
+        val choices = listOf(R1_1, AUTO, R16_10, R16_9)
+    }
 }
 
 
@@ -97,6 +102,13 @@ enum class PanelBackground { CLEAR, GRADIENT, IMAGE, PLAIN;
  */
 enum class PanelStyle { CENTER, SIDE;
     val label get() = when (this) { CENTER -> tr("Al centro", "Centered"); SIDE -> tr("Lateral", "Side") }
+}
+
+/** Cómo se acomoda la imagen o el GIF del panel, como los fondos de pantalla de Windows. */
+enum class ImageFit { FILL, FIT, STRETCH, CENTER;
+    val label get() = when (this) {
+        FILL -> tr("Rellenar", "Fill"); FIT -> tr("Ajustar", "Fit"); STRETCH -> tr("Estirar", "Stretch"); CENTER -> tr("Centrar", "Center")
+    }
 }
 
 /** Tema del panel de juego: oscuro (el de siempre), claro o el del sistema. Vale para todos sus fondos. */
@@ -127,6 +139,9 @@ object ThemeState {
     var panelScale by androidx.compose.runtime.mutableIntStateOf(85)
     var panelTone by androidx.compose.runtime.mutableStateOf(PanelTone.DARK)
     var panelStyle by androidx.compose.runtime.mutableStateOf(PanelStyle.CENTER)
+    var panelFit by androidx.compose.runtime.mutableStateOf(ImageFit.FILL)
+    /** Rellenar: qué parte de la imagen queda a la vista (0 = arriba, 0,5 = centro, 1 = abajo). */
+    var panelFocus by androidx.compose.runtime.mutableFloatStateOf(0.5f)
     /** El panel va pegado a la derecha (estilo Steam). */
     val panelSide get() = panelStyle == PanelStyle.SIDE
     /** El sistema está en modo oscuro (para el tema "Sistema"); lo actualiza el panel al abrirse. */
@@ -142,7 +157,7 @@ object ThemeState {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
         panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
-        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx)
+        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx); panelFit = Prefs.panelFit(ctx); panelFocus = Prefs.panelFocus(ctx)
         // La imagen del panel ya decodificada: al abrirlo no aparece primero el fondo liso.
         panelUri?.takeIf { panelBackground == PanelBackground.IMAGE }?.let { ImageCache.preload(ctx, "panel", it) }
     }
