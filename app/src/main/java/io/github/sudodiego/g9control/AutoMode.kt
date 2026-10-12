@@ -177,9 +177,10 @@ object AutoRules {
     // como la guía del control. Las combinaciones sí sirven: RetroArch le aplica a "Virtual" su configuración de respaldo.
     // PASS: la guía no la toma la app (ni tocar ni mantener): le llega al juego tal cual, desde el control real. Es lo
     // único que un emulador acepta como la guía del jugador 1 (lo enviado por software llega como "Virtual").
-    enum class GuideTap { BACK, VIEW_MENU, PASS, NOTHING;
+    // GUIDE: la app manda la guía apretada 3 s (para que el emulador alcance a asignarla); llega como "Virtual".
+    enum class GuideTap { BACK, VIEW_MENU, GUIDE, PASS, NOTHING;
         val label get() = when (this) {
-            BACK -> tr("Atrás", "Back"); VIEW_MENU -> tr("Vista + Menú", "View + Menu")
+            BACK -> tr("Atrás", "Back"); VIEW_MENU -> tr("Vista + Menú", "View + Menu"); GUIDE -> tr("Botón guía", "Guide button")
             PASS -> tr("Pasar al juego", "Pass to the game"); NOTHING -> tr("Nada", "Nothing")
         }
     }
@@ -1072,6 +1073,7 @@ class AutoModeService : AccessibilityService() {
             }
             AutoRules.GuideTap.NOTHING, AutoRules.GuideTap.PASS -> return
             AutoRules.GuideTap.VIEW_MENU -> intArrayOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START) to 200
+            AutoRules.GuideTap.GUIDE -> intArrayOf(KeyEvent.KEYCODE_BUTTON_MODE) to 3000
         }
         if (Shell.state != Shell.State.READY) {
             panel.message(tr("Enviar ${tap.label} necesita Shizuku.", "Sending ${tap.label} needs Shizuku."))
