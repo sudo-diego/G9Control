@@ -594,6 +594,8 @@ class AutoModeService : AccessibilityService() {
         Log.d(TAG, "app al frente al arrancar: $pkg${if (streaming) " (transmitiendo)" else ""}")
         // Los Hz elegidos para esa app (si no, al reiniciar el servicio se perdían hasta cambiar de app).
         RefreshRate.applyFor(this, pkg)
+        // Un emulador ya al frente (por ejemplo, al actualizar TBF jugando): revisar los logros igual.
+        raProxyHint(pkg)
     }
 
     private var unlockTries = 0
@@ -722,7 +724,12 @@ class AutoModeService : AccessibilityService() {
         else if (!pkg.startsWith("com.limelight")) streaming = true
         else if (cls.startsWith("com.limelight.")) streaming = cls == AutoRules.STREAM_ACTIVITY
         if (streaming != wasStreaming) { Log.d(TAG, "transmitiendo: $streaming ($pkg, $cls)"); updatePadWatch() }
+        // Dentro del mismo emulador, del menú al juego (Dolphin: EmulationActivity): también se revisan los logros.
+        if (pkg == lastPackage && RaProxy.isEmulator(pkg) && cls.startsWith(pkg.substringBefore(".aarch64")) && cls != raLastClass) {
+            raLastClass = cls; raProxyHint(pkg)
+        }
         if (pkg == lastPackage) return
+        raLastClass = cls
         appInFront = false
         val wasHidden = hiddenForApp
         hiddenForApp = false
@@ -1355,6 +1362,8 @@ class AutoModeService : AccessibilityService() {
      * saber si está encendido, no se avisa (sería un aviso de más).
      */
     private val raHinted = mutableSetOf<String>()
+    /** Pantalla (clase) del emulador la última vez: cambiar del menú al juego también revisa los logros. */
+    private var raLastClass = ""
     /** Cuándo se mostró por última vez la alerta de logros, por emulador. */
     private val raAlerted = mutableMapOf<String, Long>()
     private val RA_REPEAT_MS = 3 * 60_000L
@@ -1365,11 +1374,15 @@ class AutoModeService : AccessibilityService() {
         if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && RaProxy.installed(this)) scope.launch {
             val now = android.os.SystemClock.uptimeMillis()
             if (now - (raAlerted[pkg] ?: -RA_REPEAT_MS) < RA_REPEAT_MS) return@launch
-            if (RaProxy.stranded(this@AutoModeService)) {
+            val stranded = RaProxy.stranded(this@AutoModeService)
+            Log.d(TAG, "logros en $pkg: proxy ${RaProxy.activeNow}, apagado con emuladores apuntándole $stranded")
+            if (stranded) {
                 raAlerted[pkg] = now; main.postDelayed({ panel.raStrandedAlert(pkg) }, 1200); return@launch
             }
             if (RaProxy.activeNow == true && Shell.state == Shell.State.READY) {
-                val s = RaProxy.setup(pkg).also { RaProxy.setupNow = it } ?: return@launch
+                val s = RaProxy.setup(pkg).also { RaProxy.setupNow = it }
+                Log.d(TAG, "logros en $pkg: $s")
+                if (s == null) return@launch
                 if (s.problem != null) { raAlerted[pkg] = now; main.postDelayed({ panel.raSetupAlert(pkg, s) }, 1200) }
             }
         }

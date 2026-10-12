@@ -95,11 +95,12 @@ object RaProxy {
     suspend fun setup(pkg: String?): Setup? = when {
         pkg == null -> null
         pkg.startsWith("com.retroarch") -> Shell.run(Shell.RA_CFG)?.let { cfg ->
-            fun v(k: String) = Regex("(?m)^$k\\s*=\\s*\"([^\"]*)\"").find(cfg)?.groupValues?.get(1).orEmpty()
+            fun v(k: String) = Regex("(?m)^$k[ \\t]*=[ \\t]*\"([^\"\\n]*)\"").find(cfg)?.groupValues?.get(1).orEmpty()
             Setup("RetroArch", v("cheevos_custom_host").startsWith("127.0.0.1"), v("cheevos_token").isNotBlank())
         }
         pkg == "org.dolphinemu.dolphinemu" -> Shell.run(Shell.DOLPHIN_RA)?.let { ini ->
-            fun v(k: String) = Regex("(?m)^$k\\s*=\\s*(.*)$").find(ini)?.groupValues?.get(1)?.trim().orEmpty()
+            // Sin \\s: con el valor vacío saltaba a la línea siguiente y "ApiToken =" vacío se leía como el usuario (con sesión).
+            fun v(k: String) = Regex("(?m)^$k[ \\t]*=[ \\t]*([^\\n]*)$").find(ini)?.groupValues?.get(1)?.trim().orEmpty()
             Setup("Dolphin", v("HostUrl").startsWith("127.0.0.1"), v("ApiToken").isNotBlank())
         }
         else -> null
