@@ -411,10 +411,10 @@ class GamePanel(private val svc: AutoModeService) {
 
     /** Al empezar a transmitir: la guía va al PC, así que las capturas se sacan de otra forma. */
     fun streamTip() {
-        val pad = ModeSwitcher.detect()
-        flash.show(flash.sample(), tr("Transmitiendo: la guía va al PC", "Streaming: the guide goes to the PC"),
-            if (pad == PadMode.DS5) tr("Capturas: M dos veces o mantener L3 + R3", "Screenshots: M twice or hold L3 + R3")
-            else tr("Capturas: mantener L3 + R3", "Screenshots: hold L3 + R3"), 5000)
+        // Solo el atajo; la explicación (la guía va al PC) está en Controles.
+        val ds5 = ModeSwitcher.detect() == PadMode.DS5
+        flash.show(flash.sample(), tr("Capturas", "Screenshots"),
+            if (ds5) tr("M dos veces o mantener L3 + R3", "M twice or hold L3 + R3") else tr("Mantener L3 + R3", "Hold L3 + R3"), 4000)
     }
 
     /** Ejemplo del aviso de captura (desde Ajustes), con una miniatura de muestra y el sonido elegido. */
@@ -733,11 +733,8 @@ class GamePanel(private val svc: AutoModeService) {
         main.postDelayed(action, 300)
     }
 
-    /** La captura la guardó el emulador (sin shaders): el mismo aviso y sonido, sin miniatura. */
-    fun gameShotNotice() {
-        sounds.play(AutoRules.shotSound(svc))
-        flash.show(flash.sample(), tr("Captura guardada", "Screenshot saved"), tr("La guardó el emulador, sin filtros", "Saved by the emulator, without filters"), 2200)
-    }
+    /** La captura la guardó el emulador (sin shaders): solo el sonido, el emulador ya muestra su propio aviso. */
+    fun gameShotNotice() = sounds.play(AutoRules.shotSound(svc))
 
     /** Captura limpia desde fuera del panel (M dos veces en DS5, Legion + RB). */
     fun capture() = screenshot()
