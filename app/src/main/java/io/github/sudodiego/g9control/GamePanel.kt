@@ -488,8 +488,9 @@ class GamePanel(private val svc: AutoModeService) {
             else {
                 svc.packageManager.getLaunchIntentForPackage(pkg)?.let { runCatching { svc.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
                 // Dónde se inicia sesión, ya en el emulador.
-                main.postDelayed({ flash.show(flash.appIcon(pkg), tr("Inicia sesión", "Sign in"),
-                    tr("Ajustes → RetroAchievements", "Settings → RetroAchievements"), 6000) }, 1500)
+                // Dolphin guarda la sesión recién al salir (con Atrás; cerrado a la fuerza la pierde): decirlo.
+                main.postDelayed({ flash.show(flash.appIcon(pkg), tr("Ajustes → RetroAchievements → Iniciar sesión", "Settings → RetroAchievements → Sign in"),
+                    tr("Después sal con Atrás hasta cerrar y vuelve a abrir el juego", "Then press Back until it closes and open the game again"), 9000) }, 1500)
                 // Y avisar cuando quedó: se mira su configuración cada 3 s (hasta 5 min). Sin esto no había cómo saber
                 // que ya estaba y se podía volver al juego. (Relanzarlo solo no se puede: el launcher lo abre con su archivo.)
                 if (Shell.state == Shell.State.READY) {
@@ -497,8 +498,8 @@ class GamePanel(private val svc: AutoModeService) {
                         kotlinx.coroutines.delay(3000)
                         if (RaProxy.setup(pkg)?.loggedIn == true) {
                             RaProxy.setupNow = null
-                            main.post { flash.show(flash.appIcon(pkg), tr("Sesión iniciada", "Signed in"),
-                                tr("Ya puedes volver al juego, con logros", "You can go back to the game, with achievements"), 6000) }
+                            main.post { flash.show(flash.appIcon(pkg), tr("Sesión guardada", "Session saved"),
+                                tr("Ya puedes abrir el juego, con logros", "You can open the game now, with achievements"), 6000) }
                             return@launch
                         }
                     }
