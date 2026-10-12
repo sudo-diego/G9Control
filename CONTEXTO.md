@@ -78,8 +78,15 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 - **adb inalámbrico:** la tablet puede anunciar dos puertos de depuración; con los dos conectados Android Studio crea `process-tracker` sin parar (~7–10 W). Conectar uno solo, con `ADB_MDNS_AUTO_CONNECT=0`.
 - **LEDs según la batería (investigado):** Retroid y AYN manejan sus luces con un driver propio de la consola (sin memoria que gastar). En el G9 la luz se cambia con el comando 5, que se **guarda** en la memoria del control (no hay modo sin guardar) y **solo existe en modo Android** (en X-Input y DS5 no hay canal GCM). Unos pocos cambios por carga (por ejemplo a 50, 20 y 10 %) no desgastan la memoria, pero en DS5 no se puede.
 
+- **RetroArch con el G9 de verdad (segunda ronda):** los botones enviados llegan con `deviceId=-1` ("Virtual"; se ve en el registro de RetroArch: `ViewRootImpl … enqueue key`). Con `input_hotkey_device_merge = false` RetroArch solo acepta atajos del control del jugador 1: en mis pruebas nadie había tocado el G9 y el Virtual quedaba como jugador 1 (funcionaba); jugando, el G9 es el jugador 1 y lo ignora. Hay que activar en RetroArch **Hotkey Device Merge** (Ajustes → Entrada → Teclas rápidas). Las teclas simuladas con `input keyevent` no pasan por `onKeyEvent` del servicio: para probar la guía hace falta el botón real (o el disparador de prueba).
+- **Toast de batería baja de ZUI:** además de la notificación (canal BAT), SystemUI de ZUI muestra un toast propio (`VRI[Toast]` del proceso de SystemUI) que no tiene ajuste: no se puede quitar sin root.
+- **Batería baja:** la autonomía se calcula con el promedio del último minuto o, recién desenchufada, con el consumo típico medido (la corriente de ese instante casi no marca y daba 14 h). Con la pantalla apagada o bloqueada no se avisa; se avisa al desbloquear (como la Switch al salir del reposo).
+- **Ajustes de frecuencia cruzados (peak 30, min 120):** forzar y devolver en paralelo, más guardar como "del usuario" un valor ya forzado, los dejó así y todo lo que no era juego quedaba a 30 Hz. Ahora: un solo hilo, solo se guarda si peak > min, orden que nunca deja min sobre peak, se fuerza al tiro al volver a una app que lo necesitó y se devuelve 4 s después de salir.
+- **Guía 5 s:** el temporizador de 5 s bloqueaba sin que el G9 se apagara (en modo Android el soltar a veces no llega). Se quitó: solo se bloquea cuando el G9 se desconecta tras mantener la guía 3,5 s o más.
+- **Registro de la tablet:** el buffer de logcat se recicla en segundos; `adb logcat -G 16M` para poder revisar lo que pasó.
+
 ## Pendientes
-- Probar con el botón de verdad mantener la guía 5 s (bloquear al apagarse el G9).
+- Activar Hotkey Device Merge en RetroArch y probar salir con la guía.
 - Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.
 - README nuevo con el nombre TBF Companion.
