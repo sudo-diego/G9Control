@@ -42,6 +42,8 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema, para que
 - Pantalla y conexión: 16:9, WiFi, Bluetooth, mouse virtual. Android: Atrás, Inicio, Recientes, Ajustes rápidos, modo del G9, abrir TBF.
 - Se maneja con stick o cruceta (no LB/RB), A elige, B cierra o vuelve, Y la otra acción; se cierra solo a los 10 s sin tocar nada. Transiciones con fundido.
 - Fondo: transparente (relleno), degradado o imagen/GIF con transparencia ("liquid glass") o liso; en claro u oscuro. Forma (auto, 16:9, 16:10, 4:3, 1:1) y tamaño 60–120 %.
+- **Dos estilos** (Juego → Panel de juego → Estilo): **Al centro** (la tarjeta) o **Lateral** (como el acceso rápido del Steam Deck: pegado a la derecha, alto completo, entra deslizándose, la imagen o el GIF de cabecera y fondo liso del tema, mini monitor 2 × 2, mosaicos en 2 columnas, se desplaza solo hasta lo elegido). Los dos usan las mismas piezas (`PanelHeader`, `PanelGrid`, `PanelFooter` en `PanelLook.kt`); `COLUMNS` = 2 en lateral.
+- Mosaico **Ajustes** (los de Android) y **Logros** (en un emulador con RAOfflineProxy). El mosaico TBF no aparece dentro de TBF. Encabezado y mosaicos se recalculan cada 1,5 s (`live`).
 
 **Diseño:** paleta de los fondos de la Y700 (índigo #3A55C8/#8FB2FF, celeste #1E8FD6/#5CC8FF, lila, fondos #EDF2F8 / #0D1220), tarjetas de vidrio. Acciones que borran piden un segundo toque (`ConfirmButton`). Lo que necesita el servicio o Shizuku se ve atenuado con su aviso.
 
@@ -127,13 +129,15 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema, para que
 - **Probar con el control** (no se pudo sin el G9): mantener la guía dentro de la app abre el panel; salir con B mantenido no aprieta B en el juego; Y dos veces cierra una reciente; volumen con audífonos sobre 73 %; aviso al transmitir en Artemis.
 - **Retraso del G9 con audífonos Bluetooth en Ahorro** (lo vio el usuario en el auto, con una versión anterior; hoy no se repitió). Probar: Ahorro + audífonos BT + G9; si se repite, mirar el códec (LDAC exige CPU; AAC/SBC menos) y si Equilibrado lo quita.
 - **RAOfflineProxy:** integrado el 12 oct 2026 (ver "RAOfflineProxy" arriba). Falta probarlo con el control y sin internet.
-- **Revisión exhaustiva** de lo antiguo (que siga la lógica y el diseño actuales) y de animaciones.
+- **Revisión exhaustiva (12 oct 2026, hecha):** cero advertencias del compilador, sin código ni recursos muertos, textos al día (nada de "Botón guía", "Vista + Menú" ni 3 s), configuración inicial rehecha (accesibilidad primero), Atajos completo, aviso de batería baja en su tarjeta, logros con secciones plegables, `GamePanel.kt` y `AutoMode.kt` divididos. Las páginas del G9 (en DS5 no se pueden configurar) no se revisaron en pantalla esta vez.
+- **Probar con el control:** navegar el panel lateral con la cruceta (que se desplace hasta lo elegido); Start + Select y el aviso al transmitir en Artemis; logros sin internet (sacar un logro sin WiFi y ver que llegue a retroachievements.org al volver).
 - Benchmarks: el mismo juego unos minutos en cada modo (desenchufada) para "Sesiones de juego".
 - M dos veces en Android sin la captura del sistema (necesitaría un proceso shell con `EVIOCGRAB`, como Key Mapper).
 - Probar las listas por app de ZUI `highRefresh_<pkg>` / `extremeRefresh_<pkg>` como forma más limpia de que Ahorro no baje los Hz.
 
 ## Ideas futuras (pedidas por el usuario)
-- **Otras formas del panel:** que se pueda mover (como mover otras cosas en la app), o un panel lateral como el de la derecha de la Switch o los ajustes rápidos del Steam Deck.
+- **Panel movible** (arrastrarlo como otras cosas de la app). El lateral estilo Steam ya está hecho.
+- Ideas de RAOfflineProxy: recordatorio "deja el proxy encendido para enviar tus logros" al volver internet; mostrar el tiempo jugado sin internet (TBF ya guarda sesiones).
 - Release nueva: desde 1.2.0 (10 oct) hay más de 100 commits (sección Tablet, panel de juego nuevo, recientes, batería, Hz, temas): corresponde **2.0.0**.
 
 ---
