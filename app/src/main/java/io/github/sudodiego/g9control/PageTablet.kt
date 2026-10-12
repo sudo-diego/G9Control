@@ -25,6 +25,7 @@ fun BatteryPage(s: AppState, a: MainActivity) {
     TwoPane(
         first = {
             BatteryPanel(s, a)
+            Gate(s.autoServiceOn) { LowBatteryPanel(a) }
             ShizukuHint()
         },
         second = { BatteryNowPanel(a); Gate(s.autoServiceOn) { PowerByAppPanel(a); SessionsPanel(a) } }
@@ -151,8 +152,15 @@ fun BatteryNowPanel(a: MainActivity) {
         if (!(b.plugged && !b.charging)) watts?.let { InfoRow(if (b.charging) tr("Entra", "Charging at") else tr("Consumo", "Draw"), "%.1f W".format(it)) }
         if (!b.plugged) PowerLog.recentAvg?.let { InfoRow(tr("Promedio del último minuto", "Last minute average"), "%.1f W".format(it)) }
         if (b.cycles >= 0) InfoRow(tr("Ciclos de carga", "Charge cycles"), "${b.cycles}")
+    }
+}
+
+/** Aviso de batería baja como la Switch (lo muestra el servicio): cuándo, con sonido, encima del toast de ZUI. */
+@Composable
+private fun LowBatteryPanel(a: MainActivity) {
+    Panel(tr("Aviso de batería baja", "Low battery notice")) {
         var low by remember { mutableStateOf(AutoRules.lowBattery(a)) }
-        SwitchRow(tr("Aviso de batería baja", "Low battery notice"), low, tr("Tarjeta a 15, 10 y 5 % sin cargador", "Card at 15, 10 and 5 % unplugged")) {
+        SwitchRow(tr("Mostrar el aviso", "Show the notice"), low, tr("Tarjeta a 15, 10 y 5 % sin cargador", "Card at 15, 10 and 5 % unplugged")) {
             low = it; AutoRules.setLowBattery(a, it)
         }
         var lowSound by remember { mutableStateOf(AutoRules.lowBatterySound(a)) }
