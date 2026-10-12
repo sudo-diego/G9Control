@@ -1402,23 +1402,27 @@ class AutoModeService : AccessibilityService() {
     /** Cuándo se mostró por última vez la alerta de logros, por emulador. */
     private val raAlerted = mutableMapOf<String, Long>()
     private val RA_REPEAT_MS = 3 * 60_000L
+    /** Apretar A en una alerta (se va a arreglar): al volver al emulador se revisa de nuevo, sin esperar los 3 min. */
+    fun raAlertsReset() = raAlerted.clear()
     private fun raProxyHint(pkg: String) {
         // Sin logros por algo que se arregla (proxy apagado con los emuladores apuntándole, o el emulador sin sesión):
         // la alerta roja al centro, con A para arreglarlo y B para seguir. Cada vez que se entra al emulador, como
         // mucho una vez cada 3 min (una sola vez no bastaba: se gastó en una prueba y al entrar a jugar no avisó).
         if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && RaProxy.installed(this)) scope.launch {
             val now = android.os.SystemClock.uptimeMillis()
-            if (now - (raAlerted[pkg] ?: -RA_REPEAT_MS) < RA_REPEAT_MS) return@launch
+            // La pausa de 3 min es por problema (proxy apagado / sin sesión): arreglar uno y volver no debe tapar el otro.
+            fun recent(kind: String) = now - (raAlerted["$pkg:$kind"] ?: -RA_REPEAT_MS) < RA_REPEAT_MS
             val stranded = RaProxy.stranded(this@AutoModeService)
             Log.d(TAG, "logros en $pkg: proxy ${RaProxy.activeNow}, apagado con emuladores apuntándole $stranded")
             if (stranded) {
-                raAlerted[pkg] = now; main.postDelayed({ panel.raStrandedAlert(pkg) }, 1200); return@launch
+                if (!recent("off")) { raAlerted["$pkg:off"] = now; main.postDelayed({ panel.raStrandedAlert(pkg) }, 1200) }
+                return@launch
             }
             if (RaProxy.activeNow == true && Shell.state == Shell.State.READY) {
                 val s = RaProxy.setup(pkg).also { RaProxy.setupNow = it }
                 Log.d(TAG, "logros en $pkg: $s")
                 if (s == null) return@launch
-                if (s.problem != null) { raAlerted[pkg] = now; main.postDelayed({ panel.raSetupAlert(pkg, s) }, 1200) }
+                if (s.problem != null && !recent("setup")) { raAlerted["$pkg:setup"] = now; main.postDelayed({ panel.raSetupAlert(pkg, s) }, 1200) }
             }
         }
         if (RaProxy.online(this)) { raHinted.clear(); return }

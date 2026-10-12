@@ -64,6 +64,7 @@ import androidx.compose.material.icons.outlined.EnergySavingsLeaf
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Screenshot
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.SportsEsports
@@ -844,6 +845,10 @@ class GamePanel(private val svc: AutoModeService) {
         add(PanelItem(tr("Recientes", "Recents"), Icons.Outlined.Layers, PanelRow.SYSTEM) { hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS) })
         add(PanelItem(tr("Ajustes rápidos", "Quick settings"), Icons.Outlined.ToggleOn, PanelRow.SYSTEM) {
             hide(); svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
+        })
+        // Los ajustes de Android, para no tener que salir del juego a buscarlos.
+        add(PanelItem(tr("Ajustes", "Settings"), Icons.Outlined.Settings, PanelRow.SYSTEM) {
+            hide(); runCatching { svc.startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
         })
         // WiFi y Bluetooth: con Shizuku se encienden y apagan aquí mismo; sin él, abre el panel de Android.
         val cr = svc.contentResolver
@@ -1920,7 +1925,7 @@ private class RaAlert(private val svc: AccessibilityService, private val title: 
 
     private fun pick(fix: Boolean) {
         hide()
-        if (fix) action()
+        if (fix) { (svc as? AutoModeService)?.raAlertsReset(); action() }
     }
 
     fun hide() {
