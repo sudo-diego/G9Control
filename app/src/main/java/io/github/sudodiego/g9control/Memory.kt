@@ -138,7 +138,8 @@ object Memory {
      * de `top` (la segunda pasada, que trae la CPU) sumando los procesos de cada app (paquete y paquete:algo).
      */
     suspend fun tasks(ctx: Context): List<Task> {
-        val out = Shell.run(Shell.TOP) ?: return emptyList()
+        // Dos pasadas de 2 s: más de los 4 s que Shell espera por defecto (con 4 fallaba siempre y se repetía).
+        val out = Shell.run(Shell.TOP, timeoutSec = 9) ?: return emptyList()
         val blocks = out.split(Regex("""(?m)^\s*Tasks:"""))
         val last = blocks.lastOrNull() ?: return emptyList()
         val row = Regex("""^\s*(u\d+_a\d+)\s+([\d.]+)\s+([\d.]+)([KMG])\s+(\S+)""")

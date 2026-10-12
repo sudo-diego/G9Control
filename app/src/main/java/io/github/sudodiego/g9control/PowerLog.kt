@@ -45,11 +45,14 @@ object PowerLog {
         }, STEP_MS)
     }
 
-    fun stop() { ctx?.let { save(it) }; ctx = null; main.removeCallbacksAndMessages(null) }
+    fun stop() { ctx?.let { save(it); Sessions.close(it) }; ctx = null; main.removeCallbacksAndMessages(null) }
 
     private fun sample(c: Context, app: String?) {
         val screenOn = c.getSystemService(PowerManager::class.java).isInteractive
-        if (!screenOn || ZuiBattery.plugged(c)) { synchronized(recent) { recent.clear() }; return }
+        val plugged = ZuiBattery.plugged(c)
+        // Sesiones de juego (modos y Hz): también enchufada, para las temperaturas; los W solo a batería.
+        Sessions.sample(c, app, if (plugged) null else ZuiBattery.watts(c), screenOn)
+        if (!screenOn || plugged) { synchronized(recent) { recent.clear() }; return }
         val w = ZuiBattery.watts(c) ?: return
         synchronized(recent) { recent.addLast(w); while (recent.size > RECENT) recent.removeFirst() }
         if (app == null) return

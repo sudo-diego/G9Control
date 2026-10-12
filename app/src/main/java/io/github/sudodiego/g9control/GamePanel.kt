@@ -1260,6 +1260,8 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                             else -> PanelToggle(item, i == ui.sel) { onPick(i) }
                         }
                     }
+                    // Recientes con menos que las columnas: los mosaicos quedan del ancho de los demás.
+                    if (section == PanelRow.RECENT && row.size < COLUMNS) Spacer(Modifier.weight((COLUMNS - row.size).toFloat()))
                 }
             }
             }

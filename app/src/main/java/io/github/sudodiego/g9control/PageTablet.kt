@@ -27,8 +27,50 @@ fun BatteryPage(s: AppState, a: MainActivity) {
             BatteryPanel(s, a)
             ShizukuHint()
         },
-        second = { BatteryNowPanel(a); Gate(s.autoServiceOn) { PowerByAppPanel(a) } }
+        second = { BatteryNowPanel(a); Gate(s.autoServiceOn) { PowerByAppPanel(a); SessionsPanel(a) } }
     )
+}
+
+/**
+ * Sesiones de juego: por modo de rendimiento (W, CPU y temperatura) y los últimos tramos. Para comparar: el mismo
+ * juego un rato en cada modo, desenchufada.
+ */
+@Composable
+private fun SessionsPanel(a: MainActivity) {
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { delay(10_000); tick++ } }
+    val modes = remember(tick) { Sessions.byMode(a) }
+    val list = remember(tick) { Sessions.list(a).take(8) }
+    val c = MaterialTheme.colorScheme
+    fun modeLabel(m: String?) = m?.let { runCatching { ZuiGame.PerfMode.valueOf(it).label }.getOrNull() } ?: tr("Modo desconocido", "Unknown mode")
+    Panel(tr("Sesiones de juego", "Game sessions"), trailing = {
+        if (list.isNotEmpty()) ConfirmButton(tr("Reiniciar", "Reset")) { Sessions.reset(a); tick++ }
+    }) {
+        if (list.isEmpty()) Hint(tr("Se anotan solas mientras juegas (modo, Hz, W, CPU y temperaturas). Para comparar modos: el mismo juego unos minutos en cada uno, desenchufada.",
+            "Logged while you play (mode, Hz, W, CPU and temperatures). To compare modes: the same game a few minutes in each, unplugged."))
+        if (modes.isNotEmpty()) {
+            Text(tr("Por modo", "By mode"), fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+            modes.forEach { m ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(modeLabel(m.mode), Modifier.weight(1f), fontSize = 14.sp)
+                    Text(listOfNotNull(m.avgWatts?.let { "%.1f W".format(it) }, m.avgCpuMhz?.let { Stats.cpuText(it) },
+                        m.avgCpuMax?.let { "$it °C" }, ZuiBattery.formatTime(m.seconds * 1000L)).joinToString(" · "),
+                        fontSize = 13.sp, color = c.onSurfaceVariant)
+                }
+            }
+        }
+        if (list.isNotEmpty()) {
+            Text(tr("Últimas", "Latest"), fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium)
+            list.forEach { s ->
+                Column {
+                    Text(RecentApps.label(a, s.pkg) + " · " + modeLabel(s.mode) + (s.hz?.let { " · $it Hz" } ?: ""), fontSize = 14.sp, maxLines = 1)
+                    Text(listOfNotNull(ZuiBattery.formatTime(s.seconds * 1000L), s.avgWatts?.let { "%.1f W".format(it) },
+                        s.avgCpuMhz?.let { "CPU " + Stats.cpuText(it) }, s.cpuMax?.let { "CPU $it °C" }, s.gpuMax?.let { "GPU $it °C" },
+                        s.batMax?.let { tr("bat. $it °C", "bat. $it °C") }).joinToString(" · "), fontSize = 12.sp, color = c.onSurfaceVariant)
+                }
+            }
+        }
+    }
 }
 
 /**
