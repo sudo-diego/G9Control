@@ -87,8 +87,9 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 
 - **RetroArch, lo que NO funciona para salir (probado 12 oct 2026):** "Fusionar tipos de dispositivo" (`input_hotkey_device_merge`) une teclado y mando, no varios controles; Atrás de Android en un juego no hace nada; la tecla `P` (salir) inyectada, aunque se mantenga 250 ms y vaya como solo teclado, la ignora (todo lo enviado por software es el dispositivo "Virtual"); comandos de red (`network_cmd_enable`, UDP 55355): la versión de Android no abre el puerto. Lo que sí: dejar pasar la guía real ("Pasar al juego", la opción de RetroArch por defecto) y asignarla en RetroArch a "Cerrar RetroArch" o "Mostrar menú".
 
+- **RetroArch, cómo quedó (12 oct 2026):** el usuario eligió "Pasar al juego": la guía real del G9 abre el menú de RetroArch (asignada ahí) y sale con Select + Start físicos. "Botón guía" (enviado por la app, apretado 3 s) se puede asignar y cierra, pero pide dos toques: el primer evento del "Virtual" RetroArch lo usa para registrarlo. Probé un toque previo (BUTTON_16, o un toque corto de la guía) y filtrar los botones reales mientras se envía: se revirtió a pedido del usuario.
+
 ## Pendientes
-- Asignar en RetroArch la guía (con "Pasar al juego") a Cerrar RetroArch y probar.
 - Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.
 - README nuevo con el nombre TBF Companion.
