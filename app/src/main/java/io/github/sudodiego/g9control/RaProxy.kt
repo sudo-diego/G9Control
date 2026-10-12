@@ -60,10 +60,16 @@ object RaProxy {
      * antes de [readActive]). Con su Stop proxy no pasa: deja los emuladores como estaban.
      */
     suspend fun stranded(ctx: Context): Boolean {
-        val wasOn = ctx.getSharedPreferences("g9", Context.MODE_PRIVATE).getBoolean("ra_last_on", false)
-        if (!installed(ctx) || readActive(ctx) != false) return false
-        if (Shell.state != Shell.State.READY) return wasOn
-        return listOf("com.retroarch", "org.dolphinemu.dolphinemu").any { setup(it)?.toProxy == true }.also { strandedNow = it }
+        val sp = ctx.getSharedPreferences("g9", Context.MODE_PRIVATE)
+        val wasOn = sp.getBoolean("ra_last_on", false)
+        if (!installed(ctx) || readActive(ctx) != false) { sp.edit().putBoolean("ra_stranded", false).apply(); return false }
+        // Sin Shizuku no se puede leer la configuración: si estaba encendido la última vez, o si la última vez que se
+        // pudo mirar los emuladores le apuntaban (pasó: apagado desde antes del reinicio, sin Shizuku al arrancar, no avisó).
+        if (Shell.state != Shell.State.READY) return wasOn || sp.getBoolean("ra_stranded", false)
+        return listOf("com.retroarch", "org.dolphinemu.dolphinemu").any { setup(it)?.toProxy == true }.also {
+            strandedNow = it
+            sp.edit().putBoolean("ra_stranded", it).apply()
+        }
     }
 
     /** Lo último que se supo de [stranded] (para el mosaico del panel). */
