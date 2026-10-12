@@ -575,6 +575,16 @@ class GamePanel(private val svc: AutoModeService) {
         refresh()
     }
 
+    /**
+     * Con audífonos, Android no deja pasar de ~73 % sin confirmar su aviso de volumen alto (volumen seguro), y sin su
+     * interfaz el panel solo se quedaba pegado. Se cierra el panel y se pide subir con la interfaz de Android, que
+     * muestra el aviso para aceptarlo (con el dedo o el control). Después ya sube normal (Android lo recuerda ~20 h).
+     */
+    private fun safeVolumeAsk() {
+        hide()
+        main.postDelayed({ SystemLevels.raiseWithUi(svc) }, 250)
+    }
+
     private fun poke() {
         main.removeCallbacks(timeout)
         main.postDelayed(timeout, 10_000)
@@ -612,7 +622,8 @@ class GamePanel(private val svc: AutoModeService) {
         val vol = SystemLevels.volume(svc)
         add(PanelItem(
             tr("Volumen", "Volume"), Icons.AutoMirrored.Outlined.VolumeUp, PanelRow.SLIDER, sub = if (vol == 0) tr("Silencio", "Muted") else "$vol %",
-            adjust = { SystemLevels.stepVolume(svc, it) }, level = vol / 100f, set = { SystemLevels.setVolume(svc, it) },
+            adjust = { if (!SystemLevels.stepVolume(svc, it)) safeVolumeAsk() }, level = vol / 100f,
+            set = { if (!SystemLevels.setVolume(svc, it)) safeVolumeAsk() },
             hint = tr("← → ajustar · A o B listo", "← → adjust · A or B done")
         ))
         add(PanelItem(tr("Silenciar", "Mute"), Icons.AutoMirrored.Outlined.VolumeOff, PanelRow.SLIDER, active = vol == 0) {
@@ -1549,10 +1560,13 @@ private object SystemLevels {
         Settings.System.putInt(ctx.contentResolver, Settings.System.SCREEN_BRIGHTNESS, LEVELS[(f * 10).roundToInt().coerceIn(0, 10)])
     }
 
-    fun setVolume(ctx: Context, f: Float) {
+    /** False si Android no dejó subir (el aviso de "volumen alto" con audífonos: hay que confirmarlo). */
+    fun setVolume(ctx: Context, f: Float): Boolean {
         val a = audio(ctx)
         val max = a.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-        a.setStreamVolume(AudioManager.STREAM_MUSIC, (f * max).roundToInt().coerceIn(0, max), 0)
+        val want = (f * max).roundToInt().coerceIn(0, max)
+        a.setStreamVolume(AudioManager.STREAM_MUSIC, want, 0)
+        return a.getStreamVolume(AudioManager.STREAM_MUSIC) >= want
     }
 
     /** Un paso más o menos; deja el brillo en manual (si no, el automático lo cambia enseguida). */
@@ -1570,8 +1584,18 @@ private object SystemLevels {
         return a.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / a.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
     }
 
-    fun stepVolume(ctx: Context, dir: Int) =
-        audio(ctx).adjustStreamVolume(AudioManager.STREAM_MUSIC, if (dir > 0) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, 0)
+    /** False si al subir no cambió sin estar al máximo: lo frenó el aviso de volumen alto de Android. */
+    fun stepVolume(ctx: Context, dir: Int): Boolean {
+        val a = audio(ctx)
+        val before = a.getStreamVolume(AudioManager.STREAM_MUSIC)
+        a.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (dir > 0) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, 0)
+        return dir < 0 || a.isStreamMute(AudioManager.STREAM_MUSIC) || before >= a.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ||
+            a.getStreamVolume(AudioManager.STREAM_MUSIC) > before
+    }
+
+    /** Subir con la interfaz de Android: así muestra su aviso de volumen alto para confirmarlo. */
+    fun raiseWithUi(ctx: Context) =
+        audio(ctx).adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI)
 
     fun toggleMute(ctx: Context) =
         audio(ctx).adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_TOGGLE_MUTE, 0)
