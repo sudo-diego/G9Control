@@ -189,7 +189,7 @@ private fun ShortcutsHelp(s: AppState, a: MainActivity) {
     val guide = AutoRules.legionKeys(a)
     fun on(g: AutoRules.Guide) = guide && AutoRules.guide(a, g)
     val chord = AutoRules.gamePanel(a)
-    val panel = listOfNotNull(if (on(AutoRules.Guide.HOLD_PANEL)) tr("Mantener guía", "Hold guide") else null, if (chord) "L3 + R3" else null)
+    val panel = listOfNotNull(if (on(AutoRules.Guide.HOLD_PANEL)) tr("Mantener guía", "Hold guide") else null, if (chord) (if (AutoRules.chordOnlyStreaming(a)) tr("L3 + R3 transmitiendo", "L3 + R3 while streaming") else "L3 + R3") else null)
     val shot = listOfNotNull(if (on(AutoRules.Guide.RB_SHOT)) tr("Guía + RB", "Guide + RB") else null, if (chord) tr("mantener L3 + R3", "hold L3 + R3") else null,
         if (AutoRules.touchpadShot(a)) tr("M dos veces (DS5)", "M twice (DS5)") else null)
     val back = listOfNotNull(if (on(AutoRules.Guide.TAP_BACK)) tr("Tocar guía", "Tap guide") else null,
