@@ -582,7 +582,7 @@ class AutoModeService : AccessibilityService() {
         val w = apps.firstOrNull { it.isFocused } ?: apps.firstOrNull { it.isActive }
         val pkg = w?.let { runCatching { it.root?.packageName?.toString() }.getOrNull() }?.takeIf { !isTransient(it) }
         // Su tarea, para volver a ella desde Recientes del panel como en Recientes de Android.
-        if (pkg != null && w != null) RecentApps.rememberTask(this, pkg, RecentApps.taskOf(w))
+        if (pkg != null) RecentApps.rememberTask(this, pkg, w?.let { RecentApps.taskOf(it) })
         if (pkg != null && pkg != lastPackage && pkg != staleSeen) { staleSeen = pkg; Log.i(TAG, "app al frente: $pkg (el servicio creía $lastPackage)") }
         return pkg ?: lastPackage
     }

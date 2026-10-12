@@ -61,7 +61,7 @@ import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.EnergySavingsLeaf
-import androidx.compose.material.icons.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Screenshot
 import androidx.compose.material.icons.outlined.Settings
@@ -889,7 +889,7 @@ class GamePanel(private val svc: AutoModeService) {
             val next = PadMode.entries[(PadMode.entries.indexOf(mode) + 1) % PadMode.entries.size]
             add(PanelItem("G9 · ${mode.label}", Icons.Outlined.SportsEsports, PanelRow.SYSTEM, sub = "→ ${next.label}") { hide(); svc.manualSwitch(next) })
         }
-        add(PanelItem("TBF Companion", Icons.Outlined.OpenInNew, PanelRow.SYSTEM) {
+        add(PanelItem("TBF Companion", Icons.AutoMirrored.Outlined.OpenInNew, PanelRow.SYSTEM) {
             hide()
             svc.startActivity(Intent(svc, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         })

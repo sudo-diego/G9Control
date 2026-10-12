@@ -919,16 +919,14 @@ class MainActivity : ComponentActivity() {
         Profiles.save(this, list)
     }
 
-    /** Pide el permiso de lista de apps de ZUI; al responder, se recarga la lista. */
-    fun requestAppListPermission() {
-        if (checkSelfPermission(AutoRules.PERM_APP_LIST) == android.content.pm.PackageManager.PERMISSION_GRANTED) return
-        requestPermissions(arrayOf(AutoRules.PERM_APP_LIST), 7)
+    /** Permiso de lista de apps de ZUI; al responder, se recarga la lista. */
+    private val appListPermission = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+        state.appsReload++
     }
 
-    @Deprecated("Deprecated in Java")
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 7) state.appsReload++
+    fun requestAppListPermission() {
+        if (checkSelfPermission(AutoRules.PERM_APP_LIST) == android.content.pm.PackageManager.PERMISSION_GRANTED) return
+        appListPermission.launch(AutoRules.PERM_APP_LIST)
     }
 
     fun switchMode(t: Target) = launchIo {

@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,7 +61,7 @@ private fun gridLabel(b: Int) = when (b) {
 private fun gridIcon(b: Int): androidx.compose.ui.graphics.vector.ImageVector? = when (b) {
     0xBC -> Icons.Outlined.FilterNone; 0xBD -> Icons.Filled.Menu; 0xC2 -> Icons.Outlined.Home
     0xB0 -> Icons.Filled.KeyboardArrowUp; 0xB1 -> Icons.Filled.KeyboardArrowDown
-    0xB2 -> Icons.Filled.KeyboardArrowLeft; 0xB3 -> Icons.Filled.KeyboardArrowRight
+    0xB2 -> Icons.AutoMirrored.Filled.KeyboardArrowLeft; 0xB3 -> Icons.AutoMirrored.Filled.KeyboardArrowRight
     else -> null
 }
 
