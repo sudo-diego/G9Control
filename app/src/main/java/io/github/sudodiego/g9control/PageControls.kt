@@ -66,8 +66,8 @@ private fun GuidePanel(a: MainActivity) {
                     row(AutoRules.Guide.LB_BACK).value = it; AutoRules.setGuide(a, AutoRules.Guide.LB_BACK, it)
                 }
             }
-            Hint(tr("Transmitiendo desde el PC, el botón guía va al PC. En el G9, 5 s lo apaga.",
-                "While streaming from a PC, the guide button goes to the PC. On the G9, 5 s turns it off."))
+            Hint(tr("Transmitiendo desde el PC (Artemis, Moonlight) la guía va al PC: ahí las capturas se sacan con M dos veces (G9 en DS5) o manteniendo L3 + R3. En el G9, mantener la guía 5 s lo apaga.",
+                "While streaming from a PC (Artemis, Moonlight) the guide goes to the PC: there, take screenshots with M twice (G9 in DS5) or by holding L3 + R3. On the G9, holding the guide 5 s turns it off."))
         }
     }
 }
