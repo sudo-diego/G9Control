@@ -402,6 +402,7 @@ class GamePanel(private val svc: AutoModeService) {
      * 6 s (un toast se olvida y la tablet se apagaba).
      */
     fun lowBattery(level: Int, left: String?) {
+        if (AutoRules.lowBatterySound(svc)) sounds.play(R.raw.low_battery)
         flash.show(flash.batteryIcon(level), tr("Batería baja · $level %", "Low battery · $level %"),
             listOfNotNull(left?.let { tr("Quedan $it", "$it left") }, tr("Conecta el cargador", "Plug in the charger")).joinToString(" · "), 6000)
     }
@@ -1793,7 +1794,11 @@ private class ShotSounds(private val ctx: android.content.Context) {
 
     fun play(s: ShotSound) {
         if (s == ShotSound.NONE) return
-        val res = if (s == ShotSound.SHUTTER) R.raw.shot_shutter else R.raw.shot_jingle
+        play(if (s == ShotSound.SHUTTER) R.raw.shot_shutter else R.raw.shot_jingle)
+    }
+
+    /** Cualquier sonido de res/raw por el volumen multimedia, bajando un momento el del juego. */
+    fun play(res: Int) {
         runCatching {
             player?.release()
             val p = android.media.MediaPlayer.create(ctx, res, attrs, audio.generateAudioSessionId()) ?: error("MediaPlayer.create devolvió null")

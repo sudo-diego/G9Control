@@ -103,6 +103,8 @@ object AutoRules {
     fun lowBattery(ctx: Context) = sp(ctx).getBoolean("low_battery", true)
     fun setLowBattery(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery", v).apply()
     val LOW_LEVELS = listOf(15, 10, 5)
+    fun lowBatterySound(ctx: Context) = sp(ctx).getBoolean("low_battery_sound", true)
+    fun setLowBatterySound(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery_sound", v).apply()
 
     /** Ráfaga de capturas: mantener RB (con el botón guía) sigue sacando una por segundo. */
     fun burstShots(ctx: Context) = sp(ctx).getBoolean("burst_shots", true)

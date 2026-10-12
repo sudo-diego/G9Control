@@ -155,7 +155,19 @@ fun BatteryNowPanel(a: MainActivity) {
         SwitchRow(tr("Aviso de batería baja", "Low battery notice"), low, tr("Tarjeta a 15, 10 y 5 % sin cargador", "Card at 15, 10 and 5 % unplugged")) {
             low = it; AutoRules.setLowBattery(a, it)
         }
-        TextButton(onClick = { AutoRules.preview(a, "battery") }) { Text(tr("Ver el aviso", "Show the notice")) }
+        var lowSound by remember { mutableStateOf(AutoRules.lowBatterySound(a)) }
+        SwitchRow(tr("Con sonido", "With sound"), lowSound) { lowSound = it; AutoRules.setLowBatterySound(a, it) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextButton(onClick = { AutoRules.preview(a, "battery") }) { Text(tr("Ver el aviso", "Show the notice")) }
+            // El aviso del sistema (notificación de SystemUI, canal BAT): una app no lo puede apagar, pero sí abrir su ajuste.
+            TextButton(onClick = {
+                runCatching {
+                    a.startActivity(Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, "com.android.systemui")
+                        .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, "BAT"))
+                }
+            }) { Text(tr("Quitar el aviso del sistema", "Turn off the system notice")) }
+        }
     }
 }
 
