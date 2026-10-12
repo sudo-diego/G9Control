@@ -40,6 +40,12 @@ object RecentApps {
         sp(ctx).edit().putString("list", list.joinToString(",")).apply()
     }
 
+    /** Quitarla de la lista (se cerró desde el panel). Vuelve a aparecer si se abre de nuevo. */
+    fun forget(ctx: Context, pkg: String) {
+        tasks.remove(pkg)
+        sp(ctx).edit().putString("list", list(ctx).filter { it != pkg }.joinToString(",")).remove("task_$pkg").apply()
+    }
+
     fun list(ctx: Context): List<String> = sp(ctx).getString("list", "")!!.split(',').filter { it.isNotBlank() }
 
     fun label(ctx: Context, pkg: String) =

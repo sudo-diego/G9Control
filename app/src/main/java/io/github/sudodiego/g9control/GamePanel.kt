@@ -31,6 +31,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import kotlin.math.roundToInt
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -453,6 +454,7 @@ class GamePanel(private val svc: AutoModeService) {
             }
             return true
         }
+        if (closeArmed != null && e.keyCode != KeyEvent.KEYCODE_BUTTON_Y) { closeArmed = null; main.removeCallbacks(disarm); refresh() }
         when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> moveGrid(-1, 0)
             KeyEvent.KEYCODE_DPAD_RIGHT -> moveGrid(1, 0)
@@ -545,9 +547,32 @@ class GamePanel(private val svc: AutoModeService) {
     /** Vuelve a armar los ítems (cambió un valor: brillo, volumen) sin mover la selección. */
     private fun refresh() {
         if (!isOpen || inPerfMenu) return
+        // La selección sigue en el mismo mosaico aunque la lista cambie (al cerrar una reciente se corría).
         val sel = ui.sel
+        val label = ui.items.getOrNull(sel)?.label
         ui.items = items()
-        ui.sel = sel.coerceAtMost(ui.items.size - 1)
+        ui.sel = ui.items.indexOfFirst { it.label == label }.takeIf { it >= 0 } ?: sel.coerceAtMost(ui.items.size - 1)
+    }
+
+    /** App reciente marcada para cerrar (primer Y); se olvida a los 3 s o al moverse. */
+    private var closeArmed: String? = null
+    private val disarm = Runnable { if (closeArmed != null) { closeArmed = null; refresh() } }
+
+    /**
+     * Cerrar una app reciente desde el panel, como Detener en Memoria: Y la marca y otro Y la cierra (para no cerrar
+     * un juego sin querer). Sale de la lista; detenerla de verdad necesita Shizuku (sin él solo se quita de la lista).
+     */
+    private fun closeRecent(pkg: String) {
+        main.removeCallbacks(disarm)
+        if (closeArmed != pkg) { closeArmed = pkg; main.postDelayed(disarm, 3000); refresh(); return }
+        closeArmed = null
+        val name = RecentApps.label(svc, pkg)
+        RecentApps.forget(svc, pkg)
+        if (Shell.state == Shell.State.READY) {
+            scope.launch { Memory.stop(svc, pkg) }
+            toast(tr("$name cerrada", "$name closed"))
+        } else toast(tr("$name quitada de recientes (cerrarla necesita Shizuku)", "$name removed from recents (closing it needs Shizuku)"))
+        refresh()
     }
 
     private fun poke() {
@@ -558,9 +583,12 @@ class GamePanel(private val svc: AutoModeService) {
     /** Acciones según lo que hay ahora: el panel de ZUI solo en modo juego, los modos según el actual. */
     private fun items(): List<PanelItem> = buildList {
         // Apps usadas hace poco (sin la de ahora): volver a ellas como a un juego en suspensión.
+        // Y (o mantener con el dedo) dos veces la cierra: la primera la marca, la segunda confirma.
         RecentApps.list(svc).filter { it != svc.foregroundApp }.take(COLUMNS).forEach { pkg ->
-            add(PanelItem(RecentApps.label(svc, pkg), Icons.Outlined.Layers, PanelRow.RECENT, sub = tr("Volver", "Resume"),
-                appIcon = RecentApps.icon(svc, pkg)) { hide(); RecentApps.open(svc, pkg) })
+            val armed = closeArmed == pkg
+            add(PanelItem(RecentApps.label(svc, pkg), Icons.Outlined.Layers, PanelRow.RECENT,
+                sub = if (armed) tr("Otra Y la cierra", "Y again closes") else tr("Volver", "Resume"),
+                active = armed, appIcon = RecentApps.icon(svc, pkg), alt = { closeRecent(pkg) }) { hide(); RecentApps.open(svc, pkg) })
         }
         // Arriba, brillo y volumen como barras (se arrastran con el dedo o se ajustan con A y ← →).
         // Cada barra con su botón al lado (brillo automático, silencio), que también se toca con el dedo.
@@ -1316,6 +1344,8 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
             Spacer(Modifier.height(14.dp))
             Text(
                 ui.items.getOrNull(ui.sel)?.takeIf { ui.editing }?.hint
+                    ?: ui.items.getOrNull(ui.sel)?.takeIf { it.section == PanelRow.RECENT }?.let {
+                        tr("A volver · Y cerrar la app · B cerrar", "A resume · Y close the app · B close") }
                     ?: ui.footer ?: if (ui.sub) tr("A elegir · B volver", "A select · B back")
                     else tr("Stick o cruceta mover · A elegir · B cerrar", "Stick or D-pad move · A select · B close"),
                 color = PANEL_MUTED, fontSize = 12.sp, style = LABEL_STYLE, modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -1424,14 +1454,17 @@ private fun PanelToggle(item: PanelItem, selected: Boolean, onClick: () -> Unit)
     }
 }
 
-/** Mosaico: ícono, nombre y estado; encendido = en color de acento. Toma el ancho que le da su fila. */
+/** Mosaico: ícono, nombre y estado; encendido = en color de acento. Toma el ancho que le da su fila. Mantenerlo con
+ *  el dedo hace lo mismo que Y (la otra acción: cerrar una reciente, encender o apagar el WiFi). */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val fg = if (item.active) ON_TILE_ON else PANEL_FG
     Surface(
         color = if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
         border = if (selected) BorderStroke(2.5.dp, SELECTED) else if (glassPanel && !item.active) BorderStroke(1.dp, GLASS_EDGE) else null,
-        modifier = modifier.clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)
+        modifier = modifier.clip(RoundedCornerShape(22.dp))
+            .combinedClickable(onClick = onClick, onLongClick = item.alt)
             .graphicsLayer { alpha = if (item.enabled) 1f else 0.45f }
     ) {
         Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
