@@ -93,6 +93,8 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 
 - **'Botón guía' en RetroArch (registro del 12 oct, ~80 % a la primera):** mientras la app sostiene la guía Virtual 3 s, el servicio deja pasar todos los botones (ventana `injectingUntil`), y el firmware del G9 manda toques cortos de la guía real (scanCode 316) que llegan a RetroArch como el jugador 1. Lo que RetroArch hace depende de cuál llegue primero. El filtro de dejar pasar solo los del Virtual (id < 0) se probó y se revirtió a pedido del usuario; si se retoma, empezar por ahí. Posible camino más limpio para Ahorro: las listas por app de ZUI `highRefresh_<pkg>` / `extremeRefresh_<pkg>` (System) quizás eximen a una app del tope de 30 Hz; sin probar.
 
+- **Conclusión 'Botón guía' (12 oct):** lo que abre el menú de RetroArch es la **guía real** del G9 que se cuela mientras la app envía (el firmware manda toques cortos extra de la guía); la guía enviada (Virtual) RetroArch no la usa. Probado: ignorando la guía real durante el envío, deja de funcionar. Se dejó así (~80 %). Lo determinista es 'Pasar al juego' (pierde mantener para el panel; L3 + R3).
+
 ## Pendientes
 - Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.
