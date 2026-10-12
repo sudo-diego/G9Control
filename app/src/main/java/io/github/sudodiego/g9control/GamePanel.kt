@@ -162,6 +162,8 @@ private class PanelUi {
     var battery by mutableIntStateOf(-1)
     var charging by mutableStateOf(false)
     var bypass by mutableStateOf(false)
+    /** Texto de abajo en un submenú (en vez de "A elegir · B volver"). */
+    var footer by mutableStateOf<String?>(null)
     /** Enchufada sin cargar (límite de carga, llena): el ícono lleva enchufe en vez de rayo. */
     var held by mutableStateOf(false)
     /** Cargando: lo que falta para la carga completa ("1 h 20 min"), a la izquierda de la batería. */
@@ -244,7 +246,7 @@ class GamePanel(private val svc: AutoModeService) {
 
     /** Encabezado del panel: la app al frente, la batería (ícono con su nivel), "Bypass" o "Cargando" y la hora. */
     private fun header() {
-        ui.sub = false
+        ui.sub = false; ui.footer = null
         ui.title = appLabel(svc.foregroundApp)
         ui.stats = Prefs.panelStats(svc)
         ui.mode = ModeSwitcher.detect()?.label
@@ -338,7 +340,7 @@ class GamePanel(private val svc: AutoModeService) {
         subFrom = Icons.Outlined.DisplaySettings
         val app = svc.foregroundApp
         val chosen = RefreshRate.forApp(svc, app)
-        ui.sub = true
+        ui.sub = true; ui.footer = null
         ui.title = tr("Frecuencia de la pantalla", "Screen refresh rate")
         // Sin elección propia: la de todos los juegos (si hay) o la del sistema.
         val games = RefreshRate.forGames(svc)?.takeIf { ZuiGame.inGame(svc) }
@@ -931,8 +933,11 @@ class GamePanel(private val svc: AutoModeService) {
         }
         val app = svc.foregroundApp
         val known = ZuiGame.knownPerf(app)
-        ui.sub = true
+        ui.sub = true; ui.footer = null
         ui.title = tr("Rendimiento", "Performance")
+        // Cambiarlo pasa por Game Assistant detrás de una imagen fija del juego: que no parezca que se colgó.
+        ui.footer = tr("Al cambiar, la imagen queda fija unos segundos · A elegir · B volver",
+            "While it changes, the picture freezes for a few seconds · A select · B back")
         ui.items = build(known)
         ui.sel = known?.let { ZuiGame.PerfMode.entries.indexOf(it) } ?: 1
         poke()
@@ -995,7 +1000,10 @@ class GamePanel(private val svc: AutoModeService) {
                         // Espera a que Game Assistant escriba el modo nuevo (si no, el siguiente toque se pasaría).
                         var tries = 0
                         var next = ZuiGame.lastPerfLine()
-                        while (next == line && tries++ < 10) { delay(250); next = ZuiGame.lastPerfLine() }
+                        // Una lectura fallida (Shizuku tardó, null) no es un cambio: seguir esperando. Si no, se daba un
+                        // toque de más y pasaba de largo (pedido Ahorro, quedaba Equilibrado).
+                        while ((next == null || next == line) && tries++ < 10) { delay(250); next = ZuiGame.lastPerfLine() }
+                        if (next == null) break
                         line = next
                         now = ZuiGame.perfOf(line)
                     }
@@ -1293,7 +1301,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
             Spacer(Modifier.height(14.dp))
             Text(
                 ui.items.getOrNull(ui.sel)?.takeIf { ui.editing }?.hint
-                    ?: if (ui.sub) tr("A elegir · B volver", "A select · B back")
+                    ?: ui.footer ?: if (ui.sub) tr("A elegir · B volver", "A select · B back")
                     else tr("Stick o cruceta mover · A elegir · B cerrar", "Stick or D-pad move · A select · B close"),
                 color = PANEL_MUTED, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally)
             )
@@ -1534,8 +1542,7 @@ private class FreezeCover(private val svc: AccessibilityService) {
     private var view: android.view.View? = null
     private var dim: android.view.View? = null
     private var card: android.view.View? = null
-    private var spinner: android.view.View? = null
-    private var check: android.view.View? = null
+    private var ring: PerfRing? = null
     private var title: android.widget.TextView? = null
     private var subtitle: android.widget.TextView? = null
     private var shot: Bitmap? = null
@@ -1545,19 +1552,7 @@ private class FreezeCover(private val svc: AccessibilityService) {
         mode = modeLabel
         val dp = svc.resources.displayMetrics.density
         val px = { v: Int -> (v * dp).toInt() }
-        val bar = android.widget.ProgressBar(svc).apply { isIndeterminate = true }
-        // El ✓ ocupa el lugar de la ruedita al terminar: la tarjeta no cambia de tamaño.
-        val ok = android.widget.TextView(svc).apply {
-            text = "✓"
-            setTextColor(0xFF5CC8FF.toInt())
-            textSize = 22f
-            gravity = Gravity.CENTER
-            visibility = android.view.View.INVISIBLE
-        }
-        val icon = android.widget.FrameLayout(svc).apply {
-            addView(bar, android.widget.FrameLayout.LayoutParams(px(28), px(28), Gravity.CENTER))
-            addView(ok, android.widget.FrameLayout.LayoutParams(px(28), px(28), Gravity.CENTER))
-        }
+        val icon = PerfRing(svc)
         val t = android.widget.TextView(svc).apply {
             // El título no cambia en todo el proceso (si cambia al final no se alcanza a leer).
             text = tr("Rendimiento: $modeLabel", "Performance: $modeLabel")
@@ -1581,7 +1576,7 @@ private class FreezeCover(private val svc: AccessibilityService) {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(px(18), px(14), px(22), px(14))
             background = android.graphics.drawable.GradientDrawable().apply { setColor(0xEE0E1424.toInt()); cornerRadius = 16 * dp }
-            addView(icon, android.widget.LinearLayout.LayoutParams(px(28), px(28)))
+            addView(icon, android.widget.LinearLayout.LayoutParams(px(40), px(40)))
             addView(texts)
             alpha = 0f
         }
@@ -1615,7 +1610,7 @@ private class FreezeCover(private val svc: AccessibilityService) {
         root.setOnGenericMotionListener { _, _ -> true }
         if (runCatching { wm.addView(root, lp) }.isFailure) { image?.recycle(); return }
         root.requestFocus()
-        view = root; dim = d; card = c; spinner = bar; check = ok; title = t; subtitle = s; shot = image
+        view = root; dim = d; card = c; ring = icon; title = t; subtitle = s; shot = image
         // Se oscurece y aparece la tarjeta: se nota que es una pausa y no que el juego se colgó.
         d.animate().alpha(0.55f).setDuration(250).start()
         c.animate().alpha(1f).setDuration(250).start()
@@ -1623,15 +1618,15 @@ private class FreezeCover(private val svc: AccessibilityService) {
 
     /**
      * Resultado: el modo que quedó lo confirma el registro de Game Assistant (no se supone). El título no cambia:
-     * la ruedita pasa a ✓ y la línea de abajo dice «Listo». Se ve 1,2 s y la imagen se va con un fundido.
+     * el anillo se cierra y se enciende (ver [PerfRing]) y la línea de abajo dice «Listo». Se ve 1,2 s y la imagen se
+     * va con un fundido.
      */
     fun done(ok: Boolean) {
         if (view == null) return
         // Que el cambio de texto no achique la tarjeta.
         (subtitle?.parent as? android.view.View)?.let { it.minimumWidth = it.width }
-        spinner?.visibility = android.view.View.INVISIBLE
+        ring?.finish(ok)
         if (ok) {
-            check?.visibility = android.view.View.VISIBLE
             subtitle?.text = tr("Listo", "Done")
         } else {
             title?.text = tr("No se pudo cambiar el rendimiento", "Couldn't change performance")
@@ -1649,6 +1644,64 @@ private class FreezeCover(private val svc: AccessibilityService) {
         // Sin recycle(): removeView es asíncrono y la ventana todavía se dibuja una vez (se caía la app). Al
         // soltar la referencia, la memoria se libera sola.
         shot = null
+    }
+}
+
+/**
+ * El indicador de la tarjeta de rendimiento, en el estilo del panel (acento celeste, trazos redondeados) en vez de la
+ * ruedita de Android y un ✓: un arco que gira mientras cambia; al terminar se cierra en un anillo, se enciende un punto
+ * al centro y un halo se expande y se desvanece (como una luz que se prende). Si falla, el anillo queda gris.
+ */
+private class PerfRing(ctx: Context) : android.view.View(ctx) {
+    private val accent = 0xFF5CC8FF.toInt()
+    private val stroke = 3f * ctx.resources.displayMetrics.density
+    private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        style = android.graphics.Paint.Style.STROKE; strokeWidth = stroke; strokeCap = android.graphics.Paint.Cap.ROUND; color = accent
+    }
+    private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { color = accent }
+    private val track = android.graphics.Paint(paint).apply { alpha = 50 }
+    private var angle = 0f
+    private var sweep = 80f
+    /** 0..1 al terminar: el punto del centro crece y el halo se va. */
+    private var glow = 0f
+    private var failed = false
+    private val spin = android.animation.ValueAnimator.ofFloat(0f, 360f).apply {
+        duration = 900; repeatCount = android.animation.ValueAnimator.INFINITE
+        interpolator = android.view.animation.LinearInterpolator()
+        addUpdateListener { angle = it.animatedValue as Float; invalidate() }
+    }
+
+    override fun onAttachedToWindow() { super.onAttachedToWindow(); spin.start() }
+    override fun onDetachedFromWindow() { spin.cancel(); super.onDetachedFromWindow() }
+
+    fun finish(ok: Boolean) {
+        spin.cancel()
+        failed = !ok
+        if (!ok) { paint.color = 0xFF9AA6BF.toInt(); sweep = 360f; invalidate(); return }
+        val from = sweep
+        android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 650; interpolator = android.view.animation.DecelerateInterpolator()
+            addUpdateListener {
+                val f = it.animatedValue as Float
+                sweep = from + (360f - from) * (f / 0.45f).coerceAtMost(1f)
+                glow = ((f - 0.35f) / 0.65f).coerceIn(0f, 1f)
+                invalidate()
+            }
+        }.start()
+    }
+
+    override fun onDraw(c: android.graphics.Canvas) {
+        // Margen alrededor para el halo (la vista no dibuja fuera de sus bordes).
+        val r = minOf(width, height) / 2f - stroke * 3.2f
+        val cx = width / 2f; val cy = height / 2f
+        c.drawCircle(cx, cy, r, track)
+        c.drawArc(cx - r, cy - r, cx + r, cy + r, angle - 90f, sweep, false, paint)
+        if (glow > 0f && !failed) {
+            c.drawCircle(cx, cy, r * 0.45f * glow, fill)
+            // Halo: sale del anillo hacia afuera y se apaga.
+            val halo = android.graphics.Paint(paint).apply { alpha = (140 * (1f - glow)).toInt(); strokeWidth = stroke * (1f - glow * 0.6f) }
+            c.drawCircle(cx, cy, r + stroke * 2.2f * glow, halo)
+        }
     }
 }
 
