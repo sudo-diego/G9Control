@@ -24,7 +24,8 @@ object KeyInject {
         val keys = args.drop(2).map { it.toInt() }
         val im = Class.forName("android.hardware.input.InputManagerGlobal").getMethod("getInstance").invoke(null)
         val inject = im.javaClass.getMethod("injectInputEvent", InputEvent::class.java, Int::class.javaPrimitiveType)
-        val source = InputDevice.SOURCE_GAMEPAD or InputDevice.SOURCE_KEYBOARD
+        // Id negativo: como una tecla de teclado (fuente solo teclado), para los atajos de teclado de un emulador.
+        val source = if (device < 0) InputDevice.SOURCE_KEYBOARD else InputDevice.SOURCE_GAMEPAD or InputDevice.SOURCE_KEYBOARD
         val down = SystemClock.uptimeMillis()
         fun send(action: Int, key: Int) {
             val now = SystemClock.uptimeMillis()

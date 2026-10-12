@@ -85,8 +85,10 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 - **Guía 5 s:** el temporizador de 5 s bloqueaba sin que el G9 se apagara (en modo Android el soltar a veces no llega). Se quitó: solo se bloquea cuando el G9 se desconecta tras mantener la guía 3,5 s o más.
 - **Registro de la tablet:** el buffer de logcat se recicla en segundos; `adb logcat -G 16M` para poder revisar lo que pasó.
 
+- **RetroArch, lo que NO funciona para salir (probado 12 oct 2026):** "Fusionar tipos de dispositivo" (`input_hotkey_device_merge`) une teclado y mando, no varios controles; Atrás de Android en un juego no hace nada; la tecla `P` (salir) inyectada, aunque se mantenga 250 ms y vaya como solo teclado, la ignora (todo lo enviado por software es el dispositivo "Virtual"); comandos de red (`network_cmd_enable`, UDP 55355): la versión de Android no abre el puerto. Lo que sí: dejar pasar la guía real ("Pasar al juego", la opción de RetroArch por defecto) y asignarla en RetroArch a "Cerrar RetroArch" o "Mostrar menú".
+
 ## Pendientes
-- Activar Hotkey Device Merge en RetroArch y probar salir con la guía.
+- Asignar en RetroArch la guía (con "Pasar al juego") a Cerrar RetroArch y probar.
 - Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.
 - README nuevo con el nombre TBF Companion.

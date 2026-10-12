@@ -175,15 +175,18 @@ object AutoRules {
     // "Botón guía" (mandarlo tal cual) se quitó: Android 15 marca todo botón enviado por software como de un dispositivo
     // "Virtual" (aunque se le dé el id del G9; RetroArch decía "Virtual (0/0)"), así que un emulador no lo puede asignar
     // como la guía del control. Las combinaciones sí sirven: RetroArch le aplica a "Virtual" su configuración de respaldo.
-    enum class GuideTap { BACK, VIEW_MENU, NOTHING;
+    // PASS: la guía no la toma la app (ni tocar ni mantener): le llega al juego tal cual, desde el control real. Es lo
+    // único que un emulador acepta como la guía del jugador 1 (lo enviado por software llega como "Virtual").
+    enum class GuideTap { BACK, VIEW_MENU, PASS, NOTHING;
         val label get() = when (this) {
-            BACK -> tr("Atrás", "Back"); VIEW_MENU -> tr("Vista + Menú", "View + Menu"); NOTHING -> tr("Nada", "Nothing")
+            BACK -> tr("Atrás", "Back"); VIEW_MENU -> tr("Vista + Menú", "View + Menu")
+            PASS -> tr("Pasar al juego", "Pass to the game"); NOTHING -> tr("Nada", "Nothing")
         }
     }
     /** RetroArch sale con Vista + Menú (sus atajos de fábrica en Android): esa es su opción de entrada. */
     fun guideTap(ctx: Context, pkg: String?): GuideTap = pkg?.let { p ->
         runCatching { GuideTap.valueOf(sp(ctx).getString("guide_tap_app_$p", null)!!) }.getOrNull()
-            ?: if (p.startsWith("com.retroarch")) GuideTap.VIEW_MENU else null
+            ?: if (p.startsWith("com.retroarch")) GuideTap.PASS else null
     } ?: GuideTap.BACK
     fun setGuideTap(ctx: Context, pkg: String, v: GuideTap) = sp(ctx).edit().putString("guide_tap_app_$pkg", v.name).apply()
     fun guide(ctx: Context, g: Guide) = sp(ctx).getBoolean(g.key, true)
@@ -1067,7 +1070,7 @@ class AutoModeService : AccessibilityService() {
                 Log.i(TAG, "guía en $app: Atrás")
                 if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK); return
             }
-            AutoRules.GuideTap.NOTHING -> return
+            AutoRules.GuideTap.NOTHING, AutoRules.GuideTap.PASS -> return
             AutoRules.GuideTap.VIEW_MENU -> intArrayOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START) to 200
         }
         if (Shell.state != Shell.State.READY) {
@@ -1096,7 +1099,8 @@ class AutoModeService : AccessibilityService() {
                     val now = limelightStreaming()
                     if (now != streaming) { streaming = now; Log.d(TAG, "transmitiendo (al apretar Legion): $now"); updatePadWatch() }
                 }
-                legionOwned = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming
+                legionOwned = AutoRules.legionKeys(this) && !appInFront && !guide.blocksInput && !streaming &&
+                    AutoRules.guideTap(this, currentApp()) != AutoRules.GuideTap.PASS
                 legionDevice = e.device?.id ?: e.deviceId
                 Log.i(TAG, "guía apretada: dispositivo ${e.deviceId} (${e.device?.name}), en $lastPackage")
                 if (legionOwned) {
