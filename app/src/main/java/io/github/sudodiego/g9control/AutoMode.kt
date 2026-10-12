@@ -577,6 +577,8 @@ class AutoModeService : AccessibilityService() {
         appWindowId = w.id
         if (pkg in AutoRules.STREAMING) { streaming = !pkg.startsWith("com.limelight") || limelightStreaming(); updatePadWatch() }
         Log.d(TAG, "app al frente al arrancar: $pkg${if (streaming) " (transmitiendo)" else ""}")
+        // Los Hz elegidos para esa app (si no, al reiniciar el servicio se perdían hasta cambiar de app).
+        RefreshRate.applyFor(this, pkg)
     }
 
     private var unlockTries = 0
@@ -622,6 +624,7 @@ class AutoModeService : AccessibilityService() {
         Lang.load(this)
         // El fondo del panel (y el tema) aunque no se haya abierto la app.
         ThemeState.load(this)
+        RefreshRate.watch(this)
         guide = ModeGuide(this)
         panel = GamePanel(this)
         // Sin control: el botón de accesibilidad de la barra (o mantener los dos botones de volumen, si se eligió

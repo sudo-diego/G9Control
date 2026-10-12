@@ -89,6 +89,8 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 
 - **RetroArch, cómo quedó (12 oct 2026):** el usuario eligió "Pasar al juego": la guía real del G9 abre el menú de RetroArch (asignada ahí) y sale con Select + Start físicos. "Botón guía" (enviado por la app, apretado 3 s) se puede asignar y cierra, pero pide dos toques: el primer evento del "Virtual" RetroArch lo usa para registrarlo. Probé un toque previo (BUTTON_16, o un toque corto de la guía) y filtrar los botones reales mientras se envía: se revirtió a pedido del usuario.
 
+- **Ahorro de energía y la frecuencia (12 oct 2026):** `com.zui.pp` (rendimiento de ZUI) escribe `peak_refresh_rate` = 30 en Ahorro una y otra vez (visto con `dumpsys settings`: `pkg:com.zui.pp`, cientos de cambios). Pisaba los Hz forzados y quedaban cruzados (peak 30, min 165): la pantalla saltaba a 165 a los minutos (con BFI parpadeaba). Ahora un ContentObserver sobre `peak_refresh_rate` vuelve a forzar la elegida mientras haya una; al dejar la app siempre se suelta y se devuelve (min 30, peak = `user_refresh_rate`); al arrancar el servicio, si quedaron cruzados o guardados de antes, se arreglan (a los 3, 8 y 20 s, cuando Shizuku esté listo); la pantalla de inicio no toma los Hz de Juegos. Probado imitando a ZUI: vuelve a 120 en < 2 s.
+
 ## Pendientes
 - Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.

@@ -47,7 +47,52 @@ object RefreshRate {
     fun setForGames(ctx: Context, hz: Int?) = sp(ctx).edit().putInt("hz_games", hz ?: 0).apply()
 
     /** Lo que toca para esa app: su elección, o la de los juegos si es un juego. */
-    fun wanted(ctx: Context, pkg: String?): Int? = forApp(ctx, pkg) ?: forGames(ctx)?.takeIf { ZuiGame.inGame(ctx) }
+    fun wanted(ctx: Context, pkg: String?): Int? = forApp(ctx, pkg) ?: forGames(ctx)?.takeIf { ZuiGame.inGame(ctx) && !isHome(ctx, pkg) }
+
+    /** La pantalla de inicio no es un juego aunque ZUI siga un momento en modo juego al salir (Cocoon tomaba 165 Hz). */
+    private var homes: Set<String>? = null
+    private fun isHome(ctx: Context, pkg: String?): Boolean {
+        val h = homes ?: ctx.packageManager.queryIntentActivities(android.content.Intent(android.content.Intent.ACTION_MAIN)
+            .addCategory(android.content.Intent.CATEGORY_HOME), 0).map { it.activityInfo.packageName }.toSet().also { homes = it }
+        return pkg in h
+    }
+
+    /**
+     * En Ahorro, el servicio de rendimiento de ZUI (com.zui.pp) escribe `peak_refresh_rate` = 30 una y otra vez (visto en
+     * el historial de `dumpsys settings`): pisaba la frecuencia forzada y quedaban cruzados (peak 30, min 165), con la
+     * pantalla saltando. Mientras haya una forzada, si cambia, se vuelve a poner.
+     */
+    private fun sanitize(ctx: Context) {
+        if (forced != null || Shell.state != Shell.State.READY) return
+        val cr = ctx.contentResolver
+        val peak = android.provider.Settings.System.getFloat(cr, "peak_refresh_rate", 120f)
+        val min = android.provider.Settings.System.getFloat(cr, "min_refresh_rate", 30f)
+        if (min > peak || sp(ctx).contains("hz_saved_peak")) {
+            Log.d(AutoModeService.TAG, "frecuencia del sistema rara (min $min, peak $peak): se devuelve")
+            restoreSettings(ctx)
+        }
+    }
+
+    private var watching = false
+    fun watch(ctx: Context) {
+        if (watching) return
+        watching = true
+        // Al arrancar: si quedaron cruzados (mínimo sobre el máximo) o forzados de antes (la app se cerró a mitad), se
+        // devuelven a lo normal.
+        // Shizuku tarda un momento en estar listo al arrancar: se revisa a los 3, 8 y 20 s.
+        for (delay in listOf(3000L, 8000L, 20000L)) main.postDelayed({ sanitize(ctx) }, delay)
+        val obs = object : android.database.ContentObserver(main) {
+            override fun onChange(selfChange: Boolean) {
+                val (pkg, want) = forced ?: return
+                if (want == null) return
+                val peak = android.provider.Settings.System.getFloat(ctx.contentResolver, "peak_refresh_rate", 0f)
+                if (kotlin.math.abs(peak - want) < 1f) return
+                Log.d(AutoModeService.TAG, "ZUI cambió peak_refresh_rate a $peak: se vuelve a $want ($pkg)")
+                force(ctx, pkg, want)
+            }
+        }
+        ctx.contentResolver.registerContentObserver(android.provider.Settings.System.getUriFor("peak_refresh_rate"), false, obs)
+    }
 
     /**
      * Aplica la frecuencia de esa app (al cambiar de app, cuando ZUI dice que es un juego, o al elegirla en el
@@ -108,8 +153,10 @@ object RefreshRate {
         scope.launch {
             val peak = android.provider.Settings.System.getFloat(cr, "peak_refresh_rate", 120f)
             val min = android.provider.Settings.System.getFloat(cr, "min_refresh_rate", 30f)
-            // Solo se guarda lo del usuario: si ya estaban iguales (forzados por la app) no se pisa lo guardado.
-            if (!p.contains("hz_saved_peak") && peak > min) p.edit().putFloat("hz_saved_peak", peak).putFloat("hz_saved_min", min).commit()
+            // Solo se guarda lo del usuario: si ya estaban iguales (forzados por la app) no se pisa lo guardado. El máximo
+            // lo maneja ZUI (lo baja a 30 en Ahorro), así que se guarda el del usuario (user_refresh_rate) si existe.
+            val userPeak = android.provider.Settings.System.getFloat(cr, "user_refresh_rate", peak)
+            if (!p.contains("hz_saved_peak") && peak > min) p.edit().putFloat("hz_saved_peak", maxOf(userPeak, peak)).putFloat("hz_saved_min", min).commit()
             // En el orden que nunca deja el mínimo sobre el máximo.
             if (want >= peak) { Shell.run(Shell.refreshRate("peak_refresh_rate", want.toFloat())); Shell.run(Shell.refreshRate("min_refresh_rate", want.toFloat())) }
             else { Shell.run(Shell.refreshRate("min_refresh_rate", want.toFloat())); Shell.run(Shell.refreshRate("peak_refresh_rate", want.toFloat())) }
@@ -118,11 +165,15 @@ object RefreshRate {
 
     /** Devuelve los ajustes del sistema si quedaron cambiados (cuando se pueda). */
     private fun restoreSettings(ctx: Context) {
-        val p = sp(ctx)
-        if (!p.contains("hz_saved_peak") || Shell.state != Shell.State.READY) return
+        // Siempre se suelta lo forzado (antes, sin valores guardados, quedaba forzado y la vigilancia seguía poniendo
+        // los Hz de la app anterior en las demás).
         forced = null
+        if (Shell.state != Shell.State.READY) return
+        val p = sp(ctx)
+        val cr = ctx.contentResolver
         scope.launch {
-            val peak = p.getFloat("hz_saved_peak", 120f)
+            // Lo guardado o, si no hay, lo de Android: máximo el elegido por el usuario y mínimo 30.
+            val peak = p.getFloat("hz_saved_peak", android.provider.Settings.System.getFloat(cr, "user_refresh_rate", 120f))
             val min = p.getFloat("hz_saved_min", 30f).coerceAtMost(peak)
             // Primero el mínimo y después el máximo: nunca queda el mínimo sobre el máximo.
             Shell.run(Shell.refreshRate("min_refresh_rate", min))
