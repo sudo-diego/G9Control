@@ -219,8 +219,10 @@ class GamePanel(private val svc: AutoModeService) {
         poke()
         main.removeCallbacks(live); main.postDelayed(live, LIVE_MS)
         if (RaProxy.isEmulator(svc.foregroundApp) && RaProxy.installed(svc)) scope.launch {
-            val before = RaProxy.activeNow
-            if (RaProxy.readActive(svc) != before && isOpen) refresh()
+            val before = RaProxy.activeNow to RaProxy.setupNow
+            RaProxy.readActive(svc)
+            if (RaProxy.activeNow == true && Shell.state == Shell.State.READY) RaProxy.setupNow = RaProxy.setup(svc.foregroundApp)
+            if ((RaProxy.activeNow to RaProxy.setupNow) != before && isOpen) refresh()
         }
         // Bypass: igual, lo que se sabe al instante y se confirma en segundo plano (también fuera de los juegos).
         if (Shell.state == Shell.State.READY) scope.launch {
@@ -444,6 +446,9 @@ class GamePanel(private val svc: AutoModeService) {
     /** Emulador sin internet y RAOfflineProxy apagado: el atajo para encenderlo (el porqué está en la app). */
     fun raProxyHint() = flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Sin internet", "Offline"),
         tr("Para tus logros, enciende RAOfflineProxy", "For your achievements, turn on RAOfflineProxy"), 4500)
+
+    /** Proxy encendido pero al emulador le falta algo (sin sesión, no apunta al proxy): sin esto no hay logros. */
+    fun raSetupHint(problem: String) = flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Logros", "Achievements"), problem, 6000)
 
     /** Al empezar a transmitir: la guía va al PC, así que las capturas se sacan de otra forma. */
     fun streamTip() {
@@ -671,9 +676,14 @@ class GamePanel(private val svc: AutoModeService) {
         // Logros sin internet (RAOfflineProxy): en un emulador, si está instalado. Encendido = en color; A lo abre.
         if (RaProxy.isEmulator(svc.foregroundApp) && RaProxy.installed(svc)) {
             val on = RaProxy.activeNow
+            // Encendido pero al emulador le falta algo (sesión, apuntar al proxy): en rojo y qué falta.
+            val problem = RaProxy.setupNow?.takeIf { on == true }?.problem
             add(PanelItem(tr("Logros", "Achievements"), Icons.Outlined.Star,
-                sub = when (on) { true -> tr("Sin internet: activo", "Offline: on"); false -> tr("Sin internet: apagado", "Offline: off"); null -> "RAOfflineProxy" },
-                active = on == true) { hide(); RaProxy.open(svc) })
+                sub = problem?.let { tr("Falta algo: ver aviso", "Something's missing") } ?: when (on) {
+                    true -> tr("Sin internet: activo", "Offline: on"); false -> tr("Sin internet: apagado", "Offline: off"); null -> "RAOfflineProxy" },
+                active = on == true && problem == null, danger = problem != null) {
+                if (problem != null) toast(problem) else { hide(); RaProxy.open(svc) }
+            })
         }
         if (ZuiGame.inGame(svc)) {
             // Oculto: abrirlo. Visible: solo ocultarlo (abrirlo ya está a mano con su pestaña).

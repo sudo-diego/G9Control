@@ -56,6 +56,37 @@ object RaProxy {
         }
     }.getOrNull()
 
+    /**
+     * Cómo está un emulador para los logros: si apunta al proxy y si tiene sesión de RetroAchievements (sin sesión no
+     * pide logros a nadie: pasó con Dolphin, el proxy "activo" y sin logros). Null si no se pudo leer (sin Shizuku o
+     * sin el archivo). La caché de juegos del proxy no se puede leer.
+     */
+    data class Setup(val name: String, val toProxy: Boolean, val loggedIn: Boolean) {
+        val ok get() = toProxy && loggedIn
+        /** Lo que falta, corto, para el panel y el aviso. */
+        val problem get() = when {
+            !loggedIn -> tr("$name: falta iniciar sesión en RetroAchievements", "$name: sign in to RetroAchievements")
+            !toProxy -> tr("$name no apunta al proxy: apágalo y enciéndelo", "$name isn't using the proxy: turn it off and on")
+            else -> null
+        }
+    }
+
+    suspend fun setup(pkg: String?): Setup? = when {
+        pkg == null -> null
+        pkg.startsWith("com.retroarch") -> Shell.run(Shell.RA_CFG)?.let { cfg ->
+            fun v(k: String) = Regex("(?m)^$k\\s*=\\s*\"([^\"]*)\"").find(cfg)?.groupValues?.get(1).orEmpty()
+            Setup("RetroArch", v("cheevos_custom_host").startsWith("127.0.0.1"), v("cheevos_token").isNotBlank())
+        }
+        pkg == "org.dolphinemu.dolphinemu" -> Shell.run(Shell.DOLPHIN_RA)?.let { ini ->
+            fun v(k: String) = Regex("(?m)^$k\\s*=\\s*(.*)$").find(ini)?.groupValues?.get(1)?.trim().orEmpty()
+            Setup("Dolphin", v("HostUrl").startsWith("127.0.0.1"), v("ApiToken").isNotBlank())
+        }
+        else -> null
+    }
+
+    /** Lo último que se supo del emulador al frente (para el mosaico del panel). */
+    @Volatile var setupNow: Setup? = null
+
     fun open(ctx: Context) {
         ctx.packageManager.getLaunchIntentForPackage(PACKAGE)?.let {
             runCatching { ctx.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }

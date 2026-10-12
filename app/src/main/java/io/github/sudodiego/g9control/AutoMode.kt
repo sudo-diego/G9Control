@@ -1348,7 +1348,16 @@ class AutoModeService : AccessibilityService() {
      * saber si está encendido, no se avisa (sería un aviso de más).
      */
     private val raHinted = mutableSetOf<String>()
+    private val raChecked = mutableSetOf<String>()
     private fun raProxyHint(pkg: String) {
+        // Proxy encendido: ¿el emulador está listo? (sesión, apunta al proxy). Una vez por emulador y encendido.
+        if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && Shell.state == Shell.State.READY && RaProxy.installed(this)) scope.launch {
+            if (RaProxy.readActive(this@AutoModeService) != true) { raChecked.clear(); return@launch }
+            val s = RaProxy.setup(pkg).also { RaProxy.setupNow = it } ?: return@launch
+            if (pkg in raChecked) return@launch
+            raChecked += pkg
+            s.problem?.let { p -> main.postDelayed({ panel.raSetupHint(p) }, 1500) }
+        }
         if (RaProxy.online(this)) { raHinted.clear(); return }
         if (!RaProxy.isEmulator(pkg) || pkg in raHinted || !AutoRules.raProxyHint(this) || !RaProxy.installed(this)) return
         scope.launch {

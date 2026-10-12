@@ -176,7 +176,7 @@ fun BatteryNowPanel(a: MainActivity) {
 }
 
 @Composable
-private fun InfoRow(k: String, v: String) {
+internal fun InfoRow(k: String, v: String) {
     Row(Modifier.fillMaxWidth()) {
         Text(k, Modifier.weight(1f), fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(v, fontSize = 14.sp)

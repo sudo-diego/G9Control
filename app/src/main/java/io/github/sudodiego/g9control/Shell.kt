@@ -78,6 +78,10 @@ object Shell {
     const val PROCESSES = "dumpsys activity processes"
     // RAOfflineProxy encendido: su servicio del proxy corre (ver RaProxy).
     const val RA_PROXY = "dumpsys activity services ${RaProxy.PACKAGE}"
+    // Configuración de logros de RetroArch y Dolphin (para ver si apuntan al proxy y tienen sesión; el token no se
+    // guarda ni se registra, solo se mira si está).
+    const val RA_CFG = "cat /storage/emulated/0/Android/data/com.retroarch/files/retroarch.cfg"
+    const val DOLPHIN_RA = "cat /storage/emulated/0/Android/data/org.dolphinemu.dolphinemu/files/Config/RetroAchievements.ini"
     // Administrador de tareas (Memoria): RAM y CPU de cada proceso, en dos pasadas de 2 s (la primera no tiene CPU; con
     // 1 s, top mide de a 1 % y casi todo salía 0).
     const val TOP = "top -b -n 2 -d 2 -m 500 -o USER,%CPU,RES,NAME"
@@ -89,7 +93,7 @@ object Shell {
 
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP, RA_PROXY) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || PIDOF.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP, RA_PROXY, RA_CFG, DOLPHIN_RA) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || PIDOF.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

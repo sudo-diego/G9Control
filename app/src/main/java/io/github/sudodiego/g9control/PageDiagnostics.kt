@@ -311,7 +311,13 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
     val scope = rememberCoroutineScope()
     var active by remember { mutableStateOf(RaProxy.activeNow) }
     var hint by remember { mutableStateOf(AutoRules.raProxyHint(a)) }
-    LaunchedEffect(Unit) { if (installed) active = RaProxy.readActive(a) }
+    var setups by remember { mutableStateOf<List<RaProxy.Setup>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        if (installed) active = RaProxy.readActive(a)
+        // RetroArch y Dolphin: ¿apuntan al proxy y tienen sesión? (con Shizuku; los demás no se pueden leer).
+        if (installed && Shell.state == Shell.State.READY) setups = listOf("com.retroarch", "org.dolphinemu.dolphinemu")
+            .filter { runCatching { a.packageManager.getApplicationInfo(it, 0) }.isSuccess }.mapNotNull { RaProxy.setup(it) }
+    }
     Panel(tr("Logros sin internet", "Offline achievements"), trailing = {
         if (installed) Text(when (active) { true -> tr("Activo", "On"); false -> tr("Apagado", "Off"); null -> "" },
             fontSize = 14.sp, color = MaterialTheme.colorScheme.primary)
@@ -324,11 +330,21 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
                 "Not installed: look for RAOfflineProxy on GitHub or Obtainium. On this tablet use \u201cManual Emulator Setup\u201d and Shizuku."))
             return@Panel
         }
+        setups.forEach { st ->
+            InfoRow(st.name, when {
+                !st.loggedIn -> tr("Falta iniciar sesión en RetroAchievements (en el emulador, con internet)", "Sign in to RetroAchievements (in the emulator, online)")
+                active == true && !st.toProxy -> tr("No apunta al proxy: apágalo y enciéndelo", "Not using the proxy: turn it off and on")
+                active == true -> tr("Listo", "Ready")
+                else -> tr("Sesión iniciada", "Signed in")
+            })
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             // Su guía pide los emuladores cerrados antes de encenderlo.
             Button(onClick = { scope.launch { RaProxy.prepare(a) } }) { Text(tr("Preparar y abrir", "Prepare and open")) }
             OutlinedButton(onClick = { RaProxy.open(a) }) { Text(tr("Abrir", "Open")) }
         }
+        Hint(tr("Cada juego tiene que abrirse una vez con el proxy encendido y con internet (queda en su lista «Cached Games»); desde ahí funciona sin internet.",
+            "Each game has to be opened once with the proxy on and online (it goes to its \u201cCached Games\u201d); from then on it works offline."))
         Hint(tr("«Preparar» cierra RetroArch, Dolphin y los demás emuladores (con Shizuku) y abre RAOfflineProxy para encenderlo. Apágalo con su Stop proxy: así deja todo como estaba (TBF no lo deja detener mientras está activo).",
             "\u201cPrepare\u201d closes RetroArch, Dolphin and other emulators (with Shizuku) and opens RAOfflineProxy to turn it on. Turn it off with its Stop proxy: that restores everything (TBF won't stop it while it's on)."))
         SwitchRow(tr("Aviso sin internet", "Offline notice"), hint, tr("Al abrir un emulador sin internet y con el proxy apagado", "When opening an emulator offline with the proxy off")) {
