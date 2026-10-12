@@ -95,7 +95,7 @@ private fun GuideTapPanel(a: MainActivity) {
                 if (tap == AutoRules.GuideTap.PASS) Text(tr("Aquí el panel se abre con L3 + R3 (la guía es del juego).", "Here the panel opens with L3 + R3 (the guide belongs to the game)."),
                     fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
             }
-            Hint(tr("«Pasar al juego»: la guía le llega al emulador como el botón del G9; en RetroArch asígnala en Ajustes → Entrada → Teclas rápidas («Mostrar menú» o «Cerrar RetroArch»).",
+            Hint(tr("«Pasar al juego»: la guía le llega al emulador como el botón del G9; Guía + RB sigue sacando capturas. En RetroArch: Ajustes → Entrada → Teclas rápidas → «Tecla para activar teclas rápidas» = la guía, y «Mostrar menú» = otro botón (se usa Guía + ese botón).",
                 "\u201cPass to the game\u201d: the emulator gets the guide as the G9's button; in RetroArch bind it under Settings → Input → Hotkeys (\u201cMenu toggle\u201d or \u201cQuit RetroArch\u201d)."))
         }
     }

@@ -778,7 +778,6 @@ class AutoModeService : AccessibilityService() {
         if (k == KeyEvent.KEYCODE_BUTTON_MODE) trackGuide(event)
         // Otro botón del mismo control con la guía apretada (Vista + Menú, navegar el panel): no es "mantener para apagar".
         else if (event.action == KeyEvent.ACTION_DOWN && event.deviceId == guideDevice && guideDownAt > 0) guideDownAt = 0
-        // Los botones que aprieta la app como si fuera el control (la guía en RetroArch) pasan sin tocar.
         // Qué control se usó por última vez: con otro control (8BitDo, por ejemplo) el G9 se queda como está.
         if (event.action == KeyEvent.ACTION_DOWN && KeyEvent.isGamepadButton(k)) {
             val now = android.os.SystemClock.uptimeMillis()
@@ -902,6 +901,8 @@ class AutoModeService : AccessibilityService() {
     private var guideHeld = 0L
     private var guideUpAt = 0L
     private var guideDevice = -1
+    /** La guía está apretada ahora (aunque otro botón haya anulado el "mantener para apagar"). */
+    private var guideLive = false
 
     /**
      * Seguimiento de la guía para "mantener 5 s: bloquear". El G9 se apaga a los 5 s y su firmware manda el soltar
@@ -910,8 +911,10 @@ class AutoModeService : AccessibilityService() {
      */
     private fun trackGuide(e: KeyEvent) {
         val now = android.os.SystemClock.uptimeMillis()
-        if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0) { guideDownAt = now; guideDevice = e.deviceId }
+        if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0) { guideDownAt = now; guideDevice = e.deviceId; guideLive = true }
         if (e.action == KeyEvent.ACTION_UP) {
+            guideLive = false
+            if (guideDownAt == 0L) guideUpAt = now
             main.removeCallbacks(legionLock)
             if (guideDownAt > 0) { guideHeld = now - guideDownAt; guideUpAt = now; guideDownAt = 0 }
             if (guideHeld > 2000) Log.i(TAG, "guía soltada tras ${guideHeld} ms")
@@ -972,7 +975,11 @@ class AutoModeService : AccessibilityService() {
             return chordSwallow.remove(k)
         }
         if (e.repeatCount > 0) return k in chordSwallow
-        if (!legionChording && !(legionOwned && legionPending)) return false
+        // Con "Pasar al juego" la guía no es de la app, pero Guía + RB/LB siguen siendo combinaciones (capturas iguales en
+        // todas partes): si la guía está apretada o se soltó hace un instante (el firmware la suelta al apretar RB).
+        val passChord = (guideLive || android.os.SystemClock.uptimeMillis() - guideUpAt < 400) &&
+            AutoRules.guideTap(this, lastPackage) == AutoRules.GuideTap.PASS
+        if (!legionChording && !(legionOwned && legionPending) && !passChord) return false
         // Ese atajo apagado: RB o LB llegan normal.
         if (!AutoRules.guide(this, if (k == KeyEvent.KEYCODE_BUTTON_R1) AutoRules.Guide.RB_SHOT else AutoRules.Guide.LB_BACK)) return false
         legionPending = false
