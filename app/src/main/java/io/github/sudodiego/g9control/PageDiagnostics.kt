@@ -343,10 +343,16 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
             Button(onClick = { scope.launch { RaProxy.prepare(a) } }) { Text(tr("Preparar y abrir", "Prepare and open")) }
             OutlinedButton(onClick = { RaProxy.open(a) }) { Text(tr("Abrir", "Open")) }
         }
-        Hint(tr("Cada juego tiene que abrirse una vez con el proxy encendido y con internet (queda en su lista «Cached Games»); desde ahí funciona sin internet.",
-            "Each game has to be opened once with the proxy on and online (it goes to its \u201cCached Games\u201d); from then on it works offline."))
-        Hint(tr("«Preparar» cierra RetroArch, Dolphin y los demás emuladores (con Shizuku) y abre RAOfflineProxy para encenderlo. Apágalo con su Stop proxy: así deja todo como estaba (TBF no lo deja detener mientras está activo).",
-            "\u201cPrepare\u201d closes RetroArch, Dolphin and other emulators (with Shizuku) and opens RAOfflineProxy to turn it on. Turn it off with its Stop proxy: that restores everything (TBF won't stop it while it's on)."))
+        // Cómo funciona, en tres pasos (para quien no conoce RetroAchievements ni el proxy).
+        Text(tr("Cómo funciona", "How it works"), fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+        Hint(tr("1. Déjalo siempre encendido. Con internet pasa tus logros al instante; sin internet los guarda y los envía solo cuando vuelve la conexión (en cualquier lugar).",
+            "1. Leave it always on. Online it passes your achievements right away; offline it keeps them and sends them by itself when you're back online (anywhere)."))
+        Hint(tr("2. Abre cada juego una vez con internet y el proxy encendido: así guarda sus logros para jugarlo sin conexión.",
+            "2. Open each game once online with the proxy on: that saves its achievements for playing offline."))
+        Hint(tr("3. Cada emulador necesita la sesión iniciada en RetroAchievements (arriba dice si falta; sin internet también se puede, con el proxy encendido). El tiempo jugado sin internet no se registra.",
+            "3. Each emulator needs to be signed in to RetroAchievements (shown above; it also works offline with the proxy on). Offline playtime isn't recorded."))
+        Hint(tr("Para encenderlo: «Preparar y abrir» cierra los emuladores (Shizuku) y abre RAOfflineProxy; ahí, Start proxy. Para apagarlo, su Stop proxy (deja todo como estaba; TBF no lo deja detener mientras está activo).",
+            "To turn it on: “Prepare and open” closes the emulators (Shizuku) and opens RAOfflineProxy; there, Start proxy. To turn it off, its Stop proxy (restores everything; TBF won't stop it while it's on)."))
         SwitchRow(tr("Aviso sin internet", "Offline notice"), hint, tr("Al abrir un emulador sin internet y con el proxy apagado", "When opening an emulator offline with the proxy off")) {
             hint = it; AutoRules.setRaProxyHint(a, it)
         }
