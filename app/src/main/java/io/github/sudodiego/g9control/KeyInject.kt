@@ -30,7 +30,9 @@ object KeyInject {
             val now = SystemClock.uptimeMillis()
             inject.invoke(im, KeyEvent(down, now, action, key, 0, 0, device, 0, 0, source), 0)
         }
-        keys.forEach { send(KeyEvent.ACTION_DOWN, it); Thread.sleep(40) }
+        // 200 ms entre botones: RetroArch activa sus atajos unos cuadros después de apretar el primero
+        // (input_hotkey_block_delay, 5 cuadros ≈ 83 ms); con 40 ms el segundo a veces llegaba antes y no hacía nada.
+        keys.forEachIndexed { i, k -> send(KeyEvent.ACTION_DOWN, k); if (i < keys.size - 1) Thread.sleep(200) }
         Thread.sleep(hold)
         keys.reversed().forEach { send(KeyEvent.ACTION_UP, it); Thread.sleep(20) }
         System.out.flush()

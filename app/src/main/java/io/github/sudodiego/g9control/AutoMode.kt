@@ -285,7 +285,8 @@ class AutoModeService : AccessibilityService() {
     /** Transmitiendo desde un PC o consola (el botón Legion pasa normal). */
     private var streaming = false
     /** App al frente (la última que no es pasajera). */
-    val foregroundApp: String? get() = lastPackage
+    /** La app al frente: la de las ventanas ahora (si el aviso de cambio no llegó, [lastPackage] quedaba viejo). */
+    val foregroundApp: String? get() = currentApp()
     /** App con regla que está (o estuvo) al frente; al salir de ella se recuerda volver a Android. */
     private var ruleApp: String? = null
     private lateinit var guide: ModeGuide
@@ -540,6 +541,20 @@ class AutoModeService : AccessibilityService() {
      * Al arrancar el servicio (al actualizar la app, por ejemplo) no llega ningún "cambio de app" hasta cambiar de
      * verdad: la app al frente se lee de la lista de ventanas (para el panel, las capturas en un launcher, etc.).
      */
+    /**
+     * La app al frente leída ahora de la lista de ventanas (la que tiene el foco). El aviso de cambio de ventana a veces
+     * no llega (probado: RetroArch abierto por un launcher seguía como Dolphin), y lo que depende de la app (tocar la guía
+     * en un emulador) no puede fiarse solo de [lastPackage].
+     */
+    private var staleSeen: String? = null
+    fun currentApp(): String? {
+        val apps = runCatching { windows }.getOrDefault(emptyList()).filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
+        val w = apps.firstOrNull { it.isFocused } ?: apps.firstOrNull { it.isActive }
+        val pkg = w?.let { runCatching { it.root?.packageName?.toString() }.getOrNull() }?.takeIf { !isTransient(it) }
+        if (pkg != null && pkg != lastPackage && pkg != staleSeen) { staleSeen = pkg; Log.i(TAG, "app al frente: $pkg (el servicio creía $lastPackage)") }
+        return pkg ?: lastPackage
+    }
+
     private fun initForeground() {
         if (lastPackage != null) return
         val apps = runCatching { windows }.getOrDefault(emptyList()).filter { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION }
@@ -579,7 +594,7 @@ class AutoModeService : AccessibilityService() {
 
     private val inputListener = object : InputManager.InputDeviceListener {
         override fun onInputDeviceAdded(id: Int) = changed()
-        override fun onInputDeviceRemoved(id: Int) = changed()
+        override fun onInputDeviceRemoved(id: Int) { lockIfGuidePoweredOff(id); changed() }
         override fun onInputDeviceChanged(id: Int) = changed()
         private fun changed() {
             ModeTileService.refreshAll(this@AutoModeService)
@@ -750,7 +765,7 @@ class AutoModeService : AccessibilityService() {
         val k = event.keyCode
         // Soltar la guía cancela siempre el bloqueo de 5 s, antes que nada: con el panel abierto el soltar va al panel
         // y no llegaba a legionKey (la tablet se bloqueaba sola 5 s después de abrir el panel manteniendo la guía).
-        if (k == KeyEvent.KEYCODE_BUTTON_MODE && event.action == KeyEvent.ACTION_UP) main.removeCallbacks(legionLock)
+        if (k == KeyEvent.KEYCODE_BUTTON_MODE) trackGuide(event)
         // Los botones que aprieta la app como si fuera el control (la guía en RetroArch) pasan sin tocar.
         if (android.os.SystemClock.uptimeMillis() < injectingUntil) return false
         // Qué control se usó por última vez: con otro control (8BitDo, por ejemplo) el G9 se queda como está.
@@ -872,6 +887,41 @@ class AutoModeService : AccessibilityService() {
      * Shizuku (acción global del servicio). Si el control se apaga, el soltar puede no llegar: por eso se cuenta
      * desde que se apretó y se cancela solo si llega el soltar o una combinación.
      */
+    /** Cuándo se apretó la guía, cuánto se mantuvo la última vez y cuándo se soltó (uptime), y de qué control. */
+    private var guideDownAt = 0L
+    private var guideHeld = 0L
+    private var guideUpAt = 0L
+    private var guideDevice = -1
+
+    /**
+     * Seguimiento de la guía para "mantener 5 s: bloquear". El G9 se apaga a los 5 s y su firmware manda el soltar
+     * justo antes (o se desconecta con la guía apretada), así que el temporizador de 5 s no alcanza: se bloquea cuando
+     * el control desaparece después de una guía mantenida 3,5 s o más (ver [lockIfGuidePoweredOff]).
+     */
+    private fun trackGuide(e: KeyEvent) {
+        val now = android.os.SystemClock.uptimeMillis()
+        if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0) { guideDownAt = now; guideDevice = e.deviceId }
+        if (e.action == KeyEvent.ACTION_UP) {
+            main.removeCallbacks(legionLock)
+            if (guideDownAt > 0) { guideHeld = now - guideDownAt; guideUpAt = now; guideDownAt = 0 }
+            if (guideHeld > 2000) Log.i(TAG, "guía soltada tras ${guideHeld} ms")
+        }
+    }
+
+    /** Se desconectó un control: si fue el de la guía y la guía venía mantenida (apagado del G9), bloquear la tablet. */
+    private fun lockIfGuidePoweredOff(id: Int) {
+        if (id != guideDevice || !AutoRules.guide(this, AutoRules.Guide.HOLD_LOCK)) return
+        val now = android.os.SystemClock.uptimeMillis()
+        val heldNow = if (guideDownAt > 0) now - guideDownAt else 0
+        val recent = guideUpAt > 0 && now - guideUpAt < 3000 && guideHeld >= 3500
+        Log.i(TAG, "control de la guía desconectado: mantenida ${heldNow} ms, última ${guideHeld} ms hace ${now - guideUpAt} ms")
+        if (heldNow >= 3500 || recent) {
+            guideDownAt = 0; guideUpAt = 0
+            main.removeCallbacks(legionLock)
+            legionLock.run()
+        }
+    }
+
     private val legionLock = Runnable {
         Log.i(TAG, "guía mantenida 5 s: bloquear la tablet")
         panel.hide()
@@ -989,11 +1039,15 @@ class AutoModeService : AccessibilityService() {
 
     /** Tocar la guía en esta app: Atrás, o apretar botones como el control (con Shizuku), o nada. */
     private fun guideTap() {
-        val tap = AutoRules.guideTap(this, lastPackage)
+        val app = currentApp()
+        val tap = AutoRules.guideTap(this, app)
         val keys = when (tap) {
-            AutoRules.GuideTap.BACK -> { if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK); return }
+            AutoRules.GuideTap.BACK -> {
+                Log.i(TAG, "guía en $app: Atrás")
+                if (AutoRules.guide(this, AutoRules.Guide.TAP_BACK)) performGlobalAction(GLOBAL_ACTION_BACK); return
+            }
             AutoRules.GuideTap.NOTHING -> return
-            AutoRules.GuideTap.VIEW_MENU -> intArrayOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START) to 150
+            AutoRules.GuideTap.VIEW_MENU -> intArrayOf(KeyEvent.KEYCODE_BUTTON_SELECT, KeyEvent.KEYCODE_BUTTON_START) to 200
         }
         if (Shell.state != Shell.State.READY) {
             panel.message(tr("Enviar ${tap.label} necesita Shizuku.", "Sending ${tap.label} needs Shizuku."))
@@ -1004,7 +1058,7 @@ class AutoModeService : AccessibilityService() {
         scope.launch {
             val ok = Shell.run(Shell.keyInject(dev, keys.second, *keys.first), timeoutSec = 8) != null
             injectingUntil = android.os.SystemClock.uptimeMillis() + 200
-            Log.i(TAG, "guía en $lastPackage: ${tap.name} desde el dispositivo $dev (guía: $legionDevice, último: $lastPadDevice) ${if (ok) "enviado" else "falló"}")
+            Log.i(TAG, "guía en $app: ${tap.name} desde el dispositivo $dev (guía: $legionDevice, último: $lastPadDevice) ${if (ok) "enviado" else "falló"}")
         }
     }
 
