@@ -639,10 +639,13 @@ fun SliderRow(
                 }
                 // Las marcas de los recomendados, bajo la barra.
                 if (snaps.isNotEmpty()) androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+                    // Mismo recorrido que la perilla de GradientTrack (16 dp de margen a cada lado), si no quedaban corridas.
+                    val r = 16.dp.toPx()
                     snaps.forEach { s ->
-                        val x = size.width * (s - range.first) / span
-                        drawLine(c.primary.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(x, size.height - 3.dp.toPx()),
-                            androidx.compose.ui.geometry.Offset(x, size.height), strokeWidth = 2.dp.toPx())
+                        val x = r + (size.width - 2 * r) * (s - range.first) / span
+                        drawLine(c.primary.copy(alpha = 0.7f), androidx.compose.ui.geometry.Offset(x, center.y + 9.dp.toPx()),
+                            androidx.compose.ui.geometry.Offset(x, center.y + 14.dp.toPx()), strokeWidth = 2.dp.toPx(),
+                            cap = androidx.compose.ui.graphics.StrokeCap.Round)
                     }
                 }
             }
