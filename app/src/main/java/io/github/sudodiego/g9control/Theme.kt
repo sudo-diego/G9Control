@@ -140,6 +140,11 @@ object ThemeState {
     var panelTone by androidx.compose.runtime.mutableStateOf(PanelTone.DARK)
     var panelStyle by androidx.compose.runtime.mutableStateOf(PanelStyle.CENTER)
     var panelFit by androidx.compose.runtime.mutableStateOf(ImageFit.FILL)
+    /** Lateral: la imagen o el degradado como cabecera (true) o de fondo de todo el panel. */
+    var panelHeader by androidx.compose.runtime.mutableStateOf(true)
+    /** Lateral con cabecera: hay imagen o degradado arriba y el resto es liso. */
+    val sideBanner get() = panelSide && panelHeader &&
+        (panelBackground == PanelBackground.IMAGE || panelBackground == PanelBackground.GRADIENT)
     /** Rellenar: qué parte de la imagen queda a la vista (0 = arriba, 0,5 = centro, 1 = abajo). */
     var panelFocus by androidx.compose.runtime.mutableFloatStateOf(0.5f)
     /** El panel va pegado a la derecha (estilo Steam). */
@@ -157,7 +162,7 @@ object ThemeState {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
         panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
-        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx); panelFit = Prefs.panelFit(ctx); panelFocus = Prefs.panelFocus(ctx)
+        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx); panelFit = Prefs.panelFit(ctx); panelHeader = Prefs.panelHeader(ctx); panelFocus = Prefs.panelFocus(ctx)
         // La imagen del panel ya decodificada: al abrirlo no aparece primero el fondo liso.
         panelUri?.takeIf { panelBackground == PanelBackground.IMAGE }?.let { ImageCache.preload(ctx, "panel", it) }
     }

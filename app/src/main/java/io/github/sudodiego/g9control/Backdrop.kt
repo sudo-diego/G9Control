@@ -57,8 +57,9 @@ fun Backdrop() {
  * imagen pueden ser translúcidos: el juego se ve a través de ellos (liquid glass).
  */
 @Composable
-fun PanelBackdrop() {
-    val see = if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)
+/** [opaque]: sin la transparencia elegida (la cabecera del lateral va sobre fondo liso). */
+fun PanelBackdrop(opaque: Boolean = false) {
+    val see = if (!opaque && (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE))
         ThemeState.panelSee / 100f * 0.85f else 0f
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - see }) { PanelBackdropLayer() }
 }

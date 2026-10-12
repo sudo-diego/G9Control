@@ -424,8 +424,8 @@ private fun PanelLookPanel(a: MainActivity) {
             fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
         Text(tr("Estilo", "Style"), fontSize = 14.sp)
         ChoiceChips(PanelStyle.entries.map { it to it.label }, ThemeState.panelStyle) { ThemeState.panelStyle = it; Prefs.setPanelStyle(a, it) }
-        if (ThemeState.panelSide) Hint(tr("Pegado a la derecha, de alto completo, como el acceso rápido del Steam Deck. El fondo se ve nítido arriba, como cabecera.",
-            "Docked to the right, full height, like the Steam Deck's quick access menu. The background shows clearly at the top, as a header."))
+        if (ThemeState.panelSide) Hint(tr("Pegado a la derecha, de alto completo, como el acceso rápido del Steam Deck. La imagen va de cabecera o de fondo.",
+            "Docked to the right, full height, like the Steam Deck's quick access menu. The image goes as the header or the background."))
         Text(tr("Fondo", "Background"), fontSize = 14.sp)
         ChoiceChips(PanelBackground.entries.map { it to it.label }, ThemeState.panelBackground) {
             if (it == PanelBackground.IMAGE && ThemeState.panelUri == null) a.pickPanelBackground()
@@ -434,7 +434,15 @@ private fun PanelLookPanel(a: MainActivity) {
         if (ThemeState.panelBackground == PanelBackground.CLEAR) {
             SliderRow(tr("Relleno", "Fill"), ThemeState.panelFill, 0..100) { ThemeState.panelFill = it; Prefs.setPanelFill(a, it) }
         }
-        if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE) {
+        // Lateral: la imagen (o el degradado) de cabecera o de fondo.
+        if (ThemeState.panelSide && (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)) {
+            Text(tr("Imagen en", "Image as"), fontSize = 14.sp)
+            ChoiceChips(listOf(true to tr("Cabecera", "Header"), false to tr("Fondo", "Background")), ThemeState.panelHeader) {
+                ThemeState.panelHeader = it; Prefs.setPanelHeader(a, it)
+            }
+        }
+        // Transparencia: no con cabecera (el resto del lateral es liso).
+        if (!ThemeState.sideBanner && (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)) {
             // Liquid glass: el fondo elegido, pero dejando ver el juego detrás.
             SliderRow(tr("Transparencia", "Transparency"), ThemeState.panelSee, 0..100) { ThemeState.panelSee = it; Prefs.setPanelSee(a, it) }
         }

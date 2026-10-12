@@ -212,7 +212,8 @@ internal val SELECTED get() = if (light) Color(0xFF14203A) else Color.White
 // Con fondo (degradado o imagen) los mosaicos son de vidrio: translúcidos con un borde claro, como en la app.
 internal val TILE_GLASS get() = if (light) Color(0x99FFFFFF) else Color(0x2EFFFFFF)
 internal val GLASS_EDGE get() = if (light) Color(0x80FFFFFF) else Color(0x24FFFFFF)
-internal val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN
+// Lateral con cabecera: el resto es liso, mosaicos sólidos.
+internal val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN && !ThemeState.sideBanner
 // Transparente: los mosaicos llevan más cuerpo para leerse sobre cualquier juego.
 internal val TILE_CLEAR get() = if (light) Color(0xD0F4F7FC) else Color(0xB8141C30)
 /** Halo de los textos sueltos (secciones, hora, la línea de abajo): se leen sobre cualquier imagen o juego. */
@@ -221,7 +222,7 @@ internal val LABEL_STYLE get() = androidx.compose.ui.text.TextStyle(shadow = and
 /** Velo sobre el degradado o la imagen, para que se lea el texto. */
 internal val PANEL_VEIL get() = if (light) Color(0x99EEF2F8) else Color(0x660A0F1F)
 internal val tileColor get() = when {
-    ThemeState.panelBackground == PanelBackground.PLAIN -> TILE
+    ThemeState.panelBackground == PanelBackground.PLAIN || ThemeState.sideBanner -> TILE
     ThemeState.panelSeeThrough -> TILE_CLEAR
     else -> TILE_GLASS
 }
@@ -314,24 +315,26 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
     // Dónde empieza cada fila dentro de la lista, para desplazarla hasta lo elegido.
     val rowTops = remember { androidx.compose.runtime.mutableStateMapOf<Int, Pair<Int, Int>>() }
     BringSelected(ui, scroll, rowTops)
-    // El fondo elegido cubre todo el panel, como al centro (con su transparencia y mosaicos de vidrio); arriba se ve
-    // nítido, como cabecera, y hacia abajo lo cubre el velo para que se lea.
-    Surface(color = if (ThemeState.panelSeeThrough) Color.Transparent else PANEL_BG, shape = shape,
+    // Dos formas (Ajustes → Imagen en): de cabecera (arriba la imagen o el degradado, fundida al fondo liso del tema)
+    // o de fondo de todo el panel, como al centro (con su transparencia, velo y mosaicos de vidrio).
+    val banner = ThemeState.sideBanner
+    Surface(color = if (ThemeState.panelSeeThrough && !banner) Color.Transparent else PANEL_BG, shape = shape,
         modifier = modifier.width(dims.width).fillMaxHeight(), border = if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null) {
       Box {
         if (glassPanel) Box(Modifier.matchParentSize().clip(shape)) {
             PanelBackdrop()
-            val veil = if (ThemeState.panelSeeThrough) PANEL_VEIL.copy(alpha = 0.6f * (1f - ThemeState.panelSee / 160f)) else PANEL_VEIL
-            Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                0f to veil.copy(alpha = 0f), 0.16f to veil.copy(alpha = veil.alpha * 0.4f), 0.3f to veil)))
+            if (!ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().background(PANEL_VEIL))
+            else if (light && ThemeState.panelBackground != PanelBackground.CLEAR)
+                Box(Modifier.matchParentSize().background(PANEL_VEIL.copy(alpha = 0.6f * (1f - ThemeState.panelSee / 160f))))
         }
         Column(Modifier.fillMaxSize().graphicsLayer { alpha = ui.fade }) {
-            // Cabecera: espacio para ver la imagen o el GIF arriba (con fondo liso, una franja del color de acento).
-            if (!ui.sub) Box(Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
-                if (!glassPanel) Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                    0f to TILE_ON.copy(alpha = 0.35f), 1f to Color.Transparent)))
+            // Cabecera: la imagen o el GIF, fundida hacia abajo. De fondo, sin ese espacio arriba.
+            if (banner && !ui.sub) Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
+                PanelBackdrop(opaque = true)
+                Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0.45f to Color.Transparent, 1f to PANEL_BG)))
             }
-            Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (ui.sub) 24.dp else 0.dp)) {
+            Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (banner && !ui.sub) 0.dp else 24.dp)) {
                 PanelHeader(ui)
                 if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
                 Spacer(Modifier.height(14.dp))
