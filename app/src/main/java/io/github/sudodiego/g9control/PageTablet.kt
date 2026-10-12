@@ -142,7 +142,7 @@ fun BatteryNowPanel(a: MainActivity) {
     Panel(tr("Ahora", "Now")) {
         Text("${b.level} %", fontSize = 40.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
         val state = when {
-            b.plugged && !b.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else tr("Enchufada, sin cargar", "Plugged in, not charging")
+            b.plugged && !b.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else tr("Enchufada, sin cargar", "Plugged in, not charging") + " · " + ZuiBattery.heldLabel(a, b.level)
             b.charging -> tr("Cargando", "Charging")
             else -> tr("Con batería", "On battery")
         }

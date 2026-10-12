@@ -150,6 +150,19 @@ object ZuiBattery {
 
     private fun parse(out: String): Boolean? = parseInt(out)?.let { it != 0 }
 
+    /**
+     * Enchufada sin cargar y sin bypass: por qué. "Límite 80 %" (el de ZUI o el propio), "Llena" o "En pausa" (Android
+     * dice "no carga" sin decir por qué). Así no se muestra "Entra 0.1 W" como si estuviera cargando.
+     */
+    fun heldLabel(ctx: Context, level: Int): String {
+        val target = chargeTarget(ctx)
+        return when {
+            target < 100 && level >= target - 5 -> tr("Límite $target %", "Limit $target %")
+            level >= 100 -> tr("Llena", "Full")
+            else -> tr("En pausa", "Paused")
+        }
+    }
+
     /** La tablet está enchufada (el bypass solo tiene sentido así). */
     fun plugged(ctx: Context): Boolean {
         val i = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return false

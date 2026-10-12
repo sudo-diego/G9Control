@@ -61,7 +61,7 @@ private fun TabletNowTiles(a: MainActivity) {
         Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             b?.let {
                 val state = when {
-                    it.plugged && !it.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else tr("Sin cargar", "Not charging")
+                    it.plugged && !it.charging -> if (ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY) "Bypass" else ZuiBattery.heldLabel(a, it.level)
                     it.charging -> left?.let { ms -> "⚡ " + ZuiBattery.formatTime(ms) } ?: tr("Cargando", "Charging")
                     else -> tr("Batería", "Battery")
                 }

@@ -162,6 +162,8 @@ private class PanelUi {
     var battery by mutableIntStateOf(-1)
     var charging by mutableStateOf(false)
     var bypass by mutableStateOf(false)
+    /** Enchufada sin cargar (límite de carga, llena): el ícono lleva enchufe en vez de rayo. */
+    var held by mutableStateOf(false)
     /** Cargando: lo que falta para la carga completa ("1 h 20 min"), a la izquierda de la batería. */
     var chargeLeft by mutableStateOf<String?>(null)
     var status by mutableStateOf("")
@@ -252,6 +254,7 @@ class GamePanel(private val svc: AutoModeService) {
         // Sin Shizuku no se puede leer: lo último que se supo puede ser viejo (se detuvo Shizuku, lo apagó otro).
         ui.bypass = Shell.state == Shell.State.READY && ZuiBattery.bypassNow == true && ZuiBattery.plugged(svc)
         ui.charging = !ui.bypass && i?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) == android.os.BatteryManager.BATTERY_STATUS_CHARGING
+        ui.held = !ui.bypass && !ui.charging && (i?.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
         // Lo calcula Android (−1 si todavía no sabe, recién enchufada).
         // Hasta el límite de carga si hay (el de ZUI o el propio), si no hasta 100.
         ui.chargeLeft = when {
@@ -1246,7 +1249,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                 if (!ui.sub) {
                     if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
                     ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1); Spacer(Modifier.width(6.dp)) }
-                    if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass); Spacer(Modifier.width(8.dp)) }
+                    if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held); Spacer(Modifier.width(8.dp)) }
                     Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1)
                 }
             }
@@ -1317,7 +1320,12 @@ private fun PanelStats() {
         StatChip(Icons.Outlined.Memory, Memory.gb(ram.freeBytes), tr("RAM libre", "Free RAM"), Modifier.weight(1f))
         // En bypass la batería casi no da ni recibe nada (los watts saldrían ~0): el enchufe y "Bypass".
         val bypass = plugged && ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY
+        // Enchufada sin cargar (límite de ZUI o el propio, llena): lo que entra es ~0, se dice por qué.
+        val status = remember(tick) { ctx.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) }
+        val held = plugged && !bypass && status?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) != android.os.BatteryManager.BATTERY_STATUS_CHARGING
         if (bypass) StatChip(Icons.Outlined.Power, "Bypass", tr("Activo", "On"), Modifier.weight(1f))
+        else if (held) StatChip(Icons.Outlined.Power, ZuiBattery.heldLabel(ctx, status?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, 0) ?: 0),
+            tr("Sin cargar", "Not charging"), Modifier.weight(1f))
         else StatChip(Icons.Outlined.Bolt, w?.let { (if (plugged) "+" else "") + "%.1f W".format(it) } ?: "—",
             PowerLog.recentAvg?.takeIf { !plugged }?.let { tr("prom. %.1f W", "avg %.1f W").format(it) } ?: if (plugged) tr("Entra", "Charging") else tr("Consumo", "Draw"),
             Modifier.weight(1f))
@@ -1339,9 +1347,9 @@ private fun StatChip(icon: ImageVector, value: String, label: String, modifier: 
     }
 }
 
-/** Ícono de batería como el de la barra de Android: se llena con el nivel; rayo si carga, celeste en bypass. */
+/** Ícono de batería como el de la barra de Android: se llena con el nivel; rayo si carga, enchufe si está enchufada sin cargar (límite, bypass). */
 @Composable
-private fun BatteryGlyph(level: Int, charging: Boolean, bypass: Boolean) {
+private fun BatteryGlyph(level: Int, charging: Boolean, bypass: Boolean, held: Boolean = false) {
     val low = level <= 15 && !charging && !bypass
     androidx.compose.foundation.Canvas(Modifier.size(width = 26.dp, height = 13.dp)) {
         val stroke = 1.5.dp.toPx()
@@ -1364,6 +1372,18 @@ private fun BatteryGlyph(level: Int, charging: Boolean, bypass: Boolean) {
             }
             drawPath(bolt, PANEL_BG, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
             drawPath(bolt, Color.White)
+        } else if (held || bypass) {
+            // Enchufe al centro (como la barra de Android con el límite de carga): dos patas y el cuerpo.
+            val cx = body.width / 2; val h = body.height
+            val plug = androidx.compose.ui.graphics.Path().apply {
+                addRect(androidx.compose.ui.geometry.Rect(cx - h * 0.18f, h * 0.14f, cx - h * 0.08f, h * 0.38f))
+                addRect(androidx.compose.ui.geometry.Rect(cx + h * 0.08f, h * 0.14f, cx + h * 0.18f, h * 0.38f))
+                addRoundRect(androidx.compose.ui.geometry.RoundRect(cx - h * 0.28f, h * 0.36f, cx + h * 0.28f, h * 0.70f,
+                    androidx.compose.ui.geometry.CornerRadius(h * 0.10f)))
+                addRect(androidx.compose.ui.geometry.Rect(cx - h * 0.06f, h * 0.68f, cx + h * 0.06f, h * 0.88f))
+            }
+            drawPath(plug, PANEL_BG, style = androidx.compose.ui.graphics.drawscope.Stroke(stroke))
+            drawPath(plug, Color.White)
         }
     }
 }
