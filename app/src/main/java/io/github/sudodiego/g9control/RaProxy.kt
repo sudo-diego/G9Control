@@ -120,8 +120,11 @@ object RaProxy {
      * (al cerrarse reescribe su configuración). [password] null la quita.
      */
     suspend fun setDolphinPassword(password: String?): Boolean {
-        val ini = Shell.run(Shell.DOLPHIN_RA) ?: return false
+        // Primero cerrar Dolphin y después leer: guarda la sesión en el archivo al cerrarse; leído antes, se escribía
+        // sin la sesión recién iniciada.
         if (Shell.run(Shell.stopApp("org.dolphinemu.dolphinemu")) == null) return false
+        kotlinx.coroutines.delay(800)
+        val ini = Shell.run(Shell.DOLPHIN_RA) ?: return false
         val lines = ini.lines().filterNot { it.trimStart().startsWith("Password") }.toMutableList()
         while (lines.isNotEmpty() && lines.last().isBlank()) lines.removeAt(lines.size - 1)
         if (password != null) {
