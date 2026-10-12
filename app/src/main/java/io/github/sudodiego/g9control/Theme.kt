@@ -91,6 +91,11 @@ enum class PanelBackground { CLEAR, GRADIENT, IMAGE, PLAIN;
     }
 }
 
+/** Tema del panel de juego: oscuro (el de siempre), claro o el del sistema. Vale para todos sus fondos. */
+enum class PanelTone { DARK, LIGHT, SYSTEM;
+    val label get() = when (this) { DARK -> tr("Oscuro", "Dark"); LIGHT -> tr("Claro", "Light"); SYSTEM -> tr("Sistema", "System") }
+}
+
 /** Tema y fondo elegidos en Ajustes. */
 object ThemeState {
     var theme by androidx.compose.runtime.mutableStateOf(AppTheme.SYSTEM)
@@ -112,6 +117,11 @@ object ThemeState {
     var panelShape by androidx.compose.runtime.mutableStateOf(PanelShape.AUTO)
     /** Tamaño del panel en % (todo: mosaicos y letras); 100 = el diseño original, que ocupaba casi todo el alto. */
     var panelScale by androidx.compose.runtime.mutableIntStateOf(85)
+    var panelTone by androidx.compose.runtime.mutableStateOf(PanelTone.DARK)
+    /** El sistema está en modo oscuro (para el tema "Sistema"); lo actualiza el panel al abrirse. */
+    var systemDark by androidx.compose.runtime.mutableStateOf(true)
+    /** El panel va en claro. */
+    val panelLight get() = panelTone == PanelTone.LIGHT || (panelTone == PanelTone.SYSTEM && !systemDark)
     /** El panel deja ver el juego detrás: transparente, o un fondo con transparencia. */
     val panelSeeThrough get() = panelBackground == PanelBackground.CLEAR ||
         (panelBackground != PanelBackground.PLAIN && panelSee > 0)
@@ -121,7 +131,7 @@ object ThemeState {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
         panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
-        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx)
+        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx)
         // La imagen del panel ya decodificada: al abrirlo no aparece primero el fondo liso.
         panelUri?.takeIf { panelBackground == PanelBackground.IMAGE }?.let { ImageCache.preload(ctx, "panel", it) }
     }

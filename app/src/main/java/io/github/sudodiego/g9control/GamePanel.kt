@@ -201,6 +201,9 @@ class GamePanel(private val svc: AutoModeService) {
     fun toggle() = if (isOpen) hide() else show()
 
     fun show() {
+        // Para el tema "Sistema" del panel.
+        ThemeState.systemDark = (svc.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
         inPerfMenu = false
         ui.editing = false
         ui.items = items()
@@ -1169,22 +1172,30 @@ class GamePanel(private val svc: AutoModeService) {
     }
 }
 
-// Colores del panel, como los ajustes rápidos de Android en oscuro: fondo casi negro, mosaicos grises y los
-// encendidos en el color de acento con el contenido oscuro.
-// Azul marino con lo encendido en celeste, como la paleta de la app (los fondos de la Y700).
-private val PANEL_BG = Color(0xF00E1424)
-private val TILE = Color(0xFF1F2A42)
-private val TILE_ON = Color(0xFF6EC9FF)
-private val ON_TILE_ON = Color(0xFF052238)
-private val PANEL_ACCENT = Color(0xFF5CC8FF)
-private val PANEL_MUTED = Color(0xFF9AA6BF)
-private val SELECTED = Color.White
-// Con fondo (degradado o imagen) los mosaicos son de vidrio: blanco translúcido con un borde claro, como en la app.
-private val TILE_GLASS = Color(0x2EFFFFFF)
-private val GLASS_EDGE = Color(0x24FFFFFF)
+// Colores del panel, como los ajustes rápidos de Android: en oscuro, azul marino con lo encendido en celeste (la
+// paleta de la app, los fondos de la Y700); en claro, blanco azulado con lo encendido en azul y el texto marino.
+// Dependen del tema del panel ([ThemeState.panelLight]), así sirven para todos los fondos.
+private val light get() = ThemeState.panelLight
+private val PANEL_BG get() = if (light) Color(0xF2F3F6FB) else Color(0xF00E1424)
+private val TILE get() = if (light) Color(0xFFE1E7F1) else Color(0xFF1F2A42)
+private val TILE_ON get() = if (light) Color(0xFF2F8FD8) else Color(0xFF6EC9FF)
+private val ON_TILE_ON get() = if (light) Color.White else Color(0xFF052238)
+private val PANEL_ACCENT get() = if (light) Color(0xFF1E7FC8) else Color(0xFF5CC8FF)
+private val PANEL_MUTED get() = if (light) Color(0xFF56607A) else Color(0xFF9AA6BF)
+/** Texto e íconos sobre los mosaicos apagados y el fondo. */
+private val PANEL_FG get() = if (light) Color(0xFF14203A) else Color.White
+private val SELECTED get() = if (light) Color(0xFF14203A) else Color.White
+// Con fondo (degradado o imagen) los mosaicos son de vidrio: translúcidos con un borde claro, como en la app.
+private val TILE_GLASS get() = if (light) Color(0x99FFFFFF) else Color(0x2EFFFFFF)
+private val GLASS_EDGE get() = if (light) Color(0x80FFFFFF) else Color(0x24FFFFFF)
 private val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN
-// Transparente: los mosaicos llevan más cuerpo (azul translúcido) para leerse sobre un juego claro.
-private val TILE_CLEAR = Color(0xB8141C30)
+// Transparente: los mosaicos llevan más cuerpo para leerse sobre cualquier juego.
+private val TILE_CLEAR get() = if (light) Color(0xD0F4F7FC) else Color(0xB8141C30)
+/** Halo de los textos sueltos (secciones, hora, la línea de abajo): se leen sobre cualquier imagen o juego. */
+private val LABEL_STYLE get() = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(
+    if (light) Color(0xE6FFFFFF) else Color(0xB3000000), blurRadius = 8f))
+/** Velo sobre el degradado o la imagen, para que se lea el texto. */
+private val PANEL_VEIL get() = if (light) Color(0x99EEF2F8) else Color(0x660A0F1F)
 private val tileColor get() = when {
     ThemeState.panelBackground == PanelBackground.PLAIN -> TILE
     ThemeState.panelSeeThrough -> TILE_CLEAR
@@ -1234,13 +1245,17 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
         // Fondo propio del panel (degradado, imagen o GIF) con un velo para que se lea sobre cualquier imagen.
         if (glassPanel) Box(Modifier.matchParentSize().clip(shape)) {
             PanelBackdrop()
-            if (!ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().background(Color(0x660A0F1F)))
+            if (!ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().background(PANEL_VEIL))
+            // En claro el fondo se aclara siempre (si no, las partes oscuras de la imagen o del juego dejaban el texto
+            // marino sin contraste); con transparencia, menos mientras más se vea el juego.
+            else if (light && ThemeState.panelBackground != PanelBackground.CLEAR)
+                Box(Modifier.matchParentSize().background(PANEL_VEIL.copy(alpha = 0.6f * (1f - ThemeState.panelSee / 160f))))
         }
         Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width).then(if (fixed) Modifier.fillMaxHeight() else Modifier)
             .graphicsLayer { alpha = ui.fade; val s = 0.97f + 0.03f * ui.fade; scaleX = s; scaleY = s }) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 // El nombre ocupa lo que necesita (hasta la mitad); el resto empuja la batería y la hora a la derecha.
-                Text(ui.title, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                Text(ui.title, color = PANEL_FG, fontSize = 18.sp, style = LABEL_STYLE, fontWeight = FontWeight.SemiBold, maxLines = 1,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp))
                 // Modo del control, pequeño, como recordatorio.
                 if (!ui.sub) ui.mode?.let { m ->
@@ -1256,9 +1271,9 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                 // En un submenú solo el título: lo demás ya se vio en el panel.
                 if (!ui.sub) {
                     if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
-                    ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1); Spacer(Modifier.width(6.dp)) }
+                    ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE); Spacer(Modifier.width(6.dp)) }
                     if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held); Spacer(Modifier.width(8.dp)) }
-                    Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1)
+                    Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE)
                 }
             }
             if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
@@ -1277,7 +1292,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                         PanelRow.GAME -> tr("Juego", "Game"); PanelRow.RECENT -> tr("Recientes", "Recent")
                         PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
                         else -> "Android"
-                    }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
+                    }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, style = LABEL_STYLE, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
                 }
                 // Cada fila llena el ancho: los mosaicos se reparten el espacio (sin huecos al final). Con forma fija,
                 // las filas de mosaicos se reparten también el alto.
@@ -1303,7 +1318,7 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                 ui.items.getOrNull(ui.sel)?.takeIf { ui.editing }?.hint
                     ?: ui.footer ?: if (ui.sub) tr("A elegir · B volver", "A select · B back")
                     else tr("Stick o cruceta mover · A elegir · B cerrar", "Stick or D-pad move · A select · B close"),
-                color = PANEL_MUTED, fontSize = 12.sp, modifier = Modifier.align(Alignment.CenterHorizontally)
+                color = PANEL_MUTED, fontSize = 12.sp, style = LABEL_STYLE, modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
       }
@@ -1349,7 +1364,7 @@ private fun StatChip(icon: ImageVector, value: String, label: String, modifier: 
         Icon(icon, null, Modifier.size(18.dp), tint = PANEL_ACCENT)
         Spacer(Modifier.width(10.dp))
         Column {
-            Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(value, color = PANEL_FG, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             Text(label, color = PANEL_MUTED, fontSize = 11.sp, maxLines = 1)
         }
     }
@@ -1369,7 +1384,7 @@ private fun BatteryGlyph(level: Int, charging: Boolean, bypass: Boolean, held: B
             size = androidx.compose.ui.geometry.Size(nub, size.height * 0.4f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.dp.toPx()))
         val pad = stroke + 1.dp.toPx()
         val inner = androidx.compose.ui.geometry.Size((body.width - 2 * pad) * level.coerceIn(0, 100) / 100f, body.height - 2 * pad)
-        drawRoundRect(if (low) Color(0xFFFF6B6B) else if (charging || bypass) TILE_ON else Color.White,
+        drawRoundRect(if (low) Color(0xFFFF6B6B) else if (charging || bypass) TILE_ON else PANEL_FG,
             topLeft = androidx.compose.ui.geometry.Offset(pad, pad), size = inner, cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.5.dp.toPx()))
         if (charging) {
             // Rayo al centro, con borde oscuro para que se vea sobre el relleno.
@@ -1405,14 +1420,14 @@ private fun PanelToggle(item: PanelItem, selected: Boolean, onClick: () -> Unit)
             .then(if (selected) Modifier.border(2.5.dp, SELECTED, shape) else Modifier).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(item.icon, item.label, Modifier.size(22.dp), tint = if (item.active) ON_TILE_ON else Color.White)
+        Icon(item.icon, item.label, Modifier.size(22.dp), tint = if (item.active) ON_TILE_ON else PANEL_FG)
     }
 }
 
 /** Mosaico: ícono, nombre y estado; encendido = en color de acento. Toma el ancho que le da su fila. */
 @Composable
 private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val fg = if (item.active) ON_TILE_ON else Color.White
+    val fg = if (item.active) ON_TILE_ON else PANEL_FG
     Surface(
         color = if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
         border = if (selected) BorderStroke(2.5.dp, SELECTED) else if (glassPanel && !item.active) BorderStroke(1.dp, GLASS_EDGE) else null,
@@ -1451,10 +1466,10 @@ private fun PanelSlider(item: PanelItem, selected: Boolean, editing: Boolean, mo
         Box(Modifier.fillMaxHeight().fillMaxWidth((item.level ?: 0f).coerceIn(0.08f, 1f)).clip(shape)
             .background(if (editing) PANEL_ACCENT else TILE_ON.copy(alpha = 0.55f)))
         Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(item.icon, null, Modifier.size(22.dp), tint = Color.White)
+            Icon(item.icon, null, Modifier.size(22.dp), tint = PANEL_FG)
             Spacer(Modifier.width(10.dp))
-            Text(item.label, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            item.sub?.let { Text(it, color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp) }
+            Text(item.label, color = PANEL_FG, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            item.sub?.let { Text(it, color = PANEL_FG.copy(alpha = 0.85f), fontSize = 13.sp) }
         }
     }
 }

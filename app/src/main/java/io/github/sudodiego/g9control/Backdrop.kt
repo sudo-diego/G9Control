@@ -68,7 +68,8 @@ private fun PanelBackdropLayer() {
     when (ThemeState.panelBackground) {
         PanelBackground.PLAIN -> Box(Modifier.fillMaxSize().background(Color(0xFF0E1424)))
         // Transparente: el juego se ve detrás, con el relleno elegido (un velo oscuro, de nada a casi opaco).
-        PanelBackground.CLEAR -> Box(Modifier.fillMaxSize().background(Color(0xFF0A0F1F).copy(alpha = ThemeState.panelFill / 100f * 0.9f)))
+        PanelBackground.CLEAR -> Box(Modifier.fillMaxSize().background((if (ThemeState.panelLight) Color(0xFFF2F5FA) else Color(0xFF0A0F1F))
+            .copy(alpha = ThemeState.panelFill / 100f * 0.9f)))
         PanelBackground.GRADIENT -> GradientBackdrop(true)
         PanelBackground.IMAGE -> {
             val uri = ThemeState.panelUri
