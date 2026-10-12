@@ -614,6 +614,11 @@ class AutoModeService : AccessibilityService() {
         if (now - lastUnlock < 1500) return   // USER_PRESENT y la espera pueden llegar juntos
         lastUnlock = now
         Log.d(TAG, "desbloqueada")
+        // RAOfflineProxy apagado con los emuladores apuntándole (tras reiniciar): avisar una vez. Shizuku puede tardar
+        // en arrancar después del desbloqueo ("Start on boot"): se espera un poco.
+        if (AutoRules.raProxyHint(this) && RaProxy.installed(this)) main.postDelayed({
+            scope.launch { if (RaProxy.stranded(this@AutoModeService)) main.post { panel.raStrandedHint() } }
+        }, 8000)
         val mode = ModeSwitcher.detect()
         if (mode == PadMode.ANDROID) returnPending = false
         if (lowPending) main.postDelayed({ lastBattery?.let { checkLowBattery(it) } }, 800)
@@ -1349,7 +1354,12 @@ class AutoModeService : AccessibilityService() {
      */
     private val raHinted = mutableSetOf<String>()
     private val raChecked = mutableSetOf<String>()
+    private val raStranded = mutableSetOf<String>()
     private fun raProxyHint(pkg: String) {
+        if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && RaProxy.installed(this)) scope.launch {
+            if (RaProxy.stranded(this@AutoModeService) && pkg !in raStranded) { raStranded += pkg; main.postDelayed({ panel.raStrandedHint() }, 1500) }
+            else if (RaProxy.activeNow == true) raStranded.clear()
+        }
         // Proxy encendido: ¿el emulador está listo? (sesión, apunta al proxy). Una vez por emulador y encendido.
         if (RaProxy.isEmulator(pkg) && AutoRules.raProxyHint(this) && Shell.state == Shell.State.READY && RaProxy.installed(this)) scope.launch {
             if (RaProxy.readActive(this@AutoModeService) != true) { raChecked.clear(); return@launch }

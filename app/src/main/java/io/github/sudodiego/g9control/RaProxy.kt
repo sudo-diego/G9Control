@@ -47,7 +47,26 @@ object RaProxy {
      * servicio del proxy (`ProxyService`) en primer plano, con Shizuku.
      */
     suspend fun readActive(ctx: Context): Boolean? =
-        (fromProvider(ctx) ?: Shell.run(Shell.RA_PROXY)?.let { it.contains("ProxyService") }).also { activeNow = it }
+        (fromProvider(ctx) ?: Shell.run(Shell.RA_PROXY)?.let { it.contains("ProxyService") }).also {
+            activeNow = it
+            if (it != null) ctx.getSharedPreferences("g9", Context.MODE_PRIVATE).edit().putBoolean("ra_last_on", it).apply()
+        }
+
+    /**
+     * Apagado pero los emuladores siguen apuntando a él: así no hay logros **ni con internet**. Pasa al reiniciar o
+     * apagar la tablet (el proxy no vuelve solo; probado el 12 oct 2026) o si se cerró a la fuerza. Con Shizuku se mira
+     * la configuración de RetroArch y Dolphin; sin él, si estaba encendido la última vez que se vio ([wasOn], leído
+     * antes de [readActive]). Con su Stop proxy no pasa: deja los emuladores como estaban.
+     */
+    suspend fun stranded(ctx: Context): Boolean {
+        val wasOn = ctx.getSharedPreferences("g9", Context.MODE_PRIVATE).getBoolean("ra_last_on", false)
+        if (!installed(ctx) || readActive(ctx) != false) return false
+        if (Shell.state != Shell.State.READY) return wasOn
+        return listOf("com.retroarch", "org.dolphinemu.dolphinemu").any { setup(it)?.toProxy == true }.also { strandedNow = it }
+    }
+
+    /** Lo último que se supo de [stranded] (para el mosaico del panel). */
+    @Volatile var strandedNow = false
 
     private fun fromProvider(ctx: Context): Boolean? = runCatching {
         ctx.contentResolver.query(android.net.Uri.parse("content://$PACKAGE.config"), null, null, null, null)?.use { c ->
