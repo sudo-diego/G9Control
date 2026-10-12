@@ -21,15 +21,15 @@ The app has three sections (LT / RT switch between them, LB / RB between tabs):
 | | |
 |---|---|
 | **Home** | Battery (watts now, last-minute average, time left; while charging, time to the limit or to 100 %), temperature, refresh rate, CPU; quick tiles for bypass, the performance monitor and 16:9; memory with running apps; connected controllers. |
-| **Battery** | Own charge limit (70–90 %), manual and automatic bypass charging, low-battery notice (15, 10 and 5 %, like the Switch), power use per app, and **game sessions**: watts, CPU and temperatures per game, performance mode and refresh rate, to compare modes with real data. |
+| **Battery** | Own charge limit (70–90 %), manual and automatic bypass charging (from which battery level and temperature, with the reasoning behind the suggested values), low-battery notice (15, 10 and 5 %, like the Switch), power use per app, and **game sessions**: watts, CPU and temperatures per game, performance mode and refresh rate, to compare modes with real data. |
 | **Screen** | 16:9 for an external monitor (automatic per monitor in mirror mode), and the tablet's screen dimmed, backlight-off or off while the monitor is on. |
-| **Game** | Screenshot notice and sound, the game panel's look (background, transparency, shape and size, mini monitor), the performance monitor, refresh rate for all games, Game Assistant settings. |
-| **Controls** | What the guide button does (tap: Back; hold: game panel; + RB: screenshot, hold RB for a burst; + LB: hold Back; hold 5 s: the G9 turns off and the tablet locks), per-emulator tap action (Back, nothing, or pass the guide to the game so the emulator can bind it), L3 + R3 for controllers without a guide button, swapped volume buttons. |
+| **Game** | Screenshot notice and sound, the game panel's look (background, transparency, light or dark theme, shape and size, mini monitor; a button to open it), the performance monitor, refresh rate for all games, Game Assistant settings. |
+| **Controls** | What the guide button does (tap: Back; hold: game panel; + RB: screenshot, hold RB for a burst; + LB: hold Back; hold 5 s: the G9 turns off and the tablet locks), per-app tap action (Back, nothing, or pass the guide to the game: in RetroArch it becomes its hotkey enable button, holding it still opens the panel and Guide + RB takes the emulator's own filter-free screenshot), L3 + R3 for controllers without a guide button, swapped volume buttons. |
 | **Test controller** | Buttons, triggers and sticks of any controller, with the connected controllers and stick values to spot drift. |
 
 ### Game panel
 
-Hold the guide button (or L3 + R3, or the accessibility button) in any app: a panel like Android's quick settings over the game, without taking its focus. A mini monitor (free RAM, watts, CPU, battery temperature), brightness and volume, screenshot, Game Assistant, performance mode, refresh rate for this app, gesture lock, recent apps to jump back to (like a suspended game), 16:9, Wi-Fi and Bluetooth, a virtual mouse, Back / Home / Recents and the G9's mode. Move with the stick or D-pad, A selects, B closes. Background: clear, gradient or your own image or GIF, optionally see-through.
+Hold the guide button (or L3 + R3, or the accessibility button) in any app: a panel like Android's quick settings over the game, without taking its focus. A mini monitor (free RAM, watts, CPU, battery temperature), brightness and volume, screenshot, Game Assistant, performance mode, refresh rate for this app, gesture lock, recent apps to jump back to (like a suspended game; Y twice closes one), 16:9, Wi-Fi and Bluetooth, a virtual mouse, Back / Home / Recents and the G9's mode. Move with the stick or D-pad, A selects, B closes. Background: clear, gradient or your own image or GIF, optionally see-through; light or dark. It also opens inside the app.
 
 ### G9
 
@@ -79,10 +79,10 @@ Most things need nothing extra.
 
 - **No firmware updates** for the G9, on purpose (a failed update can brick it).
 - The G9 can only be configured in **Android mode**; switching back from X-Input or DS5 is always View + Menu (the app guides you).
-- Android 15 marks buttons sent by software as coming from a "Virtual" device: emulators accept combos like View + Menu, but can't assign them as the G9's own button.
+- Android 15 marks buttons sent by software as coming from a "Virtual" device and emulators don't take them as player 1: that's why in RetroArch the real guide is passed to the game.
 - In Android mode, games vibrate the tablet, not the G9; its 3.5 mm jack doesn't work on Android (firmware).
 - Screenshots: at most one per second (Android's limit for accessibility services).
-- While streaming from a PC (Artemis, Moonlight…) the guide button goes to the PC.
+- While streaming from a PC (Artemis, Moonlight…) the guide button goes to the PC: there, screenshots are M twice (DS5) or L3 + R3.
 - Some apps close when switching between 16:9 and 16:10 (Dolphin, for example).
 
 ## Build from source

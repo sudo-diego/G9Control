@@ -21,15 +21,15 @@ Tiene tres secciones (LT / RT cambian de sección, LB / RB de pestaña):
 | | |
 |---|---|
 | **Inicio** | Batería (W ahora, promedio del último minuto y autonomía; cargando, tiempo hasta el límite o a 100 %), temperatura, Hz, CPU; mosaicos de bypass, monitor y 16:9; memoria con las apps corriendo; controles conectados. |
-| **Batería** | Límite de carga propio (70–90 %), bypass manual y automático, aviso de batería baja (15, 10 y 5 %, como la Switch), consumo por app y **sesiones de juego**: W, CPU y temperaturas por juego, modo de rendimiento y Hz, para comparar modos con datos de verdad. |
+| **Batería** | Límite de carga propio (70–90 %), bypass manual y automático (desde qué batería y temperatura, con la razón de los valores sugeridos), aviso de batería baja (15, 10 y 5 %, como la Switch), consumo por app y **sesiones de juego**: W, CPU y temperaturas por juego, modo de rendimiento y Hz, para comparar modos con datos de verdad. |
 | **Pantalla** | 16:9 para un monitor (automático por monitor en espejo) y la pantalla de la tablet oscura, sin luz o apagada mientras está el monitor. |
-| **Juego** | Aviso y sonido de las capturas, el aspecto del panel (fondo, transparencia, forma y tamaño, mini monitor), el monitor de rendimiento, la frecuencia en juegos y Game Assistant. |
-| **Controles** | Qué hace el botón guía (tocar: Atrás; mantener: panel; + RB: captura, mantener RB: ráfaga; + LB: Atrás mantenido; 5 s: el G9 se apaga y la tablet se bloquea), qué hace tocarla en cada emulador (Atrás, nada, o pasarla al juego para que el emulador la asigne), L3 + R3 para controles sin botón guía y el volumen invertido. |
+| **Juego** | Aviso y sonido de las capturas, el aspecto del panel (fondo, transparencia, tema claro u oscuro, forma y tamaño, mini monitor; botón para abrirlo), el monitor de rendimiento, la frecuencia en juegos y Game Assistant. |
+| **Controles** | Qué hace el botón guía (tocar: Atrás; mantener: panel; + RB: captura, mantener RB: ráfaga; + LB: Atrás mantenido; 5 s: el G9 se apaga y la tablet se bloquea), qué hace tocarla en cada app (Atrás, nada, o pasarla al juego: en RetroArch se asigna como su tecla de atajos, y mantenerla igual abre el panel y Guía + RB saca la captura del emulador, sin filtros), L3 + R3 para controles sin botón guía y el volumen invertido. |
 | **Probar control** | Botones, gatillos y sticks de cualquier control, con los controles conectados y los sticks en números para ver si tienen deriva. |
 
 ### Panel de juego
 
-Mantén el botón guía (o L3 + R3, o el botón de accesibilidad) en cualquier app: un panel como los ajustes rápidos de Android sobre el juego, sin quitarle el foco. Mini monitor (RAM libre, W, CPU, temperatura de la batería), brillo y volumen, captura, Game Assistant, modo de rendimiento, Hz para esta app, bloquear gestos, apps recientes para volver a ellas (como un juego en suspensión), 16:9, WiFi y Bluetooth, mouse virtual, Atrás / Inicio / Recientes y el modo del G9. Se mueve con el stick o la cruceta, A elige y B cierra. Fondo: transparente, degradado o tu propia imagen o GIF, también translúcidos.
+Mantén el botón guía (o L3 + R3, o el botón de accesibilidad) en cualquier app: un panel como los ajustes rápidos de Android sobre el juego, sin quitarle el foco. Mini monitor (RAM libre, W, CPU, temperatura de la batería), brillo y volumen, captura, Game Assistant, modo de rendimiento, Hz para esta app, bloquear gestos, apps recientes para volver a ellas (como un juego en suspensión; Y dos veces la cierra), 16:9, WiFi y Bluetooth, mouse virtual, Atrás / Inicio / Recientes y el modo del G9. Se mueve con el stick o la cruceta, A elige y B cierra. Fondo: transparente, degradado o tu propia imagen o GIF, también translúcidos; en claro u oscuro. También se abre dentro de la app.
 
 ### G9
 
@@ -79,10 +79,10 @@ Casi todo funciona sin nada más.
 
 - **Sin actualizaciones de firmware** del G9, a propósito (una actualización fallida puede dejarlo inservible).
 - El G9 solo se configura en **modo Android**; volver desde X-Input o DS5 es siempre con Vista + Menú (la app te guía).
-- Android 15 marca los botones enviados por software como de un dispositivo "Virtual": los emuladores aceptan combinaciones como Vista + Menú, pero no se pueden asignar como un botón propio del G9.
+- Android 15 marca los botones enviados por software como de un dispositivo "Virtual" y los emuladores no los toman como del jugador 1: por eso en RetroArch la guía real se le pasa al juego.
 - En modo Android los juegos hacen vibrar la tablet, no el G9; su jack de 3,5 mm no funciona en Android (firmware).
 - Capturas: como mucho una por segundo (el límite de Android para servicios de accesibilidad).
-- Transmitiendo desde un PC (Artemis, Moonlight…) el botón guía va al PC.
+- Transmitiendo desde un PC (Artemis, Moonlight…) el botón guía va al PC: ahí las capturas son con M dos veces (DS5) o L3 + R3.
 - Algunas apps se cierran al cambiar entre 16:9 y 16:10 (Dolphin, por ejemplo).
 
 ## Compilar
