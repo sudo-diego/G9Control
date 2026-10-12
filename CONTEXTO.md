@@ -68,8 +68,18 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 - **Frecuencia en Ahorro:** además de revisarla 2 s después de cambiar de app, se revisa al cambiar la frecuencia de la pantalla (`DisplayListener`): Ahorro la bajaba a 30 después.
 - **Mantener la guía 5 s bloquea la tablet** (el G9 se apaga): el soltar de la guía cancela el bloqueo en la entrada de `onKeyEvent` (con el panel abierto no llegaba y la tablet se bloqueaba sola).
 
+## Aprendido el 12 oct 2026 (pruebas en la tablet)
+- **RetroArch y Vista + Menú:** salir funciona (8 de 8 con un juego cargado, abierto como lo abre un launcher: `am start -n com.retroarch/.browser.retroactivity.RetroActivityFuture -e ROM … -e LIBRETRO /data/data/com.retroarch/cores/snes9x_libretro_android.so -e CONFIGFILE …/retroarch.cfg`). Dos causas de que fallara a veces: (1) **la app al frente estaba vieja**: el aviso de cambio de ventana no siempre llega (RetroArch abierto por un launcher seguía como Dolphin) y se aplicaba la opción de otra app; ahora `currentApp()` la lee de la lista de ventanas. (2) **`input_hotkey_block_delay = 5`**: RetroArch activa los atajos 5 cuadros (~83 ms) después de apretar Vista; Menú llegaba a los 40 ms. Ahora 200 ms entre botones. Teclas de teclado (`P`, `input keyevent`) no le llegan.
+- **Recientes como en Android:** Cocoon abre Dolphin con `VIEW` (no con la intención del cajón); abrirlo con `getLaunchIntentForPackage` lo devolvía a su pantalla principal. Se trae la **tarea** al frente: `ActivityManager.moveTaskToFront(taskId)` con el permiso normal `REORDER_TASKS` (sin Shizuku); el `taskId` sale de `AccessibilityWindowInfo.getTaskId()` (oculto, por reflexión) y se guarda. Probado: RetroArch (mismo proceso, juego intacto) y Dolphin (vuelve a `EmulationActivity`).
+- **Fondo de pantalla:** recrear la actividad para cambiar la ventana mandaba al Inicio y dejaba la barra de estado sin fondo. Ahora la ventana es siempre translúcida y solo se cambia `FLAG_SHOW_WALLPAPER` y su fondo (`VeilDrawable`, modo SRC). Probado: 5 cambios seguidos.
+- **Mantener la guía 5 s:** el G9 se apaga a los 5 s y el temporizador de 5 s no alcanzaba (el soltar o la desconexión llegan antes). Ahora se bloquea cuando el control de la guía se desconecta después de mantenerla 3,5 s o más (o mientras sigue apretada).
+- **Aviso de batería baja del sistema:** es una notificación de SystemUI, canal `BAT` (`PowerUI`). Una app no la puede apagar; el botón abre `ACTION_CHANNEL_NOTIFICATION_SETTINGS` de `com.android.systemui` / `BAT`. Probar: `adb shell dumpsys battery set level 10` (y `dumpsys battery reset`).
+- **Sonidos:** WAV en `res/raw` generados en el PC (`make-sounds.ps1`), no en la app: `low_battery.wav` (Mi5 → La4).
+- **adb inalámbrico:** la tablet puede anunciar dos puertos de depuración; con los dos conectados Android Studio crea `process-tracker` sin parar (~7–10 W). Conectar uno solo, con `ADB_MDNS_AUTO_CONNECT=0`.
+- **LEDs según la batería (investigado):** Retroid y AYN manejan sus luces con un driver propio de la consola (sin memoria que gastar). En el G9 la luz se cambia con el comando 5, que se **guarda** en la memoria del control (no hay modo sin guardar) y **solo existe en modo Android** (en X-Input y DS5 no hay canal GCM). Unos pocos cambios por carga (por ejemplo a 50, 20 y 10 %) no desgastan la memoria, pero en DS5 no se puede.
+
 ## Pendientes
-- Probar con el botón de verdad "Tocar la guía" → Vista + Menú en RetroArch con un juego cargado.
+- Probar con el botón de verdad mantener la guía 5 s (bloquear al apagarse el G9).
 - Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.
 - README nuevo con el nombre TBF Companion.
