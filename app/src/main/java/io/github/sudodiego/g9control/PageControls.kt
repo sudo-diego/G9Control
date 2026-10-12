@@ -96,8 +96,16 @@ private fun GuideTapPanel(a: MainActivity) {
                 var tap by remember(pkg) { mutableStateOf(AutoRules.guideTap(a, pkg)) }
                 Text(label, fontSize = 15.sp)
                 ChoiceChips(AutoRules.GuideTap.entries.map { it to it.label }, tap) { tap = it; AutoRules.setGuideTap(a, pkg, it) }
-                if (tap == AutoRules.GuideTap.PASS) Text(tr("Aquí el panel se abre con L3 + R3 (la guía es del juego).", "Here the panel opens with L3 + R3 (the guide belongs to the game)."),
-                    fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
+                if (tap == AutoRules.GuideTap.PASS) {
+                    Text(tr("Aquí el panel se abre con L3 + R3 (la guía es del juego).", "Here the panel opens with L3 + R3 (the guide belongs to the game)."),
+                        fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
+                    // Capturas nítidas con shaders como BFI o CRT beam simulator: que las saque el emulador.
+                    var byGame by remember(pkg) { mutableStateOf(AutoRules.shotByGame(a, pkg)) }
+                    SwitchRow(tr("Guía + RB: captura del emulador", "Guide + RB: emulator screenshot"), byGame,
+                        tr("Sin filtros (BFI, CRT). En RetroArch asigna «Captura de pantalla» a RB", "Without filters (BFI, CRT). In RetroArch bind “Screenshot” to RB")) {
+                        byGame = it; AutoRules.setShotByGame(a, pkg, it)
+                    }
+                }
             }
             Hint(tr("«Pasar al juego»: la guía le llega al emulador como el botón del G9; Guía + RB sigue sacando capturas. En RetroArch: Ajustes → Entrada → Teclas rápidas → «Tecla para activar teclas rápidas» = la guía, y «Mostrar menú» = otro botón (se usa Guía + ese botón).",
                 "\u201cPass to the game\u201d: the emulator gets the guide as the G9's button; in RetroArch bind it under Settings → Input → Hotkeys (\u201cMenu toggle\u201d or \u201cQuit RetroArch\u201d)."))

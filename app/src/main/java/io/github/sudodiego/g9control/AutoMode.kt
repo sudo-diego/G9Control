@@ -99,6 +99,15 @@ object AutoRules {
     fun shizukuTile(ctx: Context) = sp(ctx).getBoolean("shizuku_tile", true)
     fun setShizukuTile(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("shizuku_tile", v).apply()
 
+    /**
+     * La captura la saca el emulador (solo con "Pasar al juego"): Guía + RB le llega y él guarda su propia imagen, sin
+     * shaders (con BFI o CRT beam simulator la captura de Android sale con un cuadro a medias). La app solo muestra el
+     * aviso y el sonido. Por defecto en RetroArch.
+     */
+    fun shotByGame(ctx: Context, pkg: String?): Boolean = pkg != null && guideTap(ctx, pkg) == GuideTap.PASS &&
+        sp(ctx).getBoolean("shot_by_game_$pkg", pkg.startsWith("com.retroarch"))
+    fun setShotByGame(ctx: Context, pkg: String, v: Boolean) = sp(ctx).edit().putBoolean("shot_by_game_$pkg", v).apply()
+
     /** Al empezar a transmitir desde el PC, recordar que las capturas van con M dos veces o L3 + R3. */
     fun streamTip(ctx: Context) = sp(ctx).getBoolean("stream_tip", true)
     fun setStreamTip(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("stream_tip", v).apply()
@@ -989,6 +998,12 @@ class AutoModeService : AccessibilityService() {
         val passChord = (guideLive || android.os.SystemClock.uptimeMillis() - guideUpAt < 400) &&
             AutoRules.guideTap(this, lastPackage) == AutoRules.GuideTap.PASS
         if (!legionChording && !(legionOwned && legionPending) && !passChord) return false
+        // La captura la saca el emulador: RB le llega (Guía + RB es su atajo) y aquí solo el aviso.
+        if (passChord && k == KeyEvent.KEYCODE_BUTTON_R1 && AutoRules.shotByGame(this, lastPackage)) {
+            Log.d(TAG, "Guía + RB: captura del emulador")
+            panel.gameShotNotice()
+            return false
+        }
         // Ese atajo apagado: RB o LB llegan normal.
         if (!AutoRules.guide(this, if (k == KeyEvent.KEYCODE_BUTTON_R1) AutoRules.Guide.RB_SHOT else AutoRules.Guide.LB_BACK)) return false
         legionPending = false

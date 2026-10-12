@@ -733,6 +733,12 @@ class GamePanel(private val svc: AutoModeService) {
         main.postDelayed(action, 300)
     }
 
+    /** La captura la guardó el emulador (sin shaders): el mismo aviso y sonido, sin miniatura. */
+    fun gameShotNotice() {
+        sounds.play(AutoRules.shotSound(svc))
+        flash.show(flash.sample(), tr("Captura guardada", "Screenshot saved"), tr("La guardó el emulador, sin filtros", "Saved by the emulator, without filters"), 2200)
+    }
+
     /** Captura limpia desde fuera del panel (M dos veces en DS5, Legion + RB). */
     fun capture() = screenshot()
 
