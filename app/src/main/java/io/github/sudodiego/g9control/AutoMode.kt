@@ -1095,8 +1095,8 @@ class AutoModeService : AccessibilityService() {
                 if (legionOwned) {
                     legionPending = true
                     if (AutoRules.guide(this, AutoRules.Guide.HOLD_PANEL)) main.postDelayed(legionHold, 500)
-                    main.removeCallbacks(legionLock)
-                    if (AutoRules.guide(this, AutoRules.Guide.HOLD_LOCK)) main.postDelayed(legionLock, 5000)
+                    // Sin temporizador de 5 s: a veces el soltar no llega y bloqueaba sin que el G9 se apagara. Se bloquea
+                    // solo cuando el G9 se apaga de verdad (se desconecta tras mantener la guía; ver lockIfGuidePoweredOff).
                 }
                 return legionOwned
             }
