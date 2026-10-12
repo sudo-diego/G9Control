@@ -295,11 +295,13 @@ fun PadBadge(label: String, round: Boolean = false) {
 
 /** Botón B con un aro que se llena mientras se mantiene (1 s o 3 s); al soltar vuelve a cero. */
 @Composable
-private fun HoldBadge(hold: Pair<Long, Long>?) {
+private fun HoldBadge(hold: Pair<Long, Long>?, ready: Boolean = false) {
     val c = MaterialTheme.colorScheme
     val progress = remember { Animatable(0f) }
-    LaunchedEffect(hold) {
-        if (hold == null) progress.animateTo(0f, tween(200))
+    LaunchedEffect(hold, ready) {
+        // Cumplido (falta soltar): el aro queda lleno.
+        if (ready) progress.snapTo(1f)
+        else if (hold == null) progress.animateTo(0f, tween(200))
         else {
             val (since, ms) = hold
             val start = ((android.os.SystemClock.uptimeMillis() - since).toFloat() / ms).coerceIn(0f, 1f)
@@ -354,11 +356,12 @@ private fun HintBar(s: AppState) {
             else if (s.editingMacro != null) listOf("A" to tr("Elegir", "Select"), "B" to tr("Cerrar macro", "Close macro"), "LB RB" to tr("Pestañas", "Tabs"))
             // LB RB solo donde hay pestañas (Ajustes tiene una sola página).
             else listOfNotNull("A" to tr("Elegir", "Select"), if (s.section.pages.size > 1) "LB RB" to tr("Pestañas", "Tabs") else null,
-                "LT RT" to tr("Secciones", "Sections"), "B" to tr("Mantén 2 s para salir", "Hold 2 s to exit"))
+                "LT RT" to tr("Secciones", "Sections"),
+                "B" to if (s.bReady) tr("Suelta para salir", "Release to exit") else tr("Mantén 2 s para salir", "Hold 2 s to exit"))
             hints.forEach { (k, v) ->
                 Spacer(Modifier.width(18.dp))
                 // El aro de B es la cuenta atrás de mantener (salir de la app, de la prueba); cerrar la macro es un toque.
-                if (k == "B" && s.editingMacro == null) HoldBadge(s.bHold) else if (k.length == 1) PadBadge(k, round = true) else PadBadge(k)
+                if (k == "B" && s.editingMacro == null) HoldBadge(s.bHold, s.bReady) else if (k.length == 1) PadBadge(k, round = true) else PadBadge(k)
                 Spacer(Modifier.width(6.dp))
                 Text(v, fontSize = 13.sp, color = c.onSurfaceVariant)
             }

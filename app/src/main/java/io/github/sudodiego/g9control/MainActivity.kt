@@ -240,6 +240,7 @@ class MainActivity : ComponentActivity() {
             KeyEvent.ACTION_UP -> {
                 bHandler.removeCallbacks(bHold)
                 s.bHold = null
+                s.bReady = false
                 if (exitOnRelease) { exitOnRelease = false; bHoldFired = false; moveTaskToBack(true); return true }
                 if (bHoldFired) { bHoldFired = false; return true }   // ese B ya hizo su acción
             }
@@ -262,7 +263,7 @@ class MainActivity : ComponentActivity() {
             s.testMode -> s.testMode = false
             // Salir de la app: al SOLTAR B (ver ACTION_UP). Si se sale con B apretado, las repeticiones que Android genera
             // mientras se mantiene (después del filtro del servicio, no se pueden bloquear) le llegan al juego que queda al frente.
-            else -> exitOnRelease = true
+            else -> { exitOnRelease = true; s.bReady = true }
         }
     }
 
@@ -1096,6 +1097,8 @@ class AppState {
     var drift by mutableStateOf<Drift?>(null)
     /** B mantenido: cuándo empezó (uptime ms) y cuánto hay que mantenerlo; null si no se mantiene. */
     var bHold by mutableStateOf<Pair<Long, Long>?>(null)
+    /** Se cumplieron los 2 s de B: la barra dice "Suelta para salir" y el aro queda lleno hasta soltarlo. */
+    var bReady by mutableStateOf(false)
     var centered by mutableStateOf(false)
     /** Configuración inicial abierta (la primera vez, o desde Ajustes). */
     var showSetup by mutableStateOf(false)
