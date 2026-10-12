@@ -174,12 +174,14 @@ private fun TabBar(s: AppState, a: MainActivity) {
     val c = MaterialTheme.colorScheme
     // Arriba: a la izquierda Tablet/G9 (LT RT), al centro las pestañas en una píldora (LB RB a sus lados) y a la
     // derecha el estado del G9.
-    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+        // Angosta (tablet en vertical): las secciones no elegidas solo con su ícono, como las pestañas; si no, no cabía.
+        val compact = maxWidth < 900.dp
         // Alto fijo: en Ajustes (sin píldora de pestañas) la barra no sube y no salta al cambiar de sección.
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             PadBadge("LT")
             Spacer(Modifier.width(6.dp))
-            SectionSwitch(s)
+            SectionSwitch(s, compact)
             Spacer(Modifier.width(6.dp))
             PadBadge("RT")
             Spacer(Modifier.weight(1f))
@@ -224,7 +226,7 @@ private fun TabBar(s: AppState, a: MainActivity) {
                             .onGloballyPositioned { tabX[item.page] = it.positionInParent().x.toInt() to it.size.width }
                     ) {
                         // Como un carrusel: la elegida con su nombre, las demás solo el ícono (así caben todas).
-                        Row(Modifier.animateContentSize().padding(horizontal = if (sel) 12.dp else 9.dp, vertical = 8.dp),
+                        Row(Modifier.animateContentSize().padding(horizontal = if (sel) 12.dp else if (compact) 6.dp else 9.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 if (sel) item.selectedIcon else item.icon, item.label, Modifier.size(22.dp),
@@ -253,7 +255,7 @@ private fun TabBar(s: AppState, a: MainActivity) {
  * otra siguiendo con LB/RB más allá de la última pestaña.
  */
 @Composable
-private fun SectionSwitch(s: AppState) {
+private fun SectionSwitch(s: AppState, compact: Boolean = false) {
     val c = MaterialTheme.colorScheme
     Row(Modifier.clip(CircleShape).background(c.surfaceContainerHighest).padding(3.dp)) {
         listOf(Section.TABLET to Pair(tr("Tablet", "Tablet"), Icons.Outlined.TabletAndroid),
@@ -265,9 +267,11 @@ private fun SectionSwitch(s: AppState) {
                     .clickable { s.goTo(sec) }.padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(info.second, null, Modifier.size(18.dp), tint = if (sel) c.onPrimary else c.onSurfaceVariant)
-                Spacer(Modifier.width(6.dp))
-                Text(info.first, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (sel) c.onPrimary else c.onSurfaceVariant)
+                Icon(info.second, info.first, Modifier.size(18.dp), tint = if (sel) c.onPrimary else c.onSurfaceVariant)
+                if (sel || !compact) {
+                    Spacer(Modifier.width(6.dp))
+                    Text(info.first, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (sel) c.onPrimary else c.onSurfaceVariant)
+                }
                 // El G9 conectado: un punto verde (aunque se esté en la sección Tablet).
                 if (sec == Section.G9 && s.padMode != null) {
                     Spacer(Modifier.width(6.dp))
