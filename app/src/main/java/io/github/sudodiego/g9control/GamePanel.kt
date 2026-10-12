@@ -456,26 +456,40 @@ class GamePanel(private val svc: AutoModeService) {
     fun alertKey(e: KeyEvent) { alert?.onKey(e) }
     private fun showAlert(a: RaAlert) { alert?.hide(); hide(); alert = a; a.onClose = { if (alert === a) alert = null }; a.show() }
 
+    // Alertas cortas (título, una línea, A/B): mientras se juega no se lee más. Lo que hay que hacer se dice después
+    // de apretar A, en un aviso corto, cuando ya se puede hacer.
+
     /** Proxy apagado con los emuladores apuntándole: A cierra el juego y abre RAOfflineProxy (para Start); B sigue. */
     fun raStrandedAlert(pkg: String) = showAlert(RaAlert(svc,
-        tr("Sin logros: RAOfflineProxy está apagado", "No achievements: RAOfflineProxy is off"),
-        tr("Tus emuladores le apuntan, así que sin él no hay logros, ni con internet. Se cierra el juego (recién empieza) y se abre RAOfflineProxy: aprieta Start y vuelve a entrar.",
-            "Your emulators point to it, so without it there are no achievements, even online. The game closes (it just started) and RAOfflineProxy opens: press Start and come back."),
-        tr("Encenderlo", "Turn it on")) { scope.launch { RaProxy.prepare(svc) } })
+        tr("RAOfflineProxy está apagado", "RAOfflineProxy is off"),
+        tr("Sin él no hay logros.", "Without it there are no achievements."),
+        tr("Cerrar y encenderlo", "Close and turn it on")) {
+        scope.launch {
+            RaProxy.prepare(svc)
+            main.postDelayed({ flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Aprieta Start", "Press Start"),
+                tr("Después vuelve al juego", "Then go back to the game"), 5000) }, 1200)
+        }
+    })
 
     /** El emulador no tiene sesión (o no apunta al proxy): A cierra el juego y abre el emulador para iniciar sesión. */
     fun raSetupAlert(pkg: String, s: RaProxy.Setup) = showAlert(RaAlert(svc,
-        tr("Sin logros en ${s.name}", "No achievements in ${s.name}"),
-        if (!s.loggedIn) tr("${s.name} no tiene la sesión de RetroAchievements iniciada. Se cierra el juego y se abre ${s.name}: inicia sesión en sus ajustes (RetroAchievements). Mejor con RAOfflineProxy apagado: si no, al apagarlo puede borrarla.",
-            "${s.name} isn't signed in to RetroAchievements. The game closes and ${s.name} opens: sign in from its settings (RetroAchievements). Best with RAOfflineProxy off: otherwise turning it off can erase it.")
+        if (!s.loggedIn) tr("${s.name} sin sesión", "${s.name} not signed in") else tr("${s.name} sin logros", "No achievements in ${s.name}"),
+        if (!s.loggedIn) tr("Sin sesión de RetroAchievements no hay logros.", "Without a RetroAchievements session there are no achievements.")
         else s.problem.orEmpty(),
-        if (!s.loggedIn) tr("Iniciar sesión", "Sign in") else tr("Arreglar", "Fix")) {
+        if (!s.loggedIn) tr("Cerrar e iniciar sesión", "Close and sign in") else tr("Arreglar", "Fix")) {
         scope.launch {
             if (Shell.state == Shell.State.READY) Shell.run(Shell.stopApp(pkg))
             if (s.loggedIn) RaProxy.open(svc)
-            else svc.packageManager.getLaunchIntentForPackage(pkg)?.let { runCatching { svc.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+            else {
+                svc.packageManager.getLaunchIntentForPackage(pkg)?.let { runCatching { svc.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } }
+                // Dónde se inicia sesión, ya en el emulador.
+                main.postDelayed({ flash.show(flash.appIcon(pkg), tr("Inicia sesión", "Sign in"),
+                    tr("Ajustes → RetroAchievements", "Settings → RetroAchievements"), 6000) }, 1500)
+            }
         }
     })
+
+
 
     /** Al empezar a transmitir: la guía va al PC, así que las capturas se sacan de otra forma. */
     fun streamTip() {
