@@ -73,7 +73,7 @@ private fun TabletNowTiles(a: MainActivity) {
                         w?.let { x -> "+%.1f W".format(x) }).joinToString(" · ")
                     // A batería: lo de ahora, el promedio del último minuto (si el servicio mide) y cuánto dura a ese ritmo.
                     else -> listOfNotNull(w?.let { x -> "%.1f W".format(x) }, PowerLog.recentAvg?.let { x -> tr("prom. %.1f W", "avg %.1f W").format(x) },
-                        remember(tick) { ZuiBattery.dischargeTimeLeft(a, PowerLog.recentAvg) }?.let { ms -> "~" + ZuiBattery.formatTime(ms) }).joinToString(" · ")
+                        remember(tick) { ZuiBattery.estimatedLeft(a) }?.let { ms -> "~" + ZuiBattery.formatTime(ms) }).joinToString(" · ")
                 }?.takeIf { s -> s.isNotEmpty() }
                 StatTile("${it.level} %", if (it.charging) tr("Cargando", "Charging") else state, tile.weight(1f), big = true, extra = extra)
                 StatTile("${"%.0f".format(it.tempC)} °C", tr("Temperatura", "Temperature"), tile.weight(1f), big = true)

@@ -120,6 +120,12 @@ object ZuiBattery {
         return uah * 100.0 / level / 1e6 * 3.87
     }
 
+    /**
+     * Autonomía para mostrar: al ritmo del último minuto o, recién desenchufada (todavía sin promedio), al ritmo típico
+     * medido (consumo por app). No con la corriente del instante: justo al desenchufar casi no sale nada y daba 14 h.
+     */
+    fun estimatedLeft(ctx: Context): Long? = (PowerLog.recentAvg ?: PowerLog.typicalWatts(ctx))?.let { dischargeTimeLeft(ctx, it) }
+
     /** "1 h 20 min" o "35 min". */
     fun formatTime(ms: Long): String {
         val min = (ms / 60_000).coerceAtLeast(1)

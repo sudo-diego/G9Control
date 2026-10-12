@@ -260,7 +260,7 @@ class GamePanel(private val svc: AutoModeService) {
                 ZuiBattery.formatTime(it) + if (target < 100) tr(" a $target %", " to $target %") else ""
             }
             // A batería: cuánto dura al ritmo del último minuto (o al de ahora si todavía no hay promedio).
-            !ZuiBattery.plugged(svc) -> ZuiBattery.dischargeTimeLeft(svc, PowerLog.recentAvg)?.let { "~" + ZuiBattery.formatTime(it) }
+            !ZuiBattery.plugged(svc) -> ZuiBattery.estimatedLeft(svc)?.let { "~" + ZuiBattery.formatTime(it) }
             else -> null
         }
         val time = android.text.format.DateFormat.getTimeFormat(svc).format(Date())
@@ -639,7 +639,7 @@ class GamePanel(private val svc: AutoModeService) {
         val hzNow = RefreshRate.current(svc)
         val hzChosen = RefreshRate.forApp(svc, svc.foregroundApp)
         add(PanelItem(tr("Frecuencia", "Refresh rate"), Icons.Outlined.DisplaySettings, active = hzChosen != null,
-            sub = (hzNow?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { crossfade { showHzMenu() } })
+            sub = ((hzChosen ?: hzNow)?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { crossfade { showHzMenu() } })
         if (Aspect.available(svc)) {
             val wide = Aspect.is169(svc)
             add(PanelItem("16:9", Icons.Outlined.AspectRatio, PanelRow.SCREEN,

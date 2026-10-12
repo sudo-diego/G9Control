@@ -68,6 +68,14 @@ object PowerLog {
         return synchronized(usage) { usage.values.filter { it.seconds >= 60 }.sortedByDescending { it.seconds } }
     }
 
+    /** El consumo típico (todas las apps medidas, ponderado por tiempo), si hay al menos 10 min medidos. */
+    fun typicalWatts(c: Context): Double? {
+        if (ctx == null) load(c)
+        val all = synchronized(usage) { usage.values.toList() }
+        val s = all.sumOf { it.seconds }
+        return if (s >= 600) all.sumOf { it.wh } * 3600 / s else null
+    }
+
     fun of(pkg: String?): Usage? = pkg?.let { synchronized(usage) { usage[it] } }?.takeIf { it.seconds >= 60 }
 
     fun reset(c: Context) {

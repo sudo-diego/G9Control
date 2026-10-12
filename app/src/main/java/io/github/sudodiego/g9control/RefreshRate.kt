@@ -20,7 +20,8 @@ import kotlin.math.roundToInt
  * Antes se cambiaban `peak/min_refresh_rate` con Shizuku: si quedaron cambiados (hz_saved_*), se devuelven una vez.
  */
 object RefreshRate {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Un solo hilo para los ajustes del sistema: forzar y devolver en paralelo los dejaba cruzados (peak 30, min 120).
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(1))
 
     private fun sp(ctx: Context) = ctx.getSharedPreferences("g9", Context.MODE_PRIVATE)
 
@@ -57,11 +58,20 @@ object RefreshRate {
         main.post { window(ctx, want); done() }
         if (want != null) Log.d(AutoModeService.TAG, "pantalla a $want Hz ($pkg)")
         main.removeCallbacks(verify)
-        // Si se había forzado con los ajustes del sistema (por Ahorro de energía), se devuelven al cambiar de app o de Hz.
-        if (forced != pkg to want) restoreSettings(ctx)
+        main.removeCallbacks(restoreLater)
+        // Ya se forzó antes esta app con estos Hz (Ahorro): se vuelve a forzar al tiro, sin pasar 2 s por 30 Hz.
+        if (want != null && forced == pkg to want) { /* sigue forzada */ }
+        else if (want != null && neededForce[pkg] == want && Shell.state == Shell.State.READY) force(ctx, pkg, want)
+        // Si estaba forzada para otra cosa, se devuelve un poco después: ir a Recientes y volver no la hace saltar.
+        else if (forced != null) { restoreFor = { restoreSettings(ctx) }; main.postDelayed(restoreLater, if (want == null) 4000 else 0) }
         verifyFor = want?.let { w -> { check(ctx, pkg, w) } }
-        if (want != null) main.postDelayed(verify, 2000)
+        if (want != null) main.postDelayed(verify, 1200)
     }
+
+    /** Apps (y Hz) que en Ahorro necesitaron los ajustes del sistema: al volver a ellas se fuerza de inmediato. */
+    private val neededForce = mutableMapOf<String?, Int>()
+    private var restoreFor: (() -> Unit)? = null
+    private val restoreLater = Runnable { restoreFor?.invoke() }
 
     /**
      * La pantalla cambió de frecuencia (lo avisa el servicio): si hay una elegida y no es esa, se revisa en 1,5 s. Pasa
@@ -70,7 +80,7 @@ object RefreshRate {
     fun onDisplayChanged() {
         if (verifyFor == null) return
         main.removeCallbacks(verify)
-        main.postDelayed(verify, 1500)
+        main.postDelayed(verify, 400)
     }
 
     /**
@@ -84,16 +94,25 @@ object RefreshRate {
     private fun check(ctx: Context, pkg: String?, want: Int) {
         val now = current(ctx) ?: return
         if (kotlin.math.abs(now - want) <= 1 || Shell.state != Shell.State.READY) return
+        Log.d(AutoModeService.TAG, "pantalla en $now Hz en vez de $want ($pkg): se fuerza con los ajustes del sistema")
+        neededForce[pkg] = want
+        force(ctx, pkg, want)
+    }
+
+    /** Mínimo y máximo del sistema iguales a [want] (más prioridad que el voto de ZUI en Ahorro). */
+    private fun force(ctx: Context, pkg: String?, want: Int) {
         val p = sp(ctx)
         val cr = ctx.contentResolver
+        forced = pkg to want
+        main.removeCallbacks(restoreLater)
         scope.launch {
-            if (!p.contains("hz_saved_peak")) p.edit()
-                .putFloat("hz_saved_peak", android.provider.Settings.System.getFloat(cr, "peak_refresh_rate", 120f))
-                .putFloat("hz_saved_min", android.provider.Settings.System.getFloat(cr, "min_refresh_rate", 30f)).commit()
-            Shell.run(Shell.refreshRate("peak_refresh_rate", want.toFloat()))
-            Shell.run(Shell.refreshRate("min_refresh_rate", want.toFloat()))
-            forced = pkg to want
-            Log.d(AutoModeService.TAG, "pantalla en $now Hz en vez de $want ($pkg): forzada con los ajustes del sistema")
+            val peak = android.provider.Settings.System.getFloat(cr, "peak_refresh_rate", 120f)
+            val min = android.provider.Settings.System.getFloat(cr, "min_refresh_rate", 30f)
+            // Solo se guarda lo del usuario: si ya estaban iguales (forzados por la app) no se pisa lo guardado.
+            if (!p.contains("hz_saved_peak") && peak > min) p.edit().putFloat("hz_saved_peak", peak).putFloat("hz_saved_min", min).commit()
+            // En el orden que nunca deja el mínimo sobre el máximo.
+            if (want >= peak) { Shell.run(Shell.refreshRate("peak_refresh_rate", want.toFloat())); Shell.run(Shell.refreshRate("min_refresh_rate", want.toFloat())) }
+            else { Shell.run(Shell.refreshRate("min_refresh_rate", want.toFloat())); Shell.run(Shell.refreshRate("peak_refresh_rate", want.toFloat())) }
         }
     }
 
@@ -101,11 +120,14 @@ object RefreshRate {
     private fun restoreSettings(ctx: Context) {
         val p = sp(ctx)
         if (!p.contains("hz_saved_peak") || Shell.state != Shell.State.READY) return
+        forced = null
         scope.launch {
-            Shell.run(Shell.refreshRate("peak_refresh_rate", p.getFloat("hz_saved_peak", 120f)))
-            Shell.run(Shell.refreshRate("min_refresh_rate", p.getFloat("hz_saved_min", 30f)))
+            val peak = p.getFloat("hz_saved_peak", 120f)
+            val min = p.getFloat("hz_saved_min", 30f).coerceAtMost(peak)
+            // Primero el mínimo y después el máximo: nunca queda el mínimo sobre el máximo.
+            Shell.run(Shell.refreshRate("min_refresh_rate", min))
+            Shell.run(Shell.refreshRate("peak_refresh_rate", peak))
             p.edit().remove("hz_saved_peak").remove("hz_saved_min").commit()
-            forced = null
             Log.d(AutoModeService.TAG, "frecuencia del sistema devuelta a la de siempre")
         }
     }

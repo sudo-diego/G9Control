@@ -592,6 +592,7 @@ class AutoModeService : AccessibilityService() {
         Log.d(TAG, "desbloqueada")
         val mode = ModeSwitcher.detect()
         if (mode == PadMode.ANDROID) returnPending = false
+        if (lowPending) main.postDelayed({ lastBattery?.let { checkLowBattery(it) } }, 800)
         if (guide.resumeAfterLock()) return
         if (returnPending && ruleApp == null && mode != null) showReturn()
     }
@@ -1012,12 +1013,19 @@ class AutoModeService : AccessibilityService() {
         if (plugged || level > 20) { lowWarned = 101; return }
         if (level < 0 || !AutoRules.lowBattery(this)) return
         val step = AutoRules.LOW_LEVELS.firstOrNull { level <= it && it < lowWarned } ?: return
+        // Como la Switch: con la pantalla apagada o bloqueada (en la mochila) no se avisa; se avisa al desbloquear.
+        val screenOn = getSystemService(android.os.PowerManager::class.java).isInteractive
+        val locked = getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked
+        if (!screenOn || locked) { lowPending = true; return }
         // Varios umbrales de golpe (se encendió con 4 %): solo el más bajo.
         lowWarned = AutoRules.LOW_LEVELS.filter { level <= it }.minOrNull() ?: step
-        val left = ZuiBattery.dischargeTimeLeft(this, PowerLog.recentAvg)?.let { ZuiBattery.formatTime(it) }
+        lowPending = false
         Log.i(TAG, "batería baja: $level %")
-        panel.lowBattery(level, left)
+        panel.lowBattery(level, ZuiBattery.estimatedLeft(this)?.let { ZuiBattery.formatTime(it) })
     }
+
+    /** Se cruzó un umbral con la pantalla apagada o bloqueada: se avisa al desbloquear (si sigue baja y sin cargador). */
+    private var lowPending = false
 
     /** Mientras la app aprieta botones como el control (hasta este momento), el servicio no los toma. */
     @Volatile private var injectingUntil = 0L

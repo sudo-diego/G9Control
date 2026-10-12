@@ -94,8 +94,8 @@ private fun GuideTapPanel(a: MainActivity) {
                 Text(label, fontSize = 15.sp)
                 ChoiceChips(AutoRules.GuideTap.entries.map { it to it.label }, tap) { tap = it; AutoRules.setGuideTap(a, pkg, it) }
             }
-            Hint(if (ready) tr("Vista + Menú se aprieta por ti: en RetroArch sale del juego (sus atajos de fábrica).",
-                    "View + Menu is pressed for you: in RetroArch it quits the game (its default shortcuts).")
+            Hint(if (ready) tr("Vista + Menú se aprieta por ti. Android lo manda como un control «Virtual»: en RetroArch activa Ajustes → Entrada → Teclas rápidas → «Unir dispositivos de teclas rápidas» (Hotkey Device Merge) para que lo acepte.",
+                    "View + Menu is pressed for you. Android sends it as a “Virtual” controller: in RetroArch turn on Settings → Input → Hotkeys → “Hotkey Device Merge” so it accepts it.")
                 else tr("Vista + Menú necesita Shizuku; sin él, se hace Atrás.", "View + Menu needs Shizuku; without it, Back."))
         }
     }
