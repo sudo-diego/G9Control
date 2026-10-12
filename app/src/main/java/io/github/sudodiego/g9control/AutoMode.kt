@@ -633,7 +633,13 @@ class AutoModeService : AccessibilityService() {
         // tiene y una app normal no). `adb shell am broadcast -a io.github.sudodiego.g9control.TEST_GUIDE_TAP`.
         registerReceiver(object : android.content.BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
-                main.post { if (i.getStringExtra("what") == "battery") panel.lowBattery(15, "1 h 20 min") else guideTap() }
+                main.post {
+                    when (i.getStringExtra("what")) {
+                        "battery" -> panel.lowBattery(15, "1 h 20 min")
+                        "panel" -> panel.toggle()
+                        else -> guideTap()
+                    }
+                }
             }
         }, IntentFilter(ACTION_TEST_GUIDE_TAP), android.Manifest.permission.DUMP, main,
             if (android.os.Build.VERSION.SDK_INT >= 33) Context.RECEIVER_EXPORTED else 0)
@@ -667,6 +673,7 @@ class AutoModeService : AccessibilityService() {
         hiddenForApp = false
         lastPackage = pkg
         Memory.openedByUser(this, pkg)
+        RecentApps.push(this, pkg)
         panel.hide()
         panel.onAppChanged()
         // Bypass automático: otra app, otra decisión ("solo en juegos"). Lo manual sigue valiendo hasta desconectar el

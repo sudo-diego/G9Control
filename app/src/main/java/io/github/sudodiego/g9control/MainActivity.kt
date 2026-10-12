@@ -79,7 +79,7 @@ class MainActivity : ComponentActivity() {
                 // navegación por gestos el contenido empieza debajo de ella y ahí quedaba el fondo sin oscurecer).
                 val dim = ThemeState.backgroundDim
                 androidx.compose.runtime.LaunchedEffect(wallpaper, dim, dark) {
-                    if (wallpaper) window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(wallpaperVeil(dark, dim)))
+                    if (wallpaper) window.setBackgroundDrawable(VeilDrawable(wallpaperVeil(dark, dim)))
                 }
                 androidx.compose.runtime.LaunchedEffect(dark) {
                     val style = if (dark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -881,6 +881,19 @@ class MainActivity : ComponentActivity() {
 
     private var wallpaperWindow = false
 
+    /**
+     * Fondo de la ventana con el fondo de pantalla: el velo REEMPLAZA los píxeles (modo SRC) en vez de sumarse. Con un
+     * ColorDrawable translúcido la ventana no se limpiaba entre cuadros: el velo se apilaba hasta tapar el fondo y
+     * quedaban restos de la página anterior.
+     */
+    private class VeilDrawable(private val color: Int) : android.graphics.drawable.Drawable() {
+        override fun draw(canvas: android.graphics.Canvas) = canvas.drawColor(color, android.graphics.PorterDuff.Mode.SRC)
+        override fun setAlpha(alpha: Int) {}
+        override fun setColorFilter(cf: android.graphics.ColorFilter?) {}
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+    }
+
     /** Color del velo sobre el fondo de pantalla: azul marino (u hielo en claro) con la opacidad de "Oscurecer". */
     private fun wallpaperVeil(dark: Boolean, dim: Int): Int {
         val alpha = ((0.15f + 0.75f * dim / 100f) * 255).toInt().coerceIn(0, 255)
@@ -892,7 +905,7 @@ class MainActivity : ComponentActivity() {
         val flag = android.view.WindowManager.LayoutParams.FLAG_SHOW_WALLPAPER
         if (on) {
             window.setFormat(android.graphics.PixelFormat.TRANSLUCENT)
-            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
+            window.setBackgroundDrawable(VeilDrawable(android.graphics.Color.TRANSPARENT))
             window.addFlags(flag)
         } else {
             window.clearFlags(flag)

@@ -108,7 +108,7 @@ import java.util.Date
 import java.util.Locale
 
 /** Dónde va un ítem del panel: las barras arriba, después el juego, la pantalla y conexiones, y abajo Android. */
-private enum class PanelRow { SLIDER, GAME, SCREEN, SYSTEM }
+private enum class PanelRow { SLIDER, GAME, RECENT, SCREEN, SYSTEM }
 
 /**
  * Una acción del panel de juego, como un mosaico de los ajustes rápidos: [sub] es su estado o un detalle y
@@ -122,7 +122,10 @@ private class PanelItem(
     /** Atenuado: no funciona ahora (falta Shizuku); elegirlo lleva a arreglarlo. */
     val enabled: Boolean = true,
     val adjust: ((Int) -> Unit)? = null, val level: Float? = null, val alt: (() -> Unit)? = null,
-    val set: ((Float) -> Unit)? = null, val hint: String? = null, val run: () -> Unit = {}
+    val set: ((Float) -> Unit)? = null, val hint: String? = null,
+    /** Ícono de una app (recientes) en vez del de [icon]. */
+    val appIcon: androidx.compose.ui.graphics.ImageBitmap? = null,
+    val run: () -> Unit = {}
 )
 
 /** Columnas de mosaicos: las de la forma elegida. */
@@ -141,6 +144,8 @@ private fun panelRows(items: List<PanelItem>): List<List<Int>> {
     return buildList {
         by[PanelRow.SLIDER]?.let { add(it) }
         by[PanelRow.GAME]?.let { addAll(even(it)) }
+        // Recientes en una sola fila (las que quepan).
+        by[PanelRow.RECENT]?.let { add(it.take(COLUMNS)) }
         by[PanelRow.SCREEN]?.let { addAll(even(it)) }
         by[PanelRow.SYSTEM]?.let { addAll(even(it)) }
     }
@@ -196,7 +201,7 @@ class GamePanel(private val svc: AutoModeService) {
         ui.editing = false
         ui.items = items()
         // Empieza en el primer mosaico (Captura), no en las barras.
-        ui.sel = ui.items.indexOfFirst { it.section != PanelRow.SLIDER }.coerceAtLeast(0)
+        ui.sel = ui.items.indexOfFirst { it.section == PanelRow.GAME }.coerceAtLeast(0)
         header()
         if (view == null) create()
         svc.setPanelSticks(true)
@@ -315,7 +320,7 @@ class GamePanel(private val svc: AutoModeService) {
         inPerfMenu = false
         ui.items = items()
         ui.sel = ui.items.indexOfFirst { it.icon == subFrom }.takeIf { it >= 0 }
-            ?: ui.items.indexOfFirst { it.section != PanelRow.SLIDER }.coerceAtLeast(0)
+            ?: ui.items.indexOfFirst { it.section == PanelRow.GAME }.coerceAtLeast(0)
         header()
         poke()
     }
@@ -533,6 +538,11 @@ class GamePanel(private val svc: AutoModeService) {
 
     /** Acciones según lo que hay ahora: el panel de ZUI solo en modo juego, los modos según el actual. */
     private fun items(): List<PanelItem> = buildList {
+        // Apps usadas hace poco (sin la de ahora): volver a ellas como a un juego en suspensión.
+        RecentApps.list(svc).filter { it != svc.foregroundApp }.take(COLUMNS).forEach { pkg ->
+            add(PanelItem(RecentApps.label(svc, pkg), Icons.Outlined.Layers, PanelRow.RECENT, sub = tr("Volver", "Resume"),
+                appIcon = RecentApps.icon(svc, pkg)) { hide(); RecentApps.open(svc, pkg) })
+        }
         // Arriba, brillo y volumen como barras (se arrastran con el dedo o se ajustan con A y ← →).
         // Cada barra con su botón al lado (brillo automático, silencio), que también se toca con el dedo.
         if (SystemLevels.canBrightness(svc)) {
@@ -1231,7 +1241,8 @@ private fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) 
                 if (r > 0) Spacer(Modifier.height(if (newSection) 14.dp else GAP))
                 if (newSection && !ui.sub && section != PanelRow.SLIDER) {
                     Text(when (section) {
-                        PanelRow.GAME -> tr("Juego", "Game"); PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
+                        PanelRow.GAME -> tr("Juego", "Game"); PanelRow.RECENT -> tr("Recientes", "Recent")
+                        PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
                         else -> "Android"
                     }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
                 }
@@ -1357,7 +1368,8 @@ private fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, on
             .graphicsLayer { alpha = if (item.enabled) 1f else 0.45f }
     ) {
         Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(item.icon, null, Modifier.size(24.dp), tint = fg)
+            if (item.appIcon != null) androidx.compose.foundation.Image(item.appIcon, null, Modifier.size(30.dp).clip(RoundedCornerShape(8.dp)))
+            else Icon(item.icon, null, Modifier.size(24.dp), tint = fg)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(item.label, color = fg, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
