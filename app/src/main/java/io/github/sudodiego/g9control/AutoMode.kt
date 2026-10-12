@@ -1048,7 +1048,7 @@ class AutoModeService : AccessibilityService() {
         }
         val pads = android.view.InputDevice.getDeviceIds().toList().mapNotNull { real(it) }
         return real(legionDevice)?.id ?: real(lastPadDevice)?.id
-            ?: pads.firstOrNull { it.name.contains("G9", true) }?.id ?: pads.firstOrNull()?.id ?: legionDevice
+            ?: pads.firstOrNull { it.name.contains("G9", true) || it.name.contains("x-box 360", true) }?.id ?: pads.firstOrNull()?.id ?: legionDevice
     }
 
     /** Tocar la guía en esta app: Atrás, o apretar botones como el control (con Shizuku), o nada. */

@@ -148,7 +148,9 @@ private fun TestPanel(s: AppState) {
         // El dibujo del G9 solo si hay un G9 conectado (en cualquier modo); con otro control, uno genérico.
         val g9 = remember(on, s.connected) {
             android.view.InputDevice.getDeviceIds().toList().mapNotNull { android.view.InputDevice.getDevice(it) }
-                .any { !it.isVirtual && it.name.contains("G9", ignoreCase = true) }
+                .any { !it.isVirtual && (it.name.contains("G9", ignoreCase = true) ||
+                    // En X-Input el G9 se presenta como el mando de Xbox 360 (045e:028e).
+                    (it.vendorId == 0x045e && it.productId == 0x028e)) }
         }
         if (g9) ControllerTestView(pressed, v(s.lx), v(s.ly), v(s.rx), v(s.ry), v(s.lt), v(s.rt), Modifier.fillMaxWidth(), lights = s)
         else GenericControllerView(pressed, v(s.lx), v(s.ly), v(s.rx), v(s.ry), v(s.lt), v(s.rt), Modifier.fillMaxWidth())
