@@ -141,6 +141,12 @@ object AutoRules {
     /** L3 + R3 abre el panel de juego (captura, Game Assistant, modo del control). */
     fun gamePanel(ctx: Context) = sp(ctx).getBoolean("game_panel", true)
     fun setGamePanel(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("game_panel", v).apply()
+    /** L3 + R3 solo transmitiendo (Artemis, Moonlight: ahí la guía es del PC); en lo demás, la guía. */
+    fun chordOnlyStreaming(ctx: Context) = sp(ctx).getBoolean("chord_streaming_only", false)
+    fun setChordOnlyStreaming(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("chord_streaming_only", v).apply()
+    /** Transmitiendo, Start + Select = Atrás de Android (abre el menú de Artemis o Moonlight sin tocar la pantalla). */
+    fun streamBack(ctx: Context) = sp(ctx).getBoolean("stream_back", true)
+    fun setStreamBack(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("stream_back", v).apply()
 
     /** En DS5, M dos veces (llega como un toque del touchpad) saca la captura limpia del panel de juego. */
     fun touchpadShot(ctx: Context) = sp(ctx).getBoolean("touchpad_shot", true)
@@ -853,6 +859,7 @@ class AutoModeService : AccessibilityService() {
                 event.isFromSource(InputDevice.SOURCE_DPAD))) return true
         if (panel.alertOpen && (KeyEvent.isGamepadButton(k) || event.isFromSource(InputDevice.SOURCE_GAMEPAD) ||
                 event.isFromSource(InputDevice.SOURCE_DPAD))) { panel.alertKey(event); return true }
+        if (streamBackChord(event)) return true
         if (panelChord(event)) return true
         if (legionChord(event)) return true
         if (panel.isOpen && panel.onKey(event)) return true
@@ -1275,7 +1282,7 @@ class AutoModeService : AccessibilityService() {
             KeyEvent.ACTION_DOWN -> {
                 if (e.repeatCount > 0) return k == chordKey
                 sticksDown += k
-                if (sticksDown.size == 2 && AutoRules.gamePanel(this) && !guide.isGuiding) {
+                if (sticksDown.size == 2 && AutoRules.gamePanel(this) && (streaming || !AutoRules.chordOnlyStreaming(this)) && !guide.isGuiding) {
                     chordKey = k
                     chordPending = true
                     main.postDelayed(chordHold, 500)
@@ -1287,6 +1294,37 @@ class AutoModeService : AccessibilityService() {
                 // Se soltó antes del medio segundo: era un toque.
                 if (chordPending) { chordPending = false; main.removeCallbacks(chordHold); panel.toggle() }
                 if (k == chordKey) { chordKey = -1; return true }
+            }
+        }
+        return false
+    }
+
+    /** Start o Select apretados transmitiendo (para Start + Select = Atrás). */
+    private val menuDown = mutableSetOf<Int>()
+    /** El segundo de Start + Select (se lo quedó Atrás): su soltar tampoco va al PC. */
+    private var menuChordKey = -1
+
+    /**
+     * Transmitiendo (la guía es del PC): Start + Select = Atrás, que abre el menú de Artemis o Moonlight. El primero de
+     * los dos llega al PC (no se sabe todavía si viene el otro); el segundo no. Como L3 + R3.
+     */
+    private fun streamBackChord(e: KeyEvent): Boolean {
+        val k = e.keyCode
+        if (k != KeyEvent.KEYCODE_BUTTON_START && k != KeyEvent.KEYCODE_BUTTON_SELECT) return false
+        when (e.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (e.repeatCount > 0) return k == menuChordKey
+                menuDown += k
+                if (menuDown.size == 2 && streaming && AutoRules.streamBack(this) && !guide.isGuiding) {
+                    menuChordKey = k
+                    Log.d(TAG, "Start + Select transmitiendo: Atrás (menú de la app de transmisión)")
+                    performGlobalAction(GLOBAL_ACTION_BACK)
+                    return true
+                }
+            }
+            KeyEvent.ACTION_UP -> {
+                menuDown -= k
+                if (k == menuChordKey) { menuChordKey = -1; return true }
             }
         }
         return false

@@ -485,6 +485,19 @@ class GamePanel(private val svc: AutoModeService) {
                 // Dónde se inicia sesión, ya en el emulador.
                 main.postDelayed({ flash.show(flash.appIcon(pkg), tr("Inicia sesión", "Sign in"),
                     tr("Ajustes → RetroAchievements", "Settings → RetroAchievements"), 6000) }, 1500)
+                // Y avisar cuando quedó: se mira su configuración cada 3 s (hasta 5 min). Sin esto no había cómo saber
+                // que ya estaba y se podía volver al juego. (Relanzarlo solo no se puede: el launcher lo abre con su archivo.)
+                if (Shell.state == Shell.State.READY) {
+                    repeat(100) {
+                        kotlinx.coroutines.delay(3000)
+                        if (RaProxy.setup(pkg)?.loggedIn == true) {
+                            RaProxy.setupNow = null
+                            main.post { flash.show(flash.appIcon(pkg), tr("Sesión iniciada", "Signed in"),
+                                tr("Ya puedes volver al juego, con logros", "You can go back to the game, with achievements"), 6000) }
+                            return@launch
+                        }
+                    }
+                }
             }
         }
     })
@@ -495,8 +508,14 @@ class GamePanel(private val svc: AutoModeService) {
     fun streamTip() {
         // Solo el atajo; la explicación (la guía va al PC) está en Controles.
         val ds5 = ModeSwitcher.detect() == PadMode.DS5
-        flash.show(flash.appIcon(svc.foregroundApp), tr("Capturas", "Screenshots"),
-            if (ds5) tr("M dos veces o mantener L3 + R3", "M twice or hold L3 + R3") else tr("Mantener L3 + R3", "Hold L3 + R3"), 4000)
+        // Lo que cambia transmitiendo (la guía es del PC): cómo abrir el panel, el menú de la app y las capturas.
+        val chord = AutoRules.gamePanel(svc)
+        val lines = listOfNotNull(
+            if (chord) tr("Panel: L3 + R3", "Panel: L3 + R3") else null,
+            if (AutoRules.streamBack(svc)) tr("Menú: Start + Select", "Menu: Start + Select") else null,
+            tr("Capturas: ", "Screenshots: ") + if (ds5) tr("M dos veces", "M twice") else tr("mantener L3 + R3", "hold L3 + R3")
+        )
+        flash.show(flash.appIcon(svc.foregroundApp), tr("Transmitiendo", "Streaming"), lines.joinToString(" · "), 5000)
     }
 
     /** Ejemplo del aviso de captura (desde Ajustes), con una miniatura de muestra y el sonido elegido. */

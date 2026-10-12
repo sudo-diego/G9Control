@@ -124,10 +124,19 @@ private val GAME_APPS = listOf(
 @Composable
 private fun OtherShortcutsPanel(a: MainActivity) {
     var chord by remember { mutableStateOf(AutoRules.gamePanel(a)) }
+    var onlyStream by remember { mutableStateOf(AutoRules.chordOnlyStreaming(a)) }
+    var streamBack by remember { mutableStateOf(AutoRules.streamBack(a)) }
     CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Sin botón guía", "Without a guide button")) {
             ShortcutRow(listOf("L3", "R3"), tr("Tocar · mantener: captura", "Tap · hold: screenshot"), tr("Panel de juego", "Game panel"), chord) {
                 chord = it; AutoRules.setGamePanel(a, it)
+            }
+            // Con la guía, L3 + R3 sobra (y el primer stick llega al juego): se puede dejar solo para transmitir.
+            if (chord) ChoiceChips(listOf(false to tr("En todas partes", "Everywhere"), true to tr("Solo transmitiendo", "Only when streaming")), onlyStream) {
+                onlyStream = it; AutoRules.setChordOnlyStreaming(a, it)
+            }
+            ShortcutRow(listOf("Start", "Select"), tr("Transmitiendo (Artemis, Moonlight)", "While streaming (Artemis, Moonlight)"), tr("Menú de la app (Atrás)", "App menu (Back)"), streamBack) {
+                streamBack = it; AutoRules.setStreamBack(a, it)
             }
         }
     }
