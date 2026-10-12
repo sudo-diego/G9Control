@@ -88,7 +88,7 @@ object Memory {
     /** La abriste tú (estuvo al frente) después de detenerla: si después está corriendo, no volvió sola. */
     fun openedByUser(ctx: Context, pkg: String) {
         val h = hist(ctx)
-        if (h.contains("stop_$pkg")) h.edit().remove("stop_$pkg").apply()
+        if (h.contains("stop_$pkg") || h.contains("seen_$pkg")) h.edit().remove("stop_$pkg").remove("seen_$pkg").apply()
     }
 
     fun returnOf(ctx: Context, pkg: String): Return? = hist(ctx).getString("ret_$pkg", null)?.split('|')?.let {
@@ -101,13 +101,19 @@ object Memory {
 
     fun clearHistory(ctx: Context) = hist(ctx).edit().clear().apply()
 
-    /** Una app detenida desde aquí está corriendo otra vez: anotarlo. */
+    /**
+     * Una app detenida desde aquí está corriendo otra vez. Se confirma en la revisión siguiente (30 s después): si la
+     * abriste tú, su proceso arranca un instante antes de que Android avise que está al frente, y una revisión que caía
+     * justo ahí la contaba como "volvió sola" (pasó con Firefox). Si en ese rato estuvo al frente, [openedByUser] la
+     * borra y no cuenta.
+     */
     private fun sawRunning(ctx: Context, pkg: String) {
         val h = hist(ctx)
         val at = h.getLong("stop_$pkg", 0).takeIf { it > 0 } ?: return
+        if (!h.contains("seen_$pkg")) { h.edit().putLong("seen_$pkg", System.currentTimeMillis()).apply(); return }
         val delay = System.currentTimeMillis() - at
         val prev = returnOf(ctx, pkg)
-        h.edit().remove("stop_$pkg").putString("ret_$pkg", "${(prev?.count ?: 0) + 1}|$delay").apply()
+        h.edit().remove("stop_$pkg").remove("seen_$pkg").putString("ret_$pkg", "${(prev?.count ?: 0) + 1}|$delay").apply()
     }
 
     private var checking = false
@@ -119,12 +125,13 @@ object Memory {
         val now = System.currentTimeMillis()
         val pending = h.all.filterKeys { it.startsWith("stop_") }.mapNotNull { (k, v) -> (v as? Long)?.let { k.removePrefix("stop_") to it } }
         if (pending.isEmpty()) return
-        pending.filter { now - it.second > 6 * 3_600_000L }.forEach { h.edit().remove("stop_${it.first}").apply() }
+        pending.filter { now - it.second > 6 * 3_600_000L }.forEach { h.edit().remove("stop_${it.first}").remove("seen_${it.first}").apply() }
         checking = true
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             try {
                 pending.filter { now - it.second <= 6 * 3_600_000L }.forEach { (pkg, _) ->
                     if (!Shell.run(Shell.pidof(pkg)).isNullOrBlank()) sawRunning(ctx, pkg)
+                    else h.edit().remove("seen_$pkg").apply()   // se vio un instante y ya no está: no cuenta
                 }
             } finally { checking = false }
         }

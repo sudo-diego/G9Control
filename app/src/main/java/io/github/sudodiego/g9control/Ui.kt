@@ -606,8 +606,13 @@ fun Hint(text: String, icon: ImageVector = Icons.Outlined.Info) {
 
 /** Fila con etiqueta a la izquierda y valor a la derecha, sobre un slider. */
 @Composable
+/**
+ * Barra con − y + a los lados (de a 1). [snaps]: valores recomendados donde la barra "se pega" al arrastrar cerca
+ * (a ±[snapPull]), para elegir libre pero caer fácil en los sugeridos; se marcan con una rayita bajo la barra.
+ */
 fun SliderRow(
     label: String, value: Int, range: IntRange, valueText: String = "$value",
+    snaps: List<Int> = emptyList(), snapPull: Int = 2,
     onChange: (Int) -> Unit
 ) {
     // Mismo estilo que los sliders de color, con − y + a los lados para ajustar de a 1.
@@ -628,7 +633,18 @@ fun SliderRow(
                     (value - range.first).toFloat() / span,
                     Brush.horizontalGradient(listOf(c.primary.copy(alpha = 0.18f), c.primary)), c.primary,
                     keyStep = 1f / span
-                ) { f -> onChange((range.first + Math.round(f * span)).coerceIn(range.first, range.last)) }
+                ) { f ->
+                    val raw = (range.first + Math.round(f * span)).coerceIn(range.first, range.last)
+                    onChange(snaps.firstOrNull { kotlin.math.abs(it - raw) <= snapPull } ?: raw)
+                }
+                // Las marcas de los recomendados, bajo la barra.
+                if (snaps.isNotEmpty()) androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+                    snaps.forEach { s ->
+                        val x = size.width * (s - range.first) / span
+                        drawLine(c.primary.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(x, size.height - 3.dp.toPx()),
+                            androidx.compose.ui.geometry.Offset(x, size.height), strokeWidth = 2.dp.toPx())
+                    }
+                }
             }
             IconButton(onClick = { onChange((value + 1).coerceAtMost(range.last)) }, enabled = editable && value < range.last) {
                 Icon(Icons.Filled.Add, tr("Subir 1", "Up 1"))

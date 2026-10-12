@@ -280,11 +280,20 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
                 if (smart) {
                     Text(tr("Cuándo", "When"), fontSize = 14.sp)
                     ChoiceChips(listOf(true to tr("En juegos", "In games"), false to tr("Siempre", "Always")), games) { games = it; AutoRules.setSmartBypassGames(a, it) }
-                    Text(tr("Batería desde", "Battery from"), fontSize = 14.sp)
-                    ChoiceChips(listOf(20, 40, 60, 80).map { it to "$it %" }, level) { level = it; AutoRules.setSmartBypassLevel(a, it) }
+                    // Libre, pero se pega en 20, 40, 60 y 80 (los de antes). Por qué esos: ver el texto de abajo.
+                    SliderRow(tr("Batería desde", "Battery from"), level, 10..90, "$level %", snaps = listOf(20, 40, 60, 80)) {
+                        level = it; AutoRules.setSmartBypassLevel(a, it)
+                    }
+                    Hint(tr("Desde ese nivel deja de cargar y la batería se queda ahí. Entre 40 y 60 % es lo que más la cuida (el litio envejece menos a media carga); 80 % si quieres salir con más batería.",
+                        "From that level it stops charging and the battery stays there. 40–60 % is easiest on it (lithium ages less at half charge); 80 % if you want to leave with more battery."))
                     limit?.takeIf { level >= it - 5 }?.let { Hint(tr("El límite de ZUI ($it %) casi no deja llegar.", "ZUI's limit ($it %) barely lets it get there.")) }
-                    Text(tr("Temperatura de la batería desde", "Battery temperature from"), fontSize = 14.sp)
-                    ChoiceChips(listOf(0 to tr("Cualquiera", "Any"), 35 to "35 °C", 38 to "38 °C", 41 to "41 °C"), temp) { temp = it; AutoRules.setSmartBypassTemp(a, it) }
+                    // 30 en la barra = "Cualquiera" (se guarda 0). Se pega en 35, 38 y 41 °C.
+                    SliderRow(tr("Temperatura de la batería desde", "Battery temperature from"), if (temp == 0) 30 else temp, 30..45,
+                        if (temp == 0) tr("Cualquiera", "Any") else "$temp °C", snaps = listOf(35, 38, 41), snapPull = 1) {
+                        temp = if (it <= 30) 0 else it; AutoRules.setSmartBypassTemp(a, temp)
+                    }
+                    Hint(tr("Cargar con calor es lo que más gasta la batería. Bajo 35 °C cargar no la daña; desde 38 °C conviene no cargar mientras juegas; sobre 41 °C envejece bastante más rápido (y cerca de 45 °C Android corta la carga).",
+                        "Charging while hot wears the battery the most. Below 35 °C charging is fine; from 38 °C it's better not to charge while playing; above 41 °C it ages much faster (and near 45 °C Android stops charging)."))
                 }
             }
             OutlinedButton(onClick = { runCatching { a.startActivity(Intent(Intent.ACTION_POWER_USAGE_SUMMARY)) } }) {
