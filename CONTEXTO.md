@@ -91,6 +91,8 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 
 - **Ahorro de energía y la frecuencia (12 oct 2026):** `com.zui.pp` (rendimiento de ZUI) escribe `peak_refresh_rate` = 30 en Ahorro una y otra vez (visto con `dumpsys settings`: `pkg:com.zui.pp`, cientos de cambios). Pisaba los Hz forzados y quedaban cruzados (peak 30, min 165): la pantalla saltaba a 165 a los minutos (con BFI parpadeaba). Ahora un ContentObserver sobre `peak_refresh_rate` vuelve a forzar la elegida mientras haya una; al dejar la app siempre se suelta y se devuelve (min 30, peak = `user_refresh_rate`); al arrancar el servicio, si quedaron cruzados o guardados de antes, se arreglan (a los 3, 8 y 20 s, cuando Shizuku esté listo); la pantalla de inicio no toma los Hz de Juegos. Probado imitando a ZUI: vuelve a 120 en < 2 s.
 
+- **'Botón guía' en RetroArch (registro del 12 oct, ~80 % a la primera):** mientras la app sostiene la guía Virtual 3 s, el servicio deja pasar todos los botones (ventana `injectingUntil`), y el firmware del G9 manda toques cortos de la guía real (scanCode 316) que llegan a RetroArch como el jugador 1. Lo que RetroArch hace depende de cuál llegue primero. El filtro de dejar pasar solo los del Virtual (id < 0) se probó y se revirtió a pedido del usuario; si se retoma, empezar por ahí. Posible camino más limpio para Ahorro: las listas por app de ZUI `highRefresh_<pkg>` / `extremeRefresh_<pkg>` (System) quizás eximen a una app del tope de 30 Hz; sin probar.
+
 ## Pendientes
 - Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.
