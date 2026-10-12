@@ -1205,8 +1205,13 @@ class GamePanel(private val svc: AutoModeService) {
                 val alpha = remember { androidx.compose.animation.core.Animatable(0f) }
                 LaunchedEffect(Unit) { alpha.animateTo(1f, androidx.compose.animation.core.tween(160)) }
                 // Con alto fijo (forma elegida o submenú) la tarjeta va al centro.
-                Box(Modifier.fillMaxWidth().then(if (ui.lockedHeight || ThemeState.panelShape.ratio != null) Modifier.fillMaxHeight() else Modifier)
-                    .graphicsLayer { this.alpha = alpha.value }, contentAlignment = Alignment.Center) {
+                // Lateral: entra deslizándose desde la derecha (como el acceso rápido del Steam Deck).
+                val side = ThemeState.panelSide
+                val slide = remember { androidx.compose.animation.core.Animatable(if (side) 1f else 0f) }
+                LaunchedEffect(Unit) { if (side) slide.animateTo(0f, androidx.compose.animation.core.tween(220)) }
+                Box(Modifier.fillMaxWidth().then(if (side || ui.lockedHeight || ThemeState.panelShape.ratio != null) Modifier.fillMaxHeight() else Modifier)
+                    .graphicsLayer { this.alpha = if (side) 1f else alpha.value; translationX = slide.value * size.width },
+                    contentAlignment = if (side) Alignment.CenterEnd else Alignment.Center) {
                     // La tarjeta se mide con el ancho que necesite (sin el límite de la ventana) y la ventana toma
                     // ese ancho: así no tapa el juego a los lados (un gesto o un toque ahí cerraba el panel).
                     val base = androidx.compose.ui.platform.LocalDensity.current
@@ -1232,13 +1237,16 @@ class GamePanel(private val svc: AutoModeService) {
         val density = svc.resources.displayMetrics.density * panelScale
         ui.lockedHeight = false
         val lp = WindowManager.LayoutParams(
-            (dims.width.value * density).toInt(), dims.height?.let { (it.value * density).toInt() } ?: WindowManager.LayoutParams.WRAP_CONTENT,
+            (dims.width.value * density).toInt(),
+            if (ThemeState.panelSide) WindowManager.LayoutParams.MATCH_PARENT else dims.height?.let { (it.value * density).toInt() } ?: WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT
         ).apply {
-            gravity = Gravity.CENTER
+            // Al centro, o pegado a la derecha (lateral; con la ventana sobre la barra de estado, hasta arriba).
+            gravity = if (ThemeState.panelSide) Gravity.END or Gravity.TOP else Gravity.CENTER
+            if (ThemeState.panelSide) flags = flags or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
             // Aparece y se va desvaneciéndose (sin esto, Android lo desliza).
             windowAnimations = android.R.style.Animation_Toast
         }

@@ -91,6 +91,14 @@ enum class PanelBackground { CLEAR, GRADIENT, IMAGE, PLAIN;
     }
 }
 
+/**
+ * Estilo del panel de juego: al centro (una tarjeta, con forma y tamaño a elección) o lateral, pegado a la derecha y de
+ * alto completo, como el acceso rápido del Steam Deck (con la imagen o el GIF como cabecera).
+ */
+enum class PanelStyle { CENTER, SIDE;
+    val label get() = when (this) { CENTER -> tr("Al centro", "Centered"); SIDE -> tr("Lateral", "Side") }
+}
+
 /** Tema del panel de juego: oscuro (el de siempre), claro o el del sistema. Vale para todos sus fondos. */
 enum class PanelTone { DARK, LIGHT, SYSTEM;
     val label get() = when (this) { DARK -> tr("Oscuro", "Dark"); LIGHT -> tr("Claro", "Light"); SYSTEM -> tr("Sistema", "System") }
@@ -118,6 +126,9 @@ object ThemeState {
     /** Tamaño del panel en % (todo: mosaicos y letras); 100 = el diseño original, que ocupaba casi todo el alto. */
     var panelScale by androidx.compose.runtime.mutableIntStateOf(85)
     var panelTone by androidx.compose.runtime.mutableStateOf(PanelTone.DARK)
+    var panelStyle by androidx.compose.runtime.mutableStateOf(PanelStyle.CENTER)
+    /** El panel va pegado a la derecha (estilo Steam). */
+    val panelSide get() = panelStyle == PanelStyle.SIDE
     /** El sistema está en modo oscuro (para el tema "Sistema"); lo actualiza el panel al abrirse. */
     var systemDark by androidx.compose.runtime.mutableStateOf(true)
     /** El panel va en claro. */
@@ -131,7 +142,7 @@ object ThemeState {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
         panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
-        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx)
+        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx)
         // La imagen del panel ya decodificada: al abrirlo no aparece primero el fondo liso.
         panelUri?.takeIf { panelBackground == PanelBackground.IMAGE }?.let { ImageCache.preload(ctx, "panel", it) }
     }

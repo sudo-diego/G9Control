@@ -87,6 +87,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -139,7 +142,7 @@ internal class PanelItem(
 )
 
 /** Columnas de mosaicos: las de la forma elegida. */
-internal val COLUMNS get() = ThemeState.panelShape.cols
+internal val COLUMNS get() = if (ThemeState.panelSide) 2 else ThemeState.panelShape.cols
 
 /**
  * Las filas del panel (índices de [items]): las barras juntas y los mosaicos de cada sección repartidos parejo, de a
@@ -152,10 +155,11 @@ internal fun panelRows(items: List<PanelItem>): List<List<Int>> {
         return list.chunked((list.size + rows - 1) / rows)
     }
     return buildList {
-        by[PanelRow.SLIDER]?.let { add(it) }
+        // Lateral (2 columnas): brillo y volumen uno debajo del otro, cada uno con su botón.
+        by[PanelRow.SLIDER]?.let { if (ThemeState.panelSide) addAll(it.chunked(2)) else add(it) }
         by[PanelRow.GAME]?.let { addAll(even(it)) }
         // Recientes en una sola fila (las que quepan).
-        by[PanelRow.RECENT]?.let { add(it.take(COLUMNS)) }
+        by[PanelRow.RECENT]?.let { if (ThemeState.panelSide) addAll(it.take(4).chunked(2)) else add(it.take(COLUMNS)) }
         by[PanelRow.SCREEN]?.let { addAll(even(it)) }
         by[PanelRow.SYSTEM]?.let { addAll(even(it)) }
     }
@@ -208,7 +212,8 @@ internal val SELECTED get() = if (light) Color(0xFF14203A) else Color.White
 // Con fondo (degradado o imagen) los mosaicos son de vidrio: translúcidos con un borde claro, como en la app.
 internal val TILE_GLASS get() = if (light) Color(0x99FFFFFF) else Color(0x2EFFFFFF)
 internal val GLASS_EDGE get() = if (light) Color(0x80FFFFFF) else Color(0x24FFFFFF)
-internal val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN
+// Lateral: fondo liso del tema (la imagen va solo de cabecera), así que mosaicos sólidos, sin vidrio.
+internal val glassPanel get() = ThemeState.panelBackground != PanelBackground.PLAIN && !ThemeState.panelSide
 // Transparente: los mosaicos llevan más cuerpo para leerse sobre cualquier juego.
 internal val TILE_CLEAR get() = if (light) Color(0xD0F4F7FC) else Color(0xB8141C30)
 /** Halo de los textos sueltos (secciones, hora, la línea de abajo): se leen sobre cualquier imagen o juego. */
@@ -217,7 +222,7 @@ internal val LABEL_STYLE get() = androidx.compose.ui.text.TextStyle(shadow = and
 /** Velo sobre el degradado o la imagen, para que se lea el texto. */
 internal val PANEL_VEIL get() = if (light) Color(0x99EEF2F8) else Color(0x660A0F1F)
 internal val tileColor get() = when {
-    ThemeState.panelBackground == PanelBackground.PLAIN -> TILE
+    ThemeState.panelBackground == PanelBackground.PLAIN || ThemeState.panelSide -> TILE
     ThemeState.panelSeeThrough -> TILE_CLEAR
     else -> TILE_GLASS
 }
@@ -238,6 +243,8 @@ internal fun panelDims(ctx: android.content.Context): PanelDims {
     val maxTile = (screenW * 0.94f - CARD_PAD.value * 2 - GAP.value * (cols - 1)) / cols
     val tileW = minOf(172f, maxTile).dp
     val width = tileW * cols + GAP * (cols - 1) + CARD_PAD * 2
+    // Lateral: dos mosaicos de ancho y alto completo (la ventana ocupa el alto).
+    if (ThemeState.panelSide) return PanelDims(2, 172.dp, 172.dp * 2 + GAP + CARD_PAD * 2, null)
     val height = shape.ratio?.let { minOf(width.value / it, screenH * 0.92f).dp }
     return PanelDims(cols, tileW, width, height)
 }
@@ -248,10 +255,13 @@ internal val CARD_PAD = 22.dp
 
 /**
  * El panel, como los ajustes rápidos de Android: encabezado (la app al frente, batería y hora), brillo y volumen
- * como barras, y los mosaicos del juego y de Android en una grilla. El elegido lleva borde blanco.
+ * como barras, y los mosaicos del juego y de Android en una grilla. El elegido lleva borde. Al centro es una tarjeta
+ * (con forma y tamaño a elección); lateral ([ThemeState.panelSide]) va pegado a la derecha y de alto completo, con la
+ * imagen o el GIF como cabecera y el resto desplazable (lo elegido siempre a la vista).
  */
 @Composable
 internal fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int) -> Unit, onSet: (Int, Float) -> Unit) {
+    if (ThemeState.panelSide) { SidePanelCard(ui, modifier, onPick, onSet); return }
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val dims = panelDims(ctx)
     val width = dims.width - CARD_PAD * 2
@@ -273,78 +283,146 @@ internal fun PanelCard(ui: PanelUi, modifier: Modifier = Modifier, onPick: (Int)
         }
         Column(Modifier.padding(horizontal = CARD_PAD, vertical = 20.dp).width(width).then(if (fixed) Modifier.fillMaxHeight() else Modifier)
             .graphicsLayer { alpha = ui.fade; val s = 0.97f + 0.03f * ui.fade; scaleX = s; scaleY = s }) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // El nombre ocupa lo que necesita (hasta la mitad); el resto empuja la batería y la hora a la derecha.
-                Text(ui.title, color = PANEL_FG, fontSize = 18.sp, style = LABEL_STYLE, fontWeight = FontWeight.SemiBold, maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp))
-                // Modo del control, pequeño, como recordatorio.
-                if (!ui.sub) ui.mode?.let { m ->
-                    Spacer(Modifier.width(10.dp))
-                    Row(Modifier.clip(RoundedCornerShape(10.dp)).background(tileColor).padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Outlined.SportsEsports, null, Modifier.size(14.dp), tint = PANEL_MUTED)
-                        Spacer(Modifier.width(5.dp))
-                        Text(m, color = PANEL_MUTED, fontSize = 12.sp)
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                // En un submenú solo el título: lo demás ya se vio en el panel.
-                if (!ui.sub) {
-                    if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
-                    ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE); Spacer(Modifier.width(6.dp)) }
-                    if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held); Spacer(Modifier.width(8.dp)) }
-                    Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE)
-                }
-            }
+            PanelHeader(ui)
             if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
             Spacer(Modifier.height(16.dp))
-            val rows = panelRows(ui.items)
-            Column(if (fixed) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth(),
-                verticalArrangement = if (fixed) Arrangement.Center else Arrangement.Top) {
-            rows.forEachIndexed { r, row ->
-                val section = ui.items[row[0]].section
-                // Un poco más de aire entre secciones (barras, juego, Android) que entre filas, y su nombre chico (no en
-                // los submenús, que tienen una sola sección).
-                val newSection = r == 0 || ui.items[rows[r - 1][0]].section != section
-                if (r > 0) Spacer(Modifier.height(if (newSection) 14.dp else GAP))
-                if (newSection && !ui.sub && section != PanelRow.SLIDER) {
-                    Text(when (section) {
-                        PanelRow.GAME -> tr("Juego", "Game"); PanelRow.RECENT -> tr("Recientes", "Recent")
-                        PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
-                        else -> "Android"
-                    }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, style = LABEL_STYLE, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
-                }
-                // Cada fila llena el ancho: los mosaicos se reparten el espacio (sin huecos al final). Con forma fija,
-                // las filas de mosaicos se reparten también el alto.
-                val stretch = fixed && !ui.sub && section != PanelRow.SLIDER
-                Row(Modifier.fillMaxWidth().then(if (stretch) Modifier.weight(1f, fill = false).heightIn(min = 48.dp, max = 92.dp) else Modifier),
-                    horizontalArrangement = Arrangement.spacedBy(GAP)) {
-                    row.forEach { i ->
-                        val item = ui.items[i]
-                        when {
-                            section != PanelRow.SLIDER -> PanelTile(item, i == ui.sel,
-                                Modifier.weight(1f).then(if (stretch) Modifier.fillMaxHeight() else Modifier.height(TILE_H))) { onPick(i) }
-                            item.level != null -> PanelSlider(item, i == ui.sel, ui.editing && i == ui.sel, Modifier.weight(1f)) { onSet(i, it) }
-                            else -> PanelToggle(item, i == ui.sel) { onPick(i) }
-                        }
-                    }
-                    // Recientes con menos que las columnas: los mosaicos quedan del ancho de los demás.
-                    if (section == PanelRow.RECENT && row.size < COLUMNS) Spacer(Modifier.weight((COLUMNS - row.size).toFloat()))
-                }
-            }
-            }
+            PanelGrid(ui, fixed, if (fixed) Modifier.weight(1f).fillMaxWidth() else Modifier.fillMaxWidth(), onPick, onSet)
             Spacer(Modifier.height(14.dp))
-            Text(
-                ui.items.getOrNull(ui.sel)?.takeIf { ui.editing }?.hint
-                    ?: ui.items.getOrNull(ui.sel)?.takeIf { it.section == PanelRow.RECENT }?.let {
-                        tr("A volver · Y cerrar la app · B cerrar", "A resume · Y close the app · B close") }
-                    ?: ui.footer ?: if (ui.sub) tr("A elegir · B volver", "A select · B back")
-                    else tr("Stick o cruceta mover · A elegir · B cerrar", "Stick or D-pad move · A select · B close"),
-                color = PANEL_MUTED, fontSize = 12.sp, style = LABEL_STYLE, modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
+            PanelFooter(ui, Modifier.align(Alignment.CenterHorizontally))
         }
       }
     }
+}
+
+/**
+ * Panel lateral (estilo Steam): pegado a la derecha, de alto completo. Arriba la imagen o el GIF elegido como cabecera
+ * (con degradado o liso, una franja del color del tema); abajo, fondo liso del tema. Los mosaicos van en 2 columnas y
+ * la lista se desplaza sola para que lo elegido quede a la vista.
+ */
+@Composable
+private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit, onSet: (Int, Float) -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val dims = panelDims(ctx)
+    val shape = RoundedCornerShape(topStart = 28.dp, bottomStart = 28.dp)
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    // Dónde empieza cada fila dentro de la lista, para desplazarla hasta lo elegido.
+    val rowTops = remember { androidx.compose.runtime.mutableStateMapOf<Int, Pair<Int, Int>>() }
+    LaunchedEffect(ui.sel, ui.items) {
+        val r = panelRows(ui.items).indexOfFirst { ui.sel in it }
+        val (top, h) = rowTops[r] ?: return@LaunchedEffect
+        val view = scroll.viewportSize
+        val margin = 40
+        when {
+            top - margin < scroll.value -> scroll.animateScrollTo((top - margin).coerceAtLeast(0))
+            top + h + margin > scroll.value + view -> scroll.animateScrollTo(top + h + margin - view)
+        }
+    }
+    Surface(color = PANEL_BG, shape = shape, modifier = modifier.width(dims.width).fillMaxHeight()) {
+        Column(Modifier.fillMaxSize().graphicsLayer { alpha = ui.fade }) {
+            // Cabecera: la imagen o el GIF del panel (con degradado, o liso: el color del tema), fundida hacia abajo.
+            if (!ui.sub) Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
+                if (ThemeState.panelBackground == PanelBackground.IMAGE || ThemeState.panelBackground == PanelBackground.GRADIENT) PanelBackdrop()
+                else Box(Modifier.matchParentSize().background(TILE_ON.copy(alpha = 0.35f)))
+                Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                    0.45f to Color.Transparent, 1f to PANEL_BG)))
+            }
+            Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (ui.sub) 24.dp else 0.dp)) {
+                PanelHeader(ui)
+                if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
+                Spacer(Modifier.height(14.dp))
+            }
+            PanelGrid(ui, false, Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal = CARD_PAD).padding(bottom = 12.dp),
+                onPick, onSet) { r, top, h -> rowTops[r] = top to h }
+            PanelFooter(ui, Modifier.align(Alignment.CenterHorizontally).padding(vertical = 12.dp))
+        }
+    }
+}
+
+/** Encabezado: la app al frente (o el submenú), el modo del G9, y batería, tiempo y hora. */
+@Composable
+private fun PanelHeader(ui: PanelUi) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        // El nombre ocupa lo que necesita (hasta la mitad); el resto empuja la batería y la hora a la derecha.
+        Text(ui.title, color = PANEL_FG, fontSize = 18.sp, style = LABEL_STYLE, fontWeight = FontWeight.SemiBold, maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 340.dp).weight(1f, fill = false))
+        // Modo del control, pequeño, como recordatorio.
+        if (!ui.sub) ui.mode?.let { m ->
+            Spacer(Modifier.width(10.dp))
+            Row(Modifier.clip(RoundedCornerShape(10.dp)).background(tileColor).padding(horizontal = 8.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.SportsEsports, null, Modifier.size(14.dp), tint = PANEL_MUTED)
+                Spacer(Modifier.width(5.dp))
+                Text(m, color = PANEL_MUTED, fontSize = 12.sp)
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        // En un submenú solo el título: lo demás ya se vio en el panel.
+        if (!ui.sub) {
+            if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
+            // Lateral (angosto): sin el tiempo restante, que ya está en el mini monitor.
+            if (!ThemeState.panelSide) ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE); Spacer(Modifier.width(6.dp)) }
+            if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held); Spacer(Modifier.width(8.dp)) }
+            Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE)
+        }
+    }
+}
+
+/**
+ * La grilla: barras y mosaicos por sección, con su nombre chico. [fixed]: forma fija, las filas se reparten el alto.
+ * [onRow] avisa dónde quedó cada fila (el panel lateral la usa para desplazarse hasta lo elegido).
+ */
+@Composable
+private fun PanelGrid(ui: PanelUi, fixed: Boolean, modifier: Modifier, onPick: (Int) -> Unit, onSet: (Int, Float) -> Unit,
+                      onRow: ((Int, Int, Int) -> Unit)? = null) {
+    val rows = panelRows(ui.items)
+    Column(modifier, verticalArrangement = if (fixed) Arrangement.Center else Arrangement.Top) {
+        rows.forEachIndexed { r, row ->
+            val section = ui.items[row[0]].section
+            // Un poco más de aire entre secciones (barras, juego, Android) que entre filas, y su nombre chico (no en
+            // los submenús, que tienen una sola sección).
+            val newSection = r == 0 || ui.items[rows[r - 1][0]].section != section
+            if (r > 0) Spacer(Modifier.height(if (newSection) 14.dp else GAP))
+            if (newSection && !ui.sub && section != PanelRow.SLIDER) {
+                Text(when (section) {
+                    PanelRow.GAME -> tr("Juego", "Game"); PanelRow.RECENT -> tr("Recientes", "Recent")
+                    PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
+                    else -> "Android"
+                }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, style = LABEL_STYLE, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
+            }
+            // Cada fila llena el ancho: los mosaicos se reparten el espacio (sin huecos al final). Con forma fija,
+            // las filas de mosaicos se reparten también el alto.
+            val stretch = fixed && !ui.sub && section != PanelRow.SLIDER
+            Row(Modifier.fillMaxWidth().then(if (stretch) Modifier.weight(1f, fill = false).heightIn(min = 48.dp, max = 92.dp) else Modifier)
+                .then(if (onRow != null) Modifier.onGloballyPositioned { onRow(r, it.positionInParent().y.toInt(), it.size.height) } else Modifier),
+                horizontalArrangement = Arrangement.spacedBy(GAP)) {
+                row.forEach { i ->
+                    val item = ui.items[i]
+                    when {
+                        section != PanelRow.SLIDER -> PanelTile(item, i == ui.sel,
+                            Modifier.weight(1f).then(if (stretch) Modifier.fillMaxHeight() else Modifier.height(TILE_H))) { onPick(i) }
+                        item.level != null -> PanelSlider(item, i == ui.sel, ui.editing && i == ui.sel, Modifier.weight(1f)) { onSet(i, it) }
+                        else -> PanelToggle(item, i == ui.sel) { onPick(i) }
+                    }
+                }
+                // Recientes con menos que las columnas: los mosaicos quedan del ancho de los demás.
+                if (section == PanelRow.RECENT && row.size < COLUMNS) Spacer(Modifier.weight((COLUMNS - row.size).toFloat()))
+            }
+        }
+    }
+}
+
+/** La línea de abajo: qué hace cada botón ahora (o lo propio del submenú). */
+@Composable
+private fun PanelFooter(ui: PanelUi, modifier: Modifier) {
+    Text(
+        ui.items.getOrNull(ui.sel)?.takeIf { ui.editing }?.hint
+            ?: ui.items.getOrNull(ui.sel)?.takeIf { it.section == PanelRow.RECENT }?.let {
+                tr("A volver · Y cerrar la app · B cerrar", "A resume · Y close the app · B close") }
+            ?: ui.footer ?: if (ui.sub) tr("A elegir · B volver", "A select · B back")
+            else tr("Stick o cruceta mover · A elegir · B cerrar", "Stick or D-pad move · A select · B close"),
+        color = PANEL_MUTED, fontSize = 12.sp, style = LABEL_STYLE, modifier = modifier,
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+    )
 }
 
 /**
@@ -361,7 +439,10 @@ internal fun PanelStats() {
     val plugged = remember(tick) { ZuiBattery.plugged(ctx) }
     val cpu = remember(tick) { Stats.cpuMhz() }
     val temp = remember(tick) { Stats.batteryTemp(ctx) }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GAP)) {
+    // Lateral (angosto): en 2 × 2.
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(GAP), verticalArrangement = Arrangement.spacedBy(GAP),
+        maxItemsInEachRow = if (ThemeState.panelSide) 2 else 4) {
         StatChip(Icons.Outlined.Memory, Memory.gb(ram.freeBytes), tr("RAM libre", "Free RAM"), Modifier.weight(1f))
         // En bypass la batería casi no da ni recibe nada (los watts saldrían ~0): el enchufe y "Bypass".
         val bypass = plugged && ZuiBattery.bypassNow == true && Shell.state == Shell.State.READY

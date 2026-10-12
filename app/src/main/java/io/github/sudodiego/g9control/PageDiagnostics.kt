@@ -422,6 +422,10 @@ private fun PanelLookPanel(a: MainActivity) {
         }
         if (AutoModeService.active == null) Text(tr("Activa el servicio de accesibilidad para usar el panel.", "Turn on the accessibility service to use the panel."),
             fontSize = 13.sp, color = MaterialTheme.colorScheme.secondary)
+        Text(tr("Estilo", "Style"), fontSize = 14.sp)
+        ChoiceChips(PanelStyle.entries.map { it to it.label }, ThemeState.panelStyle) { ThemeState.panelStyle = it; Prefs.setPanelStyle(a, it) }
+        if (ThemeState.panelSide) Hint(tr("Pegado a la derecha, de alto completo, como el acceso rápido del Steam Deck. La imagen o el GIF va de cabecera.",
+            "Docked to the right, full height, like the Steam Deck's quick access menu. The image or GIF becomes the header."))
         Text(tr("Fondo", "Background"), fontSize = 14.sp)
         ChoiceChips(PanelBackground.entries.map { it to it.label }, ThemeState.panelBackground) {
             if (it == PanelBackground.IMAGE && ThemeState.panelUri == null) a.pickPanelBackground()
@@ -441,9 +445,12 @@ private fun PanelLookPanel(a: MainActivity) {
         }
         Text(tr("Tema (panel, avisos y guías)", "Theme (panel, notices and guides)"), fontSize = 14.sp)
         ChoiceChips(PanelTone.entries.map { it to it.label }, ThemeState.panelTone) { ThemeState.panelTone = it; Prefs.setPanelTone(a, it) }
-        Text(tr("Forma", "Shape"), fontSize = 14.sp)
-        ChoiceChips(PanelShape.entries.map { it to it.label }, ThemeState.panelShape) { ThemeState.panelShape = it; Prefs.setPanelShape(a, it) }
-        SliderRow(tr("Tamaño (%)", "Size (%)"), ThemeState.panelScale, 60..120) { ThemeState.panelScale = it; Prefs.setPanelScale(a, it) }
+        // Forma y tamaño son de la tarjeta al centro (la lateral ocupa el alto y tiene ancho fijo).
+        if (!ThemeState.panelSide) {
+            Text(tr("Forma", "Shape"), fontSize = 14.sp)
+            ChoiceChips(PanelShape.entries.map { it to it.label }, ThemeState.panelShape) { ThemeState.panelShape = it; Prefs.setPanelShape(a, it) }
+            SliderRow(tr("Tamaño (%)", "Size (%)"), ThemeState.panelScale, 60..120) { ThemeState.panelScale = it; Prefs.setPanelScale(a, it) }
+        }
         SwitchRow(tr("Mini monitor", "Mini monitor"), stats, tr("RAM libre, watts, CPU y temperatura arriba del panel", "Free RAM, watts, CPU and temperature at the top of the panel")) {
             stats = it; Prefs.setPanelStats(a, it)
         }
