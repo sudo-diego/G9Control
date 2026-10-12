@@ -58,10 +58,20 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema; el detal
 | Otros controles | Solo el G9 | Todo lo de Tablet y Probar control sirven con cualquier control |
 | Perfiles | — | Perfiles completos (luces, sticks, gatillos, vibración, traseros, macros) con respaldo en archivo |
 
+## Aprendido el 11–12 oct 2026
+- **Botones enviados por software = "Virtual" en Android 15:** aunque el `KeyEvent` lleve el id del G9 (11), RetroArch lo ve como "Virtual (0/0)" (probado con un disparador de prueba). Las combinaciones sirven (RetroArch le aplica su configuración de respaldo: Vista + Menú cerró RetroArch), pero no se puede asignar como la guía del control. Para eso haría falta un control virtual con `uinput` (lo que hace el modo experto de Key Mapper), que aparecería como un segundo control. Se quitó la opción "Botón guía".
+- **Ventana translúcida con el fondo de pantalla:** con un `ColorDrawable` translúcido de fondo la ventana no se limpia entre cuadros (el velo se apila hasta tapar el fondo y quedan restos de otras páginas). El fondo de la ventana dibuja el velo con `PorterDuff.Mode.SRC` (reemplaza los píxeles). Cubre también la barra de estado (con gestos quedaba sin velo).
+- **Shell.run espera 4 s por defecto:** `top -n 2 -d 2` tarda más y fallaba siempre ("Leyendo…"), repitiéndose; ahora 9 s. Cuidado con comandos largos.
+- **Batería que se iba en reposo (7–10 W):** no era la app (1–2 % de CPU) sino ~1900 procesos `process-tracker` de Android Studio, por la tablet registrada dos veces en adb (dos puertos de depuración inalámbrica anunciados). Solución: servidor de adb con `ADB_MDNS_AUTO_CONNECT=0` y una sola conexión. Con eso, 2,7 W en el Inicio.
+- **Probar sin el control:** `adb shell am broadcast -a io.github.sudodiego.g9control.TEST_GUIDE_TAP` hace lo de tocar la guía en la app al frente; `--es what battery` muestra el aviso de batería baja y `--es what panel` abre o cierra el panel. Solo desde adb (pide DUMP).
+- **Panel:** fundido real al pasar a Rendimiento o Frecuencia (se desvanece, cambia, aparece), sin LB/RB (solo cruceta o stick), fila Recientes (las anota el servicio al cambiar de app), forma (16:9, 16:10, 4:3, 1:1) y tamaño 60–120 % (escala con densidad propia), autonomía junto a la batería y "Bypass · Activo" en el mini monitor.
+- **Frecuencia en Ahorro:** además de revisarla 2 s después de cambiar de app, se revisa al cambiar la frecuencia de la pantalla (`DisplayListener`): Ahorro la bajaba a 30 después.
+- **Mantener la guía 5 s bloquea la tablet** (el G9 se apaga): el soltar de la guía cancela el bloqueo en la entrada de `onKeyEvent` (con el panel abierto no llegaba y la tablet se bloqueaba sola).
+
 ## Pendientes
-- Probar con el botón de verdad "Tocar la guía" en RetroArch (Vista + Menú y Botón guía).
+- Probar con el botón de verdad "Tocar la guía" → Vista + Menú en RetroArch con un juego cargado.
+- Benchmarks: el mismo juego unos minutos en cada modo de rendimiento (desenchufada) para llenar "Sesiones de juego"; después, usar esos datos (por ejemplo, estimar la autonomía por juego y modo).
 - M dos veces en Android sin la captura del sistema.
-- Estadísticas por sesión (batería, W, FPS y temperaturas por juego, modo y Hz).
 - README nuevo con el nombre TBF Companion.
 
 ---
