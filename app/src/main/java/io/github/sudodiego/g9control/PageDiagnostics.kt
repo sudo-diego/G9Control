@@ -376,8 +376,8 @@ private fun DolphinSignOutFix(a: MainActivity) {
     LaunchedEffect(Unit) { saved = RaProxy.dolphinHasPassword() }
     Text(tr("Dolphin cierra la sesión solo (workaround)", "Dolphin keeps signing out (workaround)"), fontSize = 14.sp,
         fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-    Hint(tr("Es un error de Dolphin en Android. Lo que le funciona a varios: guardar tu contraseña de RetroAchievements en su configuración, así vuelve a iniciar sesión solo. Ojo: queda escrita sin cifrar en el archivo de Dolphin (la puede leer otra app con acceso a sus archivos o un PC conectado). TBF no la guarda. No a todos les funciona.",
-        "It's a Dolphin bug on Android. What works for several people: saving your RetroAchievements password in its config so it signs back in by itself. Note: it's stored unencrypted in Dolphin's file (another app with access to its files, or a connected PC, can read it). TBF doesn't keep it. It doesn't work for everyone."))
+    Hint(tr("Es un error de Dolphin en Android. Lo que le funciona a varios: guardar tu contraseña de RetroAchievements en su configuración, así vuelve a iniciar sesión solo. Ojo: queda escrita sin cifrar en el archivo de Dolphin (la puede leer otra app con acceso a sus archivos o un PC conectado). TBF no la guarda. No a todos les funciona. Escríbela con cuidado: si está mal, Dolphin cierra la sesión cada vez que la intenta usar.",
+        "It's a Dolphin bug on Android. What works for several people: saving your RetroAchievements password in its config so it signs back in by itself. Note: it's stored unencrypted in Dolphin's file (another app with access to its files, or a connected PC, can read it). TBF doesn't keep it. It doesn't work for everyone. Type it carefully: if it's wrong, Dolphin signs out every time it tries it."))
     if (saved == true) {
         InfoRow(tr("Contraseña en Dolphin", "Password in Dolphin"), tr("Guardada", "Saved"))
         OutlinedButton(onClick = { scope.launch { msg = if (RaProxy.setDolphinPassword(null)) tr("Quitada", "Removed") else tr("No se pudo", "Couldn't"); saved = RaProxy.dolphinHasPassword() } }) {
