@@ -65,7 +65,8 @@ object RaProxy {
         val ok get() = toProxy && loggedIn
         /** Lo que falta, corto, para el panel y el aviso. */
         val problem get() = when {
-            !loggedIn -> tr("$name: falta iniciar sesión en RetroAchievements", "$name: sign in to RetroAchievements")
+            // Sin internet también se puede: con el proxy encendido responde con la cuenta que guardó (probado 12 oct 2026).
+            !loggedIn -> tr("$name: inicia sesión en RetroAchievements (funciona sin internet con el proxy encendido)", "$name: sign in to RetroAchievements (works offline with the proxy on)")
             !toProxy -> tr("$name no apunta al proxy: apágalo y enciéndelo", "$name isn't using the proxy: turn it off and on")
             else -> null
         }

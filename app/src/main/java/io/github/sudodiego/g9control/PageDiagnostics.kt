@@ -332,7 +332,7 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
         }
         setups.forEach { st ->
             InfoRow(st.name, when {
-                !st.loggedIn -> tr("Falta iniciar sesión en RetroAchievements (en el emulador, con internet)", "Sign in to RetroAchievements (in the emulator, online)")
+                !st.loggedIn -> tr("Falta iniciar sesión en RetroAchievements (en el emulador; sin internet funciona con el proxy encendido)", "Sign in to RetroAchievements (in the emulator; works offline with the proxy on)")
                 active == true && !st.toProxy -> tr("No apunta al proxy: apágalo y enciéndelo", "Not using the proxy: turn it off and on")
                 active == true -> tr("Listo", "Ready")
                 else -> tr("Sesión iniciada", "Signed in")
