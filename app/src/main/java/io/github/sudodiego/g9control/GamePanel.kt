@@ -449,7 +449,7 @@ class GamePanel(private val svc: AutoModeService) {
 
     /** Proxy apagado con los emuladores apuntándole (tras reiniciar): sin logros ni con internet hasta encenderlo. */
     fun raStrandedHint() = flash.show(flash.appIcon(RaProxy.PACKAGE), tr("RAOfflineProxy está apagado", "RAOfflineProxy is off"),
-        tr("Sin él no hay logros, ni con internet: ábrelo y aprieta Start (o Stop)", "Without it there are no achievements, even online: open it and press Start (or Stop)"), 7000)
+        tr("Sin él no hay logros, ni con internet: ábrelo (se vuelve a encender solo)", "Without it there are no achievements, even online: open it (it turns back on by itself)"), 7000)
 
     private var alert: RaAlert? = null
     val alertOpen get() = alert != null
@@ -466,8 +466,8 @@ class GamePanel(private val svc: AutoModeService) {
         tr("Cerrar y encenderlo", "Close and turn it on")) {
         scope.launch {
             RaProxy.prepare(svc)
-            main.postDelayed({ flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Aprieta Start", "Press Start"),
-                tr("Después vuelve al juego", "Then go back to the game"), 5000) }, 1200)
+            main.postDelayed({ flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Revisa que diga Stop proxy", "Check it says Stop proxy"),
+                tr("Si dice Start, apriétalo; después vuelve al juego", "If it says Start, press it; then go back to the game"), 5000) }, 1200)
         }
     })
 
@@ -738,7 +738,7 @@ class GamePanel(private val svc: AutoModeService) {
             val on = RaProxy.activeNow
             // Encendido pero al emulador le falta algo (sesión, apuntar al proxy): en rojo y qué falta.
             val problem = RaProxy.setupNow?.takeIf { on == true }?.problem
-                ?: if (on == false && RaProxy.strandedNow) tr("RAOfflineProxy está apagado y tus emuladores le apuntan: sin logros ni con internet. Ábrelo y aprieta Start (o Stop).",
+                ?: if (on == false && RaProxy.strandedNow) tr("RAOfflineProxy está apagado y tus emuladores le apuntan: sin logros ni con internet. Ábrelo: se vuelve a encender solo.",
                     "RAOfflineProxy is off and your emulators point to it: no achievements even online. Open it and press Start (or Stop).") else null
             add(PanelItem(tr("Logros", "Achievements"), Icons.Outlined.Star,
                 sub = problem?.let { if (on == false) tr("Apagado: sin logros", "Off: no achievements") else tr("Falta algo: ver aviso", "Something's missing") } ?: when (on) {

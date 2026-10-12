@@ -622,11 +622,7 @@ class AutoModeService : AccessibilityService() {
         if (now - lastUnlock < 1500) return   // USER_PRESENT y la espera pueden llegar juntos
         lastUnlock = now
         Log.d(TAG, "desbloqueada")
-        // RAOfflineProxy apagado con los emuladores apuntándole (tras reiniciar): avisar una vez. Shizuku puede tardar
-        // en arrancar después del desbloqueo ("Start on boot"): se espera un poco.
-        if (AutoRules.raProxyHint(this) && RaProxy.installed(this)) main.postDelayed({
-            scope.launch { if (RaProxy.stranded(this@AutoModeService)) main.post { panel.raStrandedHint() } }
-        }, 8000)
+        raBootCheck()
         val mode = ModeSwitcher.detect()
         if (mode == PadMode.ANDROID) returnPending = false
         if (lowPending) main.postDelayed({ lastBattery?.let { checkLowBattery(it) } }, 800)
@@ -650,6 +646,7 @@ class AutoModeService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         active = this
+        raBootCheck()
         ThemeState.systemDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         Lang.load(this)
@@ -1431,6 +1428,27 @@ class AutoModeService : AccessibilityService() {
             raHinted += pkg
             main.postDelayed({ panel.raProxyHint() }, 1500)
         }
+    }
+
+    /**
+     * RAOfflineProxy apagado con los emuladores apuntándole (pasa al reiniciar): avisar. Al desbloquear y también al
+     * arrancar el servicio: tras un reinicio, el servicio de accesibilidad se conecta DESPUÉS del desbloqueo y ese aviso
+     * no llegaba. Shizuku puede tardar en arrancar ("Start on boot"): se espera. Una vez cada 10 min como mucho.
+     */
+    private var lastRaBootCheck = 0L
+    private fun raBootCheck() {
+        if (!AutoRules.raProxyHint(this) || !RaProxy.installed(this)) return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastRaBootCheck < 10 * 60_000L && lastRaBootCheck > 0) return
+        lastRaBootCheck = now
+        main.postDelayed({
+            if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) { lastRaBootCheck = 0; return@postDelayed }
+            scope.launch {
+                val stranded = RaProxy.stranded(this@AutoModeService)
+                Log.d(TAG, "logros al arrancar o desbloquear: proxy ${RaProxy.activeNow}, apagado con emuladores apuntándole $stranded")
+                if (stranded) main.post { panel.raStrandedHint() }
+            }
+        }, 10_000)
     }
 
     /** Abrir el panel desde la app (botón en Juego → Panel de juego). */
