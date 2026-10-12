@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -343,8 +345,11 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
             Button(onClick = { scope.launch { RaProxy.prepare(a) } }) { Text(tr("Preparar y abrir", "Prepare and open")) }
             OutlinedButton(onClick = { RaProxy.open(a) }) { Text(tr("Abrir", "Open")) }
         }
-        // Cómo funciona, en tres pasos (para quien no conoce RetroAchievements ni el proxy).
-        Text(tr("Cómo funciona", "How it works"), fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+        // Cómo funciona, en tres pasos (para quien no conoce RetroAchievements ni el proxy): se despliega al tocarlo,
+        // así la tarjeta muestra primero lo esencial.
+        var how by remember { mutableStateOf(false) }
+        ExpandHeader(tr("Cómo funciona", "How it works"), how) { how = !how }
+        if (how) {
         Hint(tr("1. Déjalo siempre encendido. Con internet pasa tus logros al instante; sin internet los guarda y los envía solo cuando vuelve la conexión (en cualquier lugar).",
             "1. Leave it always on. Online it passes your achievements right away; offline it keeps them and sends them by itself when you're back online (anywhere)."))
         Hint(tr("2. Abre cada juego una vez con internet y el proxy encendido: así guarda sus logros para jugarlo sin conexión.",
@@ -353,6 +358,7 @@ private fun RaProxyPanel(s: AppState, a: MainActivity) {
             "3. Each emulator needs to be signed in to RetroAchievements (shown above). In Dolphin, press Back to exit after signing in: if it's force-closed, it loses it. Offline playtime isn't recorded."))
         Hint(tr("«Preparar y abrir» cierra los emuladores y abre RAOfflineProxy para Start (después de reiniciar, abrirlo basta: se enciende solo). Apágalo con su Stop proxy, que deja todo como estaba.",
             "“Prepare and open” closes the emulators and opens RAOfflineProxy for Start (after a reboot, opening it is enough: it turns on by itself). Turn it off with its Stop proxy, which restores everything."))
+        }
         DolphinSignOutFix(a)
         SwitchRow(tr("Aviso sin internet", "Offline notice"), hint, tr("Al abrir un emulador sin internet y con el proxy apagado", "When opening an emulator offline with the proxy off")) {
             hint = it; AutoRules.setRaProxyHint(a, it)
@@ -374,8 +380,9 @@ private fun DolphinSignOutFix(a: MainActivity) {
     var pwd by remember { mutableStateOf("") }
     var msg by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { saved = RaProxy.dolphinHasPassword() }
-    Text(tr("Dolphin cierra la sesión solo (workaround)", "Dolphin keeps signing out (workaround)"), fontSize = 14.sp,
-        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+    var open by remember { mutableStateOf(false) }
+    ExpandHeader(tr("Dolphin cierra la sesión solo (workaround)", "Dolphin keeps signing out (workaround)"), open || saved == true) { open = !open }
+    if (!open && saved != true) return
     Hint(tr("Error de Dolphin en Android. A algunos les sirve guardar la contraseña en su configuración para que vuelva a iniciar sesión solo (en Dolphin 2609a no sirvió). Queda sin cifrar en su archivo; TBF no la guarda. Si está mal escrita, Dolphin cierra la sesión cada vez.",
         "A Dolphin bug on Android. Saving the password in its config so it signs back in by itself helps some people (it didn't in Dolphin 2609a). It's stored unencrypted in its file; TBF doesn't keep it. If it's mistyped, Dolphin signs out every time."))
     if (saved == true) {
@@ -392,6 +399,15 @@ private fun DolphinSignOutFix(a: MainActivity) {
         }, enabled = pwd.isNotBlank()) { Text(tr("Guardar en Dolphin", "Save to Dolphin")) }
     }
     msg?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary) }
+}
+
+/** Título que se toca para desplegar u ocultar una explicación (con flecha). */
+@Composable
+private fun ExpandHeader(title: String, open: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, fontSize = 14.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Icon(if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null, tint = MaterialTheme.colorScheme.primary)
+    }
 }
 
 /** Cómo se ve el panel de juego: su fondo (aparte del de la app) y el mini monitor. */
