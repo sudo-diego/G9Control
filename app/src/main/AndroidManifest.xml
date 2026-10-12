@@ -16,6 +16,9 @@
     <!-- Liberar memoria desde Inicio: cerrar las apps que quedaron en segundo plano (permiso normal, sin pedirlo). -->
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
 
+    <!-- Recientes del panel: traer la tarea de un juego al frente tal como quedó (como Recientes de Android). -->
+    <uses-permission android:name="android.permission.REORDER_TASKS" />
+
     <!-- Para listar las apps instaladas en la página de cambio automático. -->
     <queries>
         <intent>
