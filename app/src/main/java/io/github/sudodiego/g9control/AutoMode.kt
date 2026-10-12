@@ -103,6 +103,9 @@ object AutoRules {
     fun lowBattery(ctx: Context) = sp(ctx).getBoolean("low_battery", true)
     fun setLowBattery(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery", v).apply()
     val LOW_LEVELS = listOf(15, 10, 5)
+    /** El aviso de batería baja abajo al centro, encima del toast de ZUI (que no se puede quitar). */
+    fun lowBatteryOverToast(ctx: Context) = sp(ctx).getBoolean("low_battery_over_toast", true)
+    fun setLowBatteryOverToast(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery_over_toast", v).apply()
     fun lowBatterySound(ctx: Context) = sp(ctx).getBoolean("low_battery_sound", true)
     fun setLowBatterySound(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery_sound", v).apply()
 
@@ -773,6 +776,8 @@ class AutoModeService : AccessibilityService() {
         // Soltar la guía cancela siempre el bloqueo de 5 s, antes que nada: con el panel abierto el soltar va al panel
         // y no llegaba a legionKey (la tablet se bloqueaba sola 5 s después de abrir el panel manteniendo la guía).
         if (k == KeyEvent.KEYCODE_BUTTON_MODE) trackGuide(event)
+        // Otro botón del mismo control con la guía apretada (Vista + Menú, navegar el panel): no es "mantener para apagar".
+        else if (event.action == KeyEvent.ACTION_DOWN && event.deviceId == guideDevice && guideDownAt > 0) guideDownAt = 0
         // Los botones que aprieta la app como si fuera el control (la guía en RetroArch) pasan sin tocar.
         if (android.os.SystemClock.uptimeMillis() < injectingUntil) return false
         // Qué control se usó por última vez: con otro control (8BitDo, por ejemplo) el G9 se queda como está.
@@ -920,9 +925,11 @@ class AutoModeService : AccessibilityService() {
         if (id != guideDevice || !AutoRules.guide(this, AutoRules.Guide.HOLD_LOCK)) return
         val now = android.os.SystemClock.uptimeMillis()
         val heldNow = if (guideDownAt > 0) now - guideDownAt else 0
-        val recent = guideUpAt > 0 && now - guideUpAt < 3000 && guideHeld >= 3500
+        val recent = guideUpAt > 0 && now - guideUpAt < 3000 && guideHeld in 3500..7000
         Log.i(TAG, "control de la guía desconectado: mantenida ${heldNow} ms, última ${guideHeld} ms hace ${now - guideUpAt} ms")
-        if (heldNow >= 3500 || recent) {
+        // El G9 se apaga a los 5 s: solo una desconexión en ese momento cuenta (cambiar de modo también desconecta y,
+        // si el soltar de la guía no había llegado, parecía mantenida mucho rato).
+        if (heldNow in 4500..7000 || recent) {
             guideDownAt = 0; guideUpAt = 0
             main.removeCallbacks(legionLock)
             legionLock.run()

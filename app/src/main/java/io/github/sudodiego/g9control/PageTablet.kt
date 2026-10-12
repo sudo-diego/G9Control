@@ -157,6 +157,10 @@ fun BatteryNowPanel(a: MainActivity) {
         }
         var lowSound by remember { mutableStateOf(AutoRules.lowBatterySound(a)) }
         SwitchRow(tr("Con sonido", "With sound"), lowSound) { lowSound = it; AutoRules.setLowBatterySound(a, it) }
+        var overToast by remember { mutableStateOf(AutoRules.lowBatteryOverToast(a)) }
+        SwitchRow(tr("Tapar el aviso del sistema", "Cover the system notice"), overToast, tr("Abajo al centro, encima del toast de ZUI", "Bottom center, over ZUI's toast")) {
+            overToast = it; AutoRules.setLowBatteryOverToast(a, it)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = { AutoRules.preview(a, "battery") }) { Text(tr("Ver el aviso", "Show the notice")) }
             // El aviso del sistema (notificación de SystemUI, canal BAT): una app no lo puede apagar, pero sí abrir su ajuste.

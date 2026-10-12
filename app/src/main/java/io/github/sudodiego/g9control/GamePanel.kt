@@ -404,7 +404,9 @@ class GamePanel(private val svc: AutoModeService) {
     fun lowBattery(level: Int, left: String?) {
         if (AutoRules.lowBatterySound(svc)) sounds.play(R.raw.low_battery)
         flash.show(flash.batteryIcon(level), tr("Batería baja · $level %", "Low battery · $level %"),
-            listOfNotNull(left?.let { tr("Quedan $it", "$it left") }, tr("Conecta el cargador", "Plug in the charger")).joinToString(" · "), 6000)
+            listOfNotNull(left?.let { tr("Quedan $it", "$it left") }, tr("Conecta el cargador", "Plug in the charger")).joinToString(" · "), 6000,
+            // Sobre el toast de ZUI (abajo al centro), que no se puede quitar: así no se ven los dos.
+            if (AutoRules.lowBatteryOverToast(svc)) NoticePos.entries.first { it.h == 0 && it.v == 1 } else null)
     }
 
     /** Ejemplo del aviso de captura (desde Ajustes), con una miniatura de muestra y el sonido elegido. */
@@ -639,7 +641,15 @@ class GamePanel(private val svc: AutoModeService) {
         val hzNow = RefreshRate.current(svc)
         val hzChosen = RefreshRate.forApp(svc, svc.foregroundApp)
         add(PanelItem(tr("Frecuencia", "Refresh rate"), Icons.Outlined.DisplaySettings, active = hzChosen != null,
-            sub = ((hzChosen ?: hzNow)?.let { "$it Hz" } ?: "—") + if (hzChosen != null) tr(" · esta app", " · this app") else "") { crossfade { showHzMenu() } })
+            sub = run {
+                    // La de esta app, la de todos los juegos (Tablet → Juego) o la que haya.
+                    val games = RefreshRate.forGames(svc)?.takeIf { hzChosen == null && ZuiGame.inGame(svc) }
+                    when {
+                        hzChosen != null -> tr("$hzChosen Hz · esta app", "$hzChosen Hz · this app")
+                        games != null -> tr("$games Hz · juegos", "$games Hz · games")
+                        else -> hzNow?.let { "$it Hz" } ?: "—"
+                    }
+                }) { crossfade { showHzMenu() } })
         if (Aspect.available(svc)) {
             val wide = Aspect.is169(svc)
             add(PanelItem("16:9", Icons.Outlined.AspectRatio, PanelRow.SCREEN,
@@ -1632,7 +1642,7 @@ private class ShotFlash(private val svc: AccessibilityService) {
     fun show(thumb: Bitmap) = show(thumb, tr("Captura guardada", "Screenshot saved"), null, 2200)
 
     /** La misma tarjeta con otra imagen y texto (batería baja): [ms] lo que se queda antes de salir. */
-    fun show(thumb: Bitmap, title: String, line: String?, ms: Long) {
+    fun show(thumb: Bitmap, title: String, line: String?, ms: Long, at: NoticePos? = null) {
         hide()
         val px = { v: Int -> (v * dp).toInt() }
         val image = android.widget.ImageView(svc).apply {
@@ -1663,7 +1673,7 @@ private class ShotFlash(private val svc: AccessibilityService) {
         // La ventana toca el borde de la pantalla (el margen va adentro): la tarjeta entra desde ese borde y lo
         // que queda fuera se recorta. En una esquina o a un lado entra de costado; arriba o abajo al centro, en
         // vertical; en el centro aparece sin moverse.
-        val pos = AutoRules.shotPos(svc)
+        val pos = at ?: AutoRules.shotPos(svc)
         val f = android.widget.FrameLayout(svc).apply { setPadding(px(16), px(16), px(16), px(16)); addView(card) }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
