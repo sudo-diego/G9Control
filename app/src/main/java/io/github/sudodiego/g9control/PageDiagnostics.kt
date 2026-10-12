@@ -434,7 +434,8 @@ private fun PanelLookPanel(a: MainActivity) {
         if (ThemeState.panelBackground == PanelBackground.CLEAR) {
             SliderRow(tr("Relleno", "Fill"), ThemeState.panelFill, 0..100) { ThemeState.panelFill = it; Prefs.setPanelFill(a, it) }
         }
-        if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE) {
+        // Transparencia: solo al centro (el lateral es liso y la imagen va de cabecera).
+        if (!ThemeState.panelSide && (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)) {
             // Liquid glass: el fondo elegido, pero dejando ver el juego detrás.
             SliderRow(tr("Transparencia", "Transparency"), ThemeState.panelSee, 0..100) { ThemeState.panelSee = it; Prefs.setPanelSee(a, it) }
         }
