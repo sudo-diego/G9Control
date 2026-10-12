@@ -1443,6 +1443,9 @@ class AutoModeService : AccessibilityService() {
         lastRaBootCheck = now
         main.postDelayed({
             if (getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked) { lastRaBootCheck = 0; return@postDelayed }
+            // Shizuku no arrancó solo (su inicio al encender falla a veces: ver CONTEXTO) y algo elegido lo necesita: avisar.
+            Shell.refresh()
+            if (Shell.state != Shell.State.READY && Shell.wanted(this)) panel.shizukuHint()
             scope.launch {
                 val stranded = RaProxy.stranded(this@AutoModeService)
                 Log.d(TAG, "logros al arrancar o desbloquear: proxy ${RaProxy.activeNow}, apagado con emuladores apuntándole $stranded")

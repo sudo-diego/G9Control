@@ -443,6 +443,10 @@ class GamePanel(private val svc: AutoModeService) {
             if (AutoRules.lowBatteryOverToast(svc)) NoticePos.entries.first { it.h == 0 && it.v == 1 } else null)
     }
 
+    /** Shizuku no está corriendo (no arrancó al encender) y algo elegido lo necesita. */
+    fun shizukuHint() = flash.show(flash.appIcon(Shell.PACKAGE), tr("Shizuku no arrancó", "Shizuku didn't start"),
+        tr("Ábrelo y aprieta Start", "Open it and press Start"), 6000)
+
     /** Emulador sin internet y RAOfflineProxy apagado: el atajo para encenderlo (el porqué está en la app). */
     fun raProxyHint() = flash.show(flash.appIcon(RaProxy.PACKAGE), tr("Sin internet", "Offline"),
         tr("Para tus logros, enciende RAOfflineProxy", "For your achievements, turn on RAOfflineProxy"), 4500)
