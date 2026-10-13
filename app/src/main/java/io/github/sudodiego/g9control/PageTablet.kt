@@ -100,7 +100,7 @@ private fun PowerByAppPanel(a: MainActivity) {
                 Text("%.1f W".format(u.avgWatts), fontSize = 15.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                 // Cuánto duraría la batería llena solo con esa app.
                 full?.takeIf { u.avgWatts > 0.3 }?.let { wh ->
-                    Text("~" + ZuiBattery.formatTime((wh / u.avgWatts * 3_600_000).toLong()), Modifier.width(110.dp), fontSize = 14.sp,
+                    Text(ZuiBattery.formatTime((wh / u.avgWatts * 3_600_000).toLong()), Modifier.width(110.dp), fontSize = 14.sp,
                         color = c.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.End)
                 }
             }

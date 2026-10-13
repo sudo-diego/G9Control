@@ -209,7 +209,7 @@ class GamePanel(private val svc: AutoModeService) {
                 ZuiBattery.formatTime(it) + if (target < 100) tr(" a $target %", " to $target %") else ""
             }
             // A batería: cuánto dura al ritmo del último minuto (o al de ahora si todavía no hay promedio).
-            !ZuiBattery.plugged(svc) -> ZuiBattery.estimatedLeft(svc)?.let { "~" + ZuiBattery.formatTime(it) }
+            !ZuiBattery.plugged(svc) -> ZuiBattery.estimatedLeft(svc)?.let { ZuiBattery.formatTime(it) }
             else -> null
         }
         val time = android.text.format.DateFormat.getTimeFormat(svc).format(Date())
