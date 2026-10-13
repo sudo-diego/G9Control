@@ -158,8 +158,8 @@ internal fun panelRows(items: List<PanelItem>): List<List<Int>> {
         // Lateral (2 columnas): brillo y volumen uno debajo del otro, cada uno con su botón.
         by[PanelRow.SLIDER]?.let { if (ThemeState.panelSide) addAll(it.chunked(2)) else add(it) }
         by[PanelRow.GAME]?.let { addAll(even(it)) }
-        // Recientes en una sola fila (las que quepan).
-        by[PanelRow.RECENT]?.let { if (ThemeState.panelSide) addAll(it.take(4).chunked(2)) else add(it.take(COLUMNS)) }
+        // Recientes en una sola fila (las que quepan; las demás se ven pasando de página con ← → o deslizando).
+        by[PanelRow.RECENT]?.let { add(it.take(COLUMNS)) }
         by[PanelRow.SCREEN]?.let { addAll(even(it)) }
         by[PanelRow.SYSTEM]?.let { addAll(even(it)) }
     }
@@ -193,6 +193,9 @@ internal class PanelUi {
     var stats by mutableStateOf(true)
     /** En un submenú (rendimiento): encabezado sin batería ni hora, y B vuelve. */
     var sub by mutableStateOf(false)
+    /** Recientes: cuáles se ven de cuántas ("1–2 de 5"), null si caben todas; [page] pasa a las siguientes (±1). */
+    var recentInfo by mutableStateOf<String?>(null)
+    var page: ((Int) -> Unit)? = null
 }
 
 
@@ -428,7 +431,8 @@ private fun PanelGrid(ui: PanelUi, fixed: Boolean, modifier: Modifier, onPick: (
             if (r > 0) Spacer(Modifier.height(if (newSection) 14.dp else GAP))
             if (newSection && !ui.sub && section != PanelRow.SLIDER) {
                 Text(when (section) {
-                    PanelRow.GAME -> tr("Juego", "Game"); PanelRow.RECENT -> tr("Recientes", "Recent")
+                    PanelRow.GAME -> tr("Juego", "Game")
+                    PanelRow.RECENT -> tr("Recientes", "Recent") + (ui.recentInfo?.let { "   ‹ $it ›" } ?: "")
                     PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
                     else -> "Android"
                 }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, style = LABEL_STYLE, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
@@ -437,7 +441,14 @@ private fun PanelGrid(ui: PanelUi, fixed: Boolean, modifier: Modifier, onPick: (
             // las filas de mosaicos se reparten también el alto.
             val stretch = fixed && !ui.sub && section != PanelRow.SLIDER
             Row(Modifier.fillMaxWidth().then(if (stretch) Modifier.weight(1f, fill = false).heightIn(min = 48.dp, max = 92.dp) else Modifier)
-                .then(if (onRow != null) Modifier.onGloballyPositioned { onRow(r, it.positionInParent().y.toInt(), it.size.height) } else Modifier),
+                .then(if (onRow != null) Modifier.onGloballyPositioned { onRow(r, it.positionInParent().y.toInt(), it.size.height) } else Modifier)
+                // Recientes: deslizar a los lados pasa a las siguientes.
+                .then(if (section == PanelRow.RECENT && ui.recentInfo != null) Modifier.pointerInput(Unit) {
+                    var acc = 0f
+                    detectHorizontalDragGestures(onDragStart = { acc = 0f }, onDragEnd = {
+                        if (kotlin.math.abs(acc) > 60f) ui.page?.invoke(if (acc < 0) 1 else -1)
+                    }) { _, d -> acc += d }
+                } else Modifier),
                 horizontalArrangement = Arrangement.spacedBy(GAP)) {
                 row.forEach { i ->
                     val item = ui.items[i]

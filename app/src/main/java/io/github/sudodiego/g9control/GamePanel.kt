@@ -136,6 +136,8 @@ class GamePanel(private val svc: AutoModeService) {
             android.content.res.Configuration.UI_MODE_NIGHT_YES
         inPerfMenu = false
         ui.editing = false
+        recentStart = 0
+        ui.page = { if (pageRecents(it)) poke() }
         ui.items = items()
         // Empieza en el primer mosaico (Captura), no en las barras.
         ui.sel = ui.items.indexOfFirst { it.section == PanelRow.GAME }.coerceAtLeast(0)
@@ -558,8 +560,26 @@ class GamePanel(private val svc: AutoModeService) {
             val x = (c + 0.5f) / rows[r].size
             ui.sel = rows[nr][(x * rows[nr].size).toInt().coerceIn(0, rows[nr].size - 1)]
         } else if (dx != 0) {
+            // En el borde de los recientes, pasa a las siguientes (la selección queda en el mismo lugar).
+            if (c + dx !in rows[r].indices && ui.items[ui.sel].section == PanelRow.RECENT && pageRecents(dx)) {
+                ui.sel = panelRows(ui.items).getOrNull(r)?.let { it[c.coerceAtMost(it.size - 1)] } ?: ui.sel
+                return
+            }
             ui.sel = rows[r][(c + dx).coerceIn(0, rows[r].size - 1)]
         }
+    }
+
+    /** Primera reciente a la vista: se ven de a [COLUMNS] y se pasa de una en una. */
+    private var recentStart = 0
+    private var recentTotal = 0
+
+    /** Corre los recientes una posición; false si ya estaba en el borde. */
+    private fun pageRecents(dx: Int): Boolean {
+        val next = (recentStart + dx).coerceIn(0, (recentTotal - COLUMNS).coerceAtLeast(0))
+        if (next == recentStart) return false
+        recentStart = next
+        ui.items = items()
+        return true
     }
 
     /** Con el dedo en una barra: fija el nivel. */
@@ -624,7 +644,14 @@ class GamePanel(private val svc: AutoModeService) {
     private fun items(): List<PanelItem> = buildList {
         // Apps usadas hace poco (sin la de ahora): volver a ellas como a un juego en suspensión.
         // Y (o mantener con el dedo) dos veces la cierra: la primera la marca, la segunda confirma.
-        RecentApps.list(svc).filter { it != svc.foregroundApp }.take(COLUMNS).forEach { pkg ->
+        // Sin RAOfflineProxy ni Shizuku: son servicios que tienen que quedar abiertos (cerrarlos rompe los logros o
+        // lo que usa Shizuku); se abren desde Logros o desde Ajustes.
+        val recents = RecentApps.list(svc).filter { it != svc.foregroundApp && it != RaProxy.PACKAGE && it != Shell.PACKAGE }
+        recentTotal = recents.size
+        recentStart = recentStart.coerceIn(0, (recents.size - COLUMNS).coerceAtLeast(0))
+        ui.recentInfo = if (recents.size > COLUMNS) tr("${recentStart + 1}–${minOf(recentStart + COLUMNS, recents.size)} de ${recents.size}",
+            "${recentStart + 1}–${minOf(recentStart + COLUMNS, recents.size)} of ${recents.size}") else null
+        recents.drop(recentStart).take(COLUMNS).forEach { pkg ->
             val armed = closeArmed == pkg
             add(PanelItem(RecentApps.label(svc, pkg), Icons.Outlined.Layers, PanelRow.RECENT,
                 sub = if (armed) tr("¿Cerrar? Pulsa Y", "Close? Press Y") else tr("Volver", "Resume"),
