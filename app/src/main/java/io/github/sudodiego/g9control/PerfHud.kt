@@ -27,7 +27,8 @@ import java.util.concurrent.TimeUnit
  * apps dejan leer `gpubusy`, las frecuencias de la CPU y las zonas térmicas, aunque el shell no pueda): CPU = la
  * frecuencia más alta y la temperatura más alta de sus núcleos; GPU = % ocupado y su temperatura más alta. Los FPS
  * de otra app solo los sabe SurfaceFlinger: con Shizuku, de los tiempos de los últimos cuadros de la capa del juego.
- * No recibe toques.
+ * Dos estilos: la barra (una o dos líneas) o la lista, como MangoHUD (una fila por dato y, con FPS, el gráfico de
+ * los tiempos de cuadro: cada tirón es un pico). No recibe toques.
  */
 class PerfHud(private val svc: AutoModeService) {
     private val wm = svc.getSystemService(WindowManager::class.java)
@@ -35,6 +36,7 @@ class PerfHud(private val svc: AutoModeService) {
     private val worker = Executors.newSingleThreadScheduledExecutor()
     private var task: ScheduledFuture<*>? = null
     private var view: TextView? = null
+    private var graph: FrameGraph? = null
 
     val isOn get() = view != null
 
@@ -53,15 +55,24 @@ class PerfHud(private val svc: AutoModeService) {
             gravity = Gravity.CENTER_HORIZONTAL
             setLineSpacing(3 * dp, 1f)
             setTextColor(android.graphics.Color.WHITE)
+            text = "…"
+        }
+        val list = AutoRules.perfList(svc)
+        if (list) { v.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); v.gravity = Gravity.START; v.textSize = 12f }
+        val g = FrameGraph(svc, dp).apply { visibility = android.view.View.GONE }
+        // La barra (o la lista) y, debajo, el gráfico de tiempos de cuadro (solo en la lista y con FPS).
+        val box = android.widget.LinearLayout(svc).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
             setPadding((12 * dp).toInt(), (6 * dp).toInt(), (12 * dp).toInt(), (6 * dp).toInt())
             background = GradientDrawable().apply { setColor(0xB80E1424.toInt()); cornerRadius = 12 * dp }
-            text = "…"
+            addView(v)
+            addView(g, android.widget.LinearLayout.LayoutParams((150 * dp).toInt(), (30 * dp).toInt()).apply { topMargin = (4 * dp).toInt() })
         }
         val pos = AutoRules.perfPos(svc)
         // La ventana ocupa todo el ancho (transparente, no recibe toques) y la barra va adentro a un lado: así la
         // ventana no cambia de tamaño cuando cambia el texto (ZUI animaba ese cambio como un deslizamiento).
         val frame = android.widget.FrameLayout(svc).apply {
-            addView(v, android.widget.FrameLayout.LayoutParams(
+            addView(box, android.widget.FrameLayout.LayoutParams(
                 android.widget.FrameLayout.LayoutParams.WRAP_CONTENT, android.widget.FrameLayout.LayoutParams.WRAP_CONTENT,
                 when (pos.h) { -1 -> Gravity.START; 1 -> Gravity.END; else -> Gravity.CENTER_HORIZONTAL }
             ).apply { marginStart = (12 * dp).toInt(); marginEnd = (12 * dp).toInt() })
@@ -80,6 +91,8 @@ class PerfHud(private val svc: AutoModeService) {
         if (runCatching { wm.addView(frame, lp) }.onFailure { Log.w(AutoModeService.TAG, "monitor de rendimiento", it) }.isFailure) return
         root = frame
         view = v
+        graph = g
+        listStyle = list
         task = worker.scheduleWithFixedDelay({ runCatching { sample() }.onFailure { Log.w(AutoModeService.TAG, "monitor: lectura", it) } },
             0, 1, TimeUnit.SECONDS)
     }
@@ -90,7 +103,12 @@ class PerfHud(private val svc: AutoModeService) {
         root?.let { runCatching { wm.removeView(it) } }
         root = null
         view = null
+        graph = null
     }
+
+    /** El estilo con que se armó (si cambia en Ajustes, se rearma). */
+    private var listStyle = false
+
 
     /** La ventana (todo el ancho) que contiene la barra. */
     private var root: android.view.View? = null
@@ -120,6 +138,7 @@ class PerfHud(private val svc: AutoModeService) {
     private fun maxTemp(group: String) = zones[group]?.mapNotNull { readLong(it) }?.maxOrNull()?.let { (it / 1000).toInt() }
 
     private fun sample() {
+        if (AutoRules.perfList(svc) != listStyle) { main.post { update() }; return }
         val cpuGhz = cpus.mapNotNull { readLong(it) }.maxOrNull()?.let { it / 1_000_000.0 }
         // "ocupado total" desde la lectura anterior: si el contador se acaba de reiniciar (total 0) no hay dato nuevo y
         // se mantiene el último (antes salía un 0 % falso).
@@ -138,6 +157,30 @@ class PerfHud(private val svc: AutoModeService) {
         fun sep() = colored("  │  ", MUTED)
         /** Temperatura en color: blanca, amarilla desde [warm], roja desde [hot]. */
         fun temp(t: Int?, warm: Int, hot: Int) { t?.let { colored("  $it°", if (it >= hot) HOT else if (it >= warm) WARM else WHITE) } }
+        val charging0 = bat?.getIntExtra(BatteryManager.EXTRA_STATUS, 0) == BatteryManager.BATTERY_STATUS_CHARGING
+        val plugged0 = (bat?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
+
+        // Lista (MangoHUD): una fila por dato, la etiqueta en una columna fija.
+        if (listStyle) {
+            fun row(name: String) { if (sb.isNotEmpty()) sb.append("\n"); label(name.padEnd(5)) }
+            if (fps != null) { row("FPS"); sb.append("%3d".format(fps)); colored("  %.1f ms".format(frameMs ?: (1000.0 / fps.coerceAtLeast(1))), MUTED) }
+            row("CPU"); sb.append(cpuGhz?.let { "%.1f GHz".format(it) } ?: "—"); temp(maxTemp("cpu"), 75, 90)
+            row("GPU"); sb.append(gpu?.let { "%3d %%".format(it) } ?: "—"); temp(maxTemp("gpu"), 70, 85)
+            if (AutoRules.perfFull(svc)) { row("RAM"); sb.append(ramFree()) }
+            row("BAT"); sb.append(level?.let { "%3d %%".format(it) } ?: "—"); temp(batTemp, 40, 45)
+            if (AutoRules.perfFull(svc)) {
+                if (!(plugged0 && !charging0)) watts(bat)?.let { colored("  " + (if (charging0) "+" else "−") + "%.1f W".format(it), MUTED) }
+                if (!(plugged0 && !charging0)) remaining(bat, charging0)?.let { row(""); colored(it, MUTED) }
+                hz()?.let { row("Hz"); sb.append("$it") }
+                thermal()?.let { if (sb.isNotEmpty()) sb.append("\n"); colored(it, HOT) }
+            }
+            val times = frameTimes
+            main.post {
+                view?.text = sb
+                graph?.let { g -> if (fps != null && times.size > 2) { g.visibility = android.view.View.VISIBLE; g.set(times) } else g.visibility = android.view.View.GONE }
+            }
+            return
+        }
         if (fps != null) { sb.append("$fps "); label("FPS"); sep() }
         label("CPU "); sb.append(cpuGhz?.let { "%.1f GHz".format(it) } ?: "—"); temp(maxTemp("cpu"), 75, 90)
         sep()
@@ -204,15 +247,56 @@ class PerfHud(private val svc: AutoModeService) {
         svc.getSystemService(android.hardware.display.DisplayManager::class.java).getDisplay(android.view.Display.DEFAULT_DISPLAY).refreshRate
     }.getOrNull()?.let { Math.round(it) }
 
-    /** Android ya está bajando el rendimiento por calor (o lo va a hacer): "Calor", "Mucho calor". */
+    /**
+     * El estado térmico de Android (no la batería: lo deciden la CPU y el cuerpo de la tablet; en Cemu o Eden la CPU
+     * llega a ~95 °C con la batería a 39 °C). Moderado: se está calentando; desde severo, Android baja la CPU.
+     */
     private fun thermal(): String? = when (runCatching { svc.getSystemService(android.os.PowerManager::class.java).currentThermalStatus }.getOrDefault(0)) {
-        android.os.PowerManager.THERMAL_STATUS_MODERATE -> tr("Calor", "Hot")
+        android.os.PowerManager.THERMAL_STATUS_MODERATE -> tr("Calentándose", "Warming up")
         android.os.PowerManager.THERMAL_STATUS_SEVERE, android.os.PowerManager.THERMAL_STATUS_CRITICAL,
-        android.os.PowerManager.THERMAL_STATUS_EMERGENCY, android.os.PowerManager.THERMAL_STATUS_SHUTDOWN -> tr("Mucho calor", "Very hot")
+        android.os.PowerManager.THERMAL_STATUS_EMERGENCY, android.os.PowerManager.THERMAL_STATUS_SHUTDOWN -> tr("CPU limitada por calor", "CPU throttled by heat")
         else -> null
     }
 
     // ——— FPS (con Shizuku) ———
+
+    /** Tiempos entre los últimos cuadros (ms) y su promedio. */
+    @Volatile private var frameTimes: List<Float> = emptyList()
+    @Volatile private var frameMs: Double? = null
+
+    /** RAM libre, "5.1 GB". */
+    private fun ramFree(): String {
+        val mi = android.app.ActivityManager.MemoryInfo()
+        svc.getSystemService(android.app.ActivityManager::class.java).getMemoryInfo(mi)
+        return "%.1f GB".format(mi.availMem / 1e9)
+    }
+
+    /**
+     * Gráfico de tiempos de cuadro, como el de MangoHUD: una línea por cuadro; plana es fluido, cada pico es un tirón.
+     * La escala va de 0 a 33 ms (30 FPS) o al pico más alto.
+     */
+    private class FrameGraph(ctx: android.content.Context, private val dp: Float) : android.view.View(ctx) {
+        private var times: List<Float> = emptyList()
+        private val line = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = ACCENT; strokeWidth = 1.6f * dp; style = android.graphics.Paint.Style.STROKE
+        }
+        private val guide = android.graphics.Paint().apply { color = 0x33FFFFFF; strokeWidth = 1f * dp }
+        fun set(t: List<Float>) { times = t.takeLast(120); invalidate() }
+        override fun onDraw(c: android.graphics.Canvas) {
+            if (times.size < 2) return
+            val w = width.toFloat(); val h = height.toFloat()
+            val top = maxOf(33.3f, times.max())
+            // Línea guía en 16,7 ms (60 FPS).
+            val g = h - 16.7f / top * h
+            c.drawLine(0f, g, w, g, guide)
+            val path = android.graphics.Path()
+            times.forEachIndexed { i, ms ->
+                val x = i * w / (times.size - 1); val y = h - (ms / top).coerceIn(0f, 1f) * (h - 2 * dp) - dp
+                if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            c.drawPath(path, line)
+        }
+    }
 
     /** La capa del juego (se busca de nuevo al cambiar de app o si deja de responder). */
     private var layerApp: String? = null
@@ -236,6 +320,10 @@ class PerfHud(private val svc: AutoModeService) {
         val presented = latency(name) ?: return null
         // La capa ya no existe o no dibuja: se busca otra en la próxima.
         if (presented.isEmpty()) { layer = null; return null }
+        // Tiempos entre cuadros (ms) de los últimos ~2 s, para el gráfico y el promedio.
+        val sorted = presented.filter { it > now - 2_000_000_000L }.sorted()
+        frameTimes = sorted.zipWithNext { a, b -> (b - a) / 1e6f }.filter { it in 0.5f..500f }
+        frameMs = frameTimes.takeIf { it.isNotEmpty() }?.average()
         return presented.count { it > now - 1_000_000_000L }
     }
 

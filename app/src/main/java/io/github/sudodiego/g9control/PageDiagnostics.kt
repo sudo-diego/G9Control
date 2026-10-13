@@ -282,6 +282,7 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
     var perfHud by remember { mutableStateOf(AutoRules.perfHud(a)) }
     var perfPos by remember { mutableStateOf(AutoRules.perfPos(a)) }
     var perfFull by remember { mutableStateOf(AutoRules.perfFull(a)) }
+    var perfList by remember { mutableStateOf(AutoRules.perfList(a)) }
     CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
         Panel(tr("Capturas", "Screenshots")) {
             NoticeBox(tr("Aviso", "Notice"), tr("Miniatura en la esquina", "Thumbnail in the corner"),
@@ -295,7 +296,12 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
         Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }, enabled = LocalGateOk.current) }) {
             NoticeBox(tr("Datos", "Data"), tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery"), null,
                 side = { PosGrid(perfPos) { perfPos = it; AutoRules.setPerfPos(a, it) } }) {
-                SwitchRow(tr("Más datos", "More data"), perfFull, tr("Watts, tiempo, Hz y calor", "Watts, time, Hz and heat")) {
+                Text(tr("Estilo", "Style"), fontSize = 14.sp)
+                ChoiceChips(listOf(false to tr("Barra", "Bar"), true to tr("Lista (MangoHUD)", "List (MangoHUD)")), perfList) {
+                    perfList = it; AutoRules.setPerfList(a, it)
+                }
+                SwitchRow(tr("Más datos", "More data"), perfFull, if (perfList) tr("RAM, watts, tiempo, Hz y calor", "RAM, watts, time, Hz and heat")
+                    else tr("Watts, tiempo, Hz y calor", "Watts, time, Hz and heat")) {
                     perfFull = it; AutoRules.setPerfFull(a, it)
                 }
             }
