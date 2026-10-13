@@ -75,9 +75,14 @@ class AutoModeService : AccessibilityService() {
                 Intent.ACTION_SCREEN_OFF -> { main.removeCallbacks(waitUnlock); guide.suspendForLock() }
                 // Sin cargador el bypass no sirve, y si quedara activo la próxima vez que se enchufe no cargaría.
                 // Al enchufar, el aviso de cuánto falta (cuando la corriente ya se asentó y el bypass ya decidió).
-                Intent.ACTION_POWER_CONNECTED -> { main.removeCallbacks(chargeNotice); main.postDelayed(chargeNotice, 20_000) }
+                Intent.ACTION_POWER_CONNECTED -> {
+                    // El jingle y el aviso juntos (1,2 s: lo que tarda Android en avisar que está enchufada). Si el tiempo todavía no
+                    // se puede calcular, el aviso dice hasta dónde carga.
+                    if (AutoRules.chargeSound(this@AutoModeService) && getSystemService(android.os.PowerManager::class.java).isInteractive) main.postDelayed({ panel.chargeJingle() }, 1_200)
+                    main.removeCallbacks(chargeNotice); chargeTries = 0; main.postDelayed(chargeNotice, 1_200)
+                }
                 Intent.ACTION_POWER_DISCONNECTED -> {
-                    main.removeCallbacks(chargeNotice)
+                    main.removeCallbacks(chargeNotice); chargePending = false
                     ZuiBattery.manualOverride = false
                     smartOn = false
                     scope.launch { if (ZuiBattery.readBypass() == true) ZuiBattery.setBypass(false, manual = false) }
@@ -363,6 +368,7 @@ class AutoModeService : AccessibilityService() {
         val mode = ModeSwitcher.detect()
         if (mode == PadMode.ANDROID) returnPending = false
         if (lowPending) main.postDelayed({ lastBattery?.let { checkLowBattery(it) } }, 800)
+        if (chargePending) main.postDelayed(chargeNotice, 1200)
         if (guide.resumeAfterLock()) return
         if (returnPending && ruleApp == null && mode != null) showReturn()
     }
@@ -383,6 +389,7 @@ class AutoModeService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         active = this
+        UiSounds.preload(this)
         raBootCheck()
         ThemeState.systemDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
             android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -819,14 +826,28 @@ class AutoModeService : AccessibilityService() {
     }
 
     /**
-     * Enchufada hace 20 s: cuánto falta para el límite (propio o de ZUI) o para 100 %. No en bypass (no carga), con
-     * la pantalla apagada ni si ya llegó.
+     * Enchufada hace unos segundos: cuánto falta para el límite (propio o de ZUI) o para 100 %. Solo si de verdad
+     * carga (no en bypass ni retenida por el límite) y no si ya llegó. Con la pantalla apagada o bloqueada (se suele
+     * enchufar así) queda pendiente y sale al desbloquear; antes se descartaba y parecía que no funcionaba.
      */
-    private val chargeNotice = Runnable {
-        val i = lastBattery ?: return@Runnable
+    private var chargePending = false
+    private var chargeTries = 0
+    private val chargeNotice: Runnable = Runnable {
+        chargePending = false
+        // El estado de ahora (el último BATTERY_CHANGED puede llegar después de POWER_CONNECTED y seguir diciendo
+        // desenchufada): si todavía no se ve enchufada, se reintenta cada medio segundo (hasta 3 s).
+        val i = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: lastBattery ?: return@Runnable
         if (!AutoRules.chargeNotice(this) || smartOn || ZuiBattery.bypassNow == true) return@Runnable
-        if (i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) == 0) return@Runnable
-        if (!getSystemService(android.os.PowerManager::class.java).isInteractive) return@Runnable
+        if (i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) == 0) {
+            if (chargeTries++ < 6) main.postDelayed(chargeNotice, 500)
+            return@Runnable
+        }
+        chargeTries = 0
+        // Recién enchufada Android todavía puede decir "descargando": solo se descarta si ya está llena.
+        if (i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0) == android.os.BatteryManager.BATTERY_STATUS_FULL) return@Runnable
+        val screenOn = getSystemService(android.os.PowerManager::class.java).isInteractive
+        val locked = getSystemService(android.app.KeyguardManager::class.java).isKeyguardLocked
+        if (!screenOn || locked) { chargePending = true; return@Runnable }
         val level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
         val target = ZuiBattery.chargeTarget(this)
         if (level < 0 || level >= target) return@Runnable

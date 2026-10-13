@@ -218,17 +218,18 @@ class MainActivity : ComponentActivity() {
             (src and InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
         if (!fromPad) return super.dispatchKeyEvent(e)
         val s = state
+        // Sonidos de navegación: suenan cuando pasa algo (no probando botones ni grabando una macro). B no suena al
+        // apretarlo: en la app solo hace algo al soltarlo (cerrar el editor de macro, o salir tras mantenerlo 2 s).
+        // La cruceta mantenida suena en cada paso que se mueve (las repeticiones), como en el panel.
+        if (e.action == KeyEvent.ACTION_DOWN && !s.capturing) when (e.keyCode) {
+            KeyEvent.KEYCODE_BUTTON_A -> if (e.repeatCount == 0) UiSounds.play(this, UiSounds.Kind.SELECT)
+            KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_L2, KeyEvent.KEYCODE_BUTTON_R2 ->
+                if (e.repeatCount == 0) UiSounds.play(this, UiSounds.Kind.TAB)
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT ->
+                UiSounds.play(this, UiSounds.Kind.MOVE)
+        }
         when (e.action) {
             KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
-                // Sonidos de navegación (no probando botones ni grabando una macro).
-                if (!s.capturing) when (e.keyCode) {
-                    KeyEvent.KEYCODE_BUTTON_A -> UiSounds.play(this, UiSounds.Kind.SELECT)
-                    KeyEvent.KEYCODE_BUTTON_B -> UiSounds.play(this, UiSounds.Kind.BACK)
-                    KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_L2, KeyEvent.KEYCODE_BUTTON_R2 ->
-                        UiSounds.play(this, UiSounds.Kind.TAB)
-                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT ->
-                        UiSounds.play(this, UiSounds.Kind.MOVE)
-                }
                 s.pressedKeys[e.keyCode] = Unit
                 if (padKeyOf(e.keyCode) == null && s.testMode) addOtherKey(e, viaService = false)
             }
@@ -254,7 +255,7 @@ class MainActivity : ComponentActivity() {
                 bHandler.removeCallbacks(bHold)
                 s.bHold = null
                 s.bReady = false
-                if (exitOnRelease) { exitOnRelease = false; bHoldFired = false; moveTaskToBack(true); return true }
+                if (exitOnRelease) { exitOnRelease = false; bHoldFired = false; UiSounds.play(this, UiSounds.Kind.EXIT); moveTaskToBack(true); return true }
                 if (bHoldFired) { bHoldFired = false; return true }   // ese B ya hizo su acción
             }
         }
@@ -294,7 +295,7 @@ class MainActivity : ComponentActivity() {
             }
             KeyEvent.KEYCODE_BUTTON_B -> {
                 // B solo cierra lo que esté abierto (el editor de macro). Los diálogos lo manejan solos.
-                if (e.action == KeyEvent.ACTION_UP && s.editingMacro != null) closeMacroEditor()
+                if (e.action == KeyEvent.ACTION_UP && s.editingMacro != null) { UiSounds.play(this, UiSounds.Kind.BACK); closeMacroEditor() }
                 return true
             }
             // Vista y Menú no hacen nada en la app: solo sirven para cambiar de modo (si no, Menú

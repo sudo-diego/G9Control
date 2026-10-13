@@ -144,7 +144,7 @@ class GamePanel(private val svc: AutoModeService) {
         // Empieza en el primer mosaico (Captura), no en las barras.
         ui.sel = ui.items.indexOfFirst { it.section == PanelRow.GAME }.coerceAtLeast(0)
         header()
-        if (view == null) create()
+        if (view == null) { create(); UiSounds.play(svc, UiSounds.Kind.OPEN, panel = true) }
         svc.setPanelSticks(true)
         poke()
         main.removeCallbacks(live); main.postDelayed(live, LIVE_MS)
@@ -376,10 +376,19 @@ class GamePanel(private val svc: AutoModeService) {
             if (AutoRules.lowBatteryOverToast(svc)) NoticePos.entries.first { it.h == 0 && it.v == 1 } else null)
     }
 
-    /** Al enchufar: hasta dónde carga y cuánto falta. */
+    /** Al enchufar: el nivel y cuánto falta para el límite (o para llenarse). Con el color de acento del panel. */
     fun chargeNotice(level: Int, target: Int, left: String?) =
-        flash.show(flash.batteryIcon(level, charging = true), tr("Cargando · $level %", "Charging · $level %"),
-            left?.let { tr("$target % en $it", "$target % in $it") } ?: tr("Hasta $target %", "Up to $target %"), 4500)
+        flash.show(flash.batteryIcon(level, charging = true), tr("$level % · cargando", "$level % · charging"),
+            when {
+                left == null -> if (target < 100) tr("Hasta $target %", "Up to $target %") else tr("Hasta llenarse", "Until full")
+                target < 100 -> tr("Llega a $target % en $left", "Reaches $target % in $left")
+                else -> tr("Llena en $left", "Full in $left")
+            }, 4500,
+            // Igual que el de batería baja: si se pidió, abajo al centro, encima del aviso de carga de ZUI.
+            if (AutoRules.lowBatteryOverToast(svc)) NoticePos.entries.first { it.h == 0 && it.v == 1 } else null)
+
+    /** Jingle de carga (al enchufar). */
+    fun chargeJingle() = sounds.play(R.raw.charge)
 
     /** Shizuku no está corriendo (no arrancó al encender) y algo elegido lo necesita. */
     fun shizukuHint() = flash.show(flash.appIcon(Shell.PACKAGE), tr("Shizuku no arrancó", "Shizuku didn't start"),
@@ -494,7 +503,7 @@ class GamePanel(private val svc: AutoModeService) {
         when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> UiSounds.play(svc, UiSounds.Kind.MOVE, panel = true)
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER -> if (e.repeatCount == 0) UiSounds.play(svc, UiSounds.Kind.SELECT, panel = true)
-            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> if (e.repeatCount == 0) UiSounds.play(svc, UiSounds.Kind.BACK, panel = true)
+            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_BUTTON_MODE -> if (e.repeatCount == 0) UiSounds.play(svc, UiSounds.Kind.BACK, panel = true)
         }
         when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> moveGrid(-1, 0)
@@ -1054,34 +1063,73 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     /**
-     * Grabadora de Legion: grabando, la para (su botón de los ajustes rápidos); si no, la abre desde ahí y toca su
-     * botón rojo (su control no tiene nombres: el rojo es el centro). Hay que esperar su animación antes de tocarlo.
+     * Hace [block] (gestos sobre otra app) detrás de la imagen congelada del juego, como el cambio de rendimiento:
+     * así no se ven los ajustes rápidos ni el panel de Game Assistant. Los botones del control no llegan al juego
+     * mientras tanto ([busy]). Como mucho 15 s. Lo grabado (la grabadora o Shadow Rec) puede mostrar un instante la
+     * imagen congelada al empezar o al terminar.
+     */
+    private suspend fun covered(label: String, fail: String, hint: String, quick: Boolean = false, block: suspend () -> Boolean): Boolean {
+        if (perfBusy) return false
+        perfBusy = true
+        val cover = FreezeCover(svc)
+        var ok = false
+        try {
+            delay(300)   // que el panel desaparezca antes de congelar
+            cover.show(screenshotDisplay(), label, fail, hint)
+            delay(200)
+            ok = withTimeoutOrNull(15_000) { block() } ?: false
+        } finally {
+            cover.done(ok, quick)
+            perfBusy = false
+        }
+        return ok
+    }
+
+    /**
+     * Grabadora de Legion: grabando, la para con su mosaico de los ajustes rápidos y cierra el control que queda; si
+     * no, abre ese mosaico y toca el botón rojo de su control. Todo se busca por nombre o id con la accesibilidad y se
+     * toca en el centro de lo que se encontró (no en coordenadas fijas): sirve con otra resolución, en 16:9 o con el
+     * control movido. Si ZUI cambia esos nombres, avisa que no lo encontró en vez de tocar al azar.
      */
     fun toggleRecord() {
         hide()
         scope.launch {
             if (shadowOn()) return@launch toast(tr("Apaga Shadow Rec para grabar: no pueden ir juntos", "Turn off Shadow Rec to record: they can't run together"))
             val was = recState()
-            svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
-            var tile: android.view.accessibility.AccessibilityNodeInfo? = null
-            repeat(10) { if (tile == null) { delay(200); tile = findNode("com.android.systemui", REC_TILE) } }
-            val t = tile
-            if (t == null) {
-                svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
-                return@launch toast(tr("No encontré Grabar pantalla en los ajustes rápidos", "Couldn't find Screen record in Quick Settings"))
+            var why: String? = null
+            val ok = covered(if (was == 1) tr("Parando la grabación", "Stopping the recording") else tr("Empezando a grabar", "Starting to record"),
+                tr("No se pudo grabar", "Couldn't record"), tr("Prueba con la grabadora de los ajustes rápidos", "Try the recorder in Quick Settings"), quick = was != 1) {
+                svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
+                var tile: android.view.accessibility.AccessibilityNodeInfo? = null
+                repeat(10) { if (tile == null) { delay(200); tile = findNode("com.android.systemui", REC_TILE) } }
+                val t = tile
+                if (t == null) {
+                    svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                    why = tr("No encontré Grabar pantalla en los ajustes rápidos", "Couldn't find Screen record in Quick Settings")
+                    return@covered false
+                }
+                if (!t.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) tapNode(t)
+                delay(500)
+                if (Build.VERSION.SDK_INT >= 31) svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
+                // Su control flotante (ajustes · rojo · X): sin nombres por dentro, así que el rojo es su centro y la X
+                // su quinto derecho, siempre relativos a dónde esté (se puede mover).
+                var ctl: android.view.accessibility.AccessibilityNodeInfo? = null
+                repeat(15) { if (ctl == null) { delay(200); ctl = findNode("com.android.systemui", id = REC_FLOAT) } }
+                val c = ctl
+                if (was == 1) {
+                    c?.let { val r = android.graphics.Rect().also { b -> it.getBoundsInScreen(b) }; tap(r.right - r.width() * 0.2f, r.exactCenterY()) }
+                    delay(400)
+                    return@covered recState() != 1
+                }
+                if (c == null) { why = tr("La grabadora no se abrió", "The recorder didn't open"); return@covered false }
+                delay(1200)   // su animación de entrada: antes no recibe el toque
+                tapNode(c)
+                var w = 0
+                while (recState() != 1 && w++ < 10) delay(200)
+                recState() == 1
             }
-            if (!t.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) tapNode(t)
-            delay(500)
-            if (Build.VERSION.SDK_INT >= 31) svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
-            if (was == 1) { delay(800); return@launch toast(tr("Grabación guardada en Pictures/screenrecorder", "Recording saved in Pictures/screenrecorder")) }
-            var ctl: android.view.accessibility.AccessibilityNodeInfo? = null
-            repeat(15) { if (ctl == null) { delay(200); ctl = findNode("com.android.systemui", id = "com.android.systemui:id/lottie_float_view") } }
-            val c = ctl ?: return@launch toast(tr("La grabadora no se abrió", "The recorder didn't open"))
-            delay(1200)
-            tapNode(c)
-            delay(1500)
-            toast(if (recState() == 1) tr("Grabando · Guía + LT para parar", "Recording · Guide + LT to stop")
-                else tr("No empezó a grabar: prueba con su botón rojo", "It didn't start: try its red button"))
+            if (why != null) toast(why!!) else if (ok) toast(if (was == 1) tr("Grabación guardada en Pictures/screenrecorder", "Recording saved in Pictures/screenrecorder")
+                else tr("Grabando · Guía + LT para parar", "Recording · Guide + LT to stop"))
         }
     }
 
@@ -1090,42 +1138,59 @@ class GamePanel(private val svc: AutoModeService) {
         hide()
         if (!ZuiGame.inGame(svc)) return toast(tr("Shadow Rec funciona en los juegos de Game Assistant", "Shadow Rec works in Game Assistant's games"))
         scope.launch {
-            withGa {
-                val f = findNode(ZuiGame.PACKAGE, id = SHADOW_FLOAT)
-                if (f == null) { shadowToggleShown(); return@withGa }
-                // Su "»" se despliega en "Back Rec.", que guarda los últimos segundos.
-                tapNode(f)
-                var b: android.view.accessibility.AccessibilityNodeInfo? = null
-                repeat(8) { if (b == null) { delay(150); b = findNode(ZuiGame.PACKAGE, SHADOW_SAVE) } }
-                val bb = b ?: return@withGa toast(tr("No encontré el botón de guardar de Shadow Rec", "Couldn't find Shadow Rec's save button"))
-                tapNode(bb)
-                toast(tr("Clip guardado en Movies/Highlight", "Clip saved in Movies/Highlight"))
+            var msg: String? = null
+            covered(tr("Shadow Rec", "Shadow Rec"), tr("No se pudo usar Shadow Rec", "Couldn't use Shadow Rec"), tr("Prueba desde el panel de Game Assistant", "Try from Game Assistant's panel"), quick = true) {
+                var ok = false
+                withGa {
+                    val f = findNode(ZuiGame.PACKAGE, id = SHADOW_FLOAT)
+                    if (f == null) { ok = shadowToggleShown().also { msg = it.second }.first; return@withGa }
+                    // Su "»" se despliega en "Back Rec.", que guarda los últimos segundos.
+                    tapNode(f)
+                    var b: android.view.accessibility.AccessibilityNodeInfo? = null
+                    repeat(8) { if (b == null) { delay(150); b = findNode(ZuiGame.PACKAGE, SHADOW_SAVE) } }
+                    val bb = b ?: run { msg = tr("No encontré el botón de guardar de Shadow Rec", "Couldn't find Shadow Rec's save button"); return@withGa }
+                    tapNode(bb)
+                    ok = true
+                    msg = tr("Clip guardado en Movies/Highlight", "Clip saved in Movies/Highlight")
+                }
+                ok
             }
+            msg?.let { toast(it) }
         }
     }
 
     /** Enciende o apaga Shadow Rec desde el panel de Game Assistant (su botón, por nombre). */
-    private fun shadowToggle() { scope.launch { withGa { shadowToggleShown() } } }
+    private fun shadowToggle() {
+        scope.launch {
+            var msg: String? = null
+            covered("Shadow Rec", tr("No se pudo usar Shadow Rec", "Couldn't use Shadow Rec"), tr("Prueba desde el panel de Game Assistant", "Try from Game Assistant's panel"), quick = true) {
+                var ok = false
+                withGa { val (o, m) = shadowToggleShown(); ok = o; msg = m }
+                ok
+            }
+            msg?.let { toast(it) }
+        }
+    }
 
-    private suspend fun shadowToggleShown() {
+    /** Toca "Shadow Rec" en el panel de Game Assistant. Devuelve si se pudo y qué decir. */
+    private suspend fun shadowToggleShown(): Pair<Boolean, String> {
         val was = shadowOn()
-        val bar = ZuiGame.awaitSideBar(svc) ?: return toast(tr("No se pudo abrir Game Assistant.", "Couldn't open Game Assistant."))
-        if (!swipe(bar, open = true)) return
+        val bar = ZuiGame.awaitSideBar(svc) ?: return false to tr("No se pudo abrir Game Assistant.", "Couldn't open Game Assistant.")
+        if (!swipe(bar, open = true)) return false to tr("No se pudo abrir Game Assistant.", "Couldn't open Game Assistant.")
         var item: android.view.accessibility.AccessibilityNodeInfo? = null
         repeat(10) { if (item == null) { delay(150); item = findNode(ZuiGame.PACKAGE, listOf("Shadow Rec")) } }
         val i = item
         if (i == null) {
             swipe(bar, open = false)
-            return toast(tr("Agrega Shadow Rec a su panel: Game Assistant → Shortcut sort", "Add Shadow Rec to its panel: Game Assistant → Shortcut sort"))
+            return false to tr("Agrega Shadow Rec a su panel: Game Assistant → Shortcut sort", "Add Shadow Rec to its panel: Game Assistant → Shortcut sort")
         }
         tapNode(i)
         shadowKnown = !was
         delay(900)
         // Al tocarlo su panel se cierra solo; si quedó abierto, se cierra.
         if (findNode(ZuiGame.PACKAGE, listOf("Clean RAM", "Screen shot")) != null) swipe(bar, open = false)
-        toast(if (was) tr("Shadow Rec apagado", "Shadow Rec off") else tr("Shadow Rec encendido · Guía + RT guarda los últimos segundos", "Shadow Rec on · Guide + RT saves the last seconds"))
+        return true to if (was) tr("Shadow Rec apagado", "Shadow Rec off") else tr("Shadow Rec encendido · Guía + RT guarda los últimos segundos", "Shadow Rec on · Guide + RT saves the last seconds")
     }
-
     /** Con Game Assistant a la vista (si está oculto, se muestra y se vuelve a ocultar al terminar). */
     private suspend fun withGa(block: suspend () -> Unit) {
         val hidden = keepGaHidden() && !gaShownByUs
@@ -1459,3 +1524,4 @@ class GamePanel(private val svc: AutoModeService) {
 private const val SHADOW_FLOAT = "com.zui.game.service:id/float_container"
 private val SHADOW_SAVE = listOf("Back Rec")
 private val REC_TILE = listOf("Screen record", "Grabar pantalla", "Grabación de pantalla")
+private const val REC_FLOAT = "com.android.systemui:id/lottie_float_view"

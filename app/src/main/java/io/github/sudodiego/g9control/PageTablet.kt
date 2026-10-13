@@ -163,6 +163,8 @@ private fun LowBatteryPanel(a: MainActivity) {
         SwitchRow(tr("Al enchufar", "When plugged in"), charge, tr("Cuánto falta para el límite o para 100 %", "Time left to the limit or to 100 %")) {
             charge = it; AutoRules.setChargeNotice(a, it)
         }
+        var chargeSound by remember { mutableStateOf(AutoRules.chargeSound(a)) }
+        SwitchRow(tr("Sonido al enchufar", "Sound when plugged in"), chargeSound) { chargeSound = it; AutoRules.setChargeSound(a, it) }
         var low by remember { mutableStateOf(AutoRules.lowBattery(a)) }
         SwitchRow(tr("Batería baja", "Low battery"), low, tr("Tarjeta a 15, 10 y 5 % sin cargador", "Card at 15, 10 and 5 % unplugged")) {
             low = it; AutoRules.setLowBattery(a, it)
@@ -170,7 +172,7 @@ private fun LowBatteryPanel(a: MainActivity) {
         var lowSound by remember { mutableStateOf(AutoRules.lowBatterySound(a)) }
         SwitchRow(tr("Con sonido", "With sound"), lowSound) { lowSound = it; AutoRules.setLowBatterySound(a, it) }
         var overToast by remember { mutableStateOf(AutoRules.lowBatteryOverToast(a)) }
-        SwitchRow(tr("Tapar el aviso del sistema", "Cover the system notice"), overToast, tr("Abajo al centro, encima del toast de ZUI", "Bottom center, over ZUI's toast")) {
+        SwitchRow(tr("Tapar el aviso del sistema", "Cover the system notice"), overToast, tr("Los dos avisos, abajo al centro, encima de los de ZUI", "Both notices, bottom center, over ZUI's")) {
             overToast = it; AutoRules.setLowBatteryOverToast(a, it)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

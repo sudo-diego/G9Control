@@ -169,8 +169,15 @@ class PerfHud(private val svc: AutoModeService) {
             if (AutoRules.perfFull(svc)) { row("RAM"); sb.append(ramFree()) }
             row("BAT"); sb.append(level?.let { "%3d %%".format(it) } ?: "—"); temp(batTemp, 40, 45)
             if (AutoRules.perfFull(svc)) {
-                if (!(plugged0 && !charging0)) watts(bat)?.let { colored("  " + (if (charging0) "+" else "−") + "%.1f W".format(it), MUTED) }
-                if (!(plugged0 && !charging0)) remaining(bat, charging0)?.let { row(""); colored(it, MUTED) }
+                // Energía en su fila (al lado de BAT no cabía y se cortaba): W y lo que queda o falta para cargar.
+                if (!(plugged0 && !charging0)) {
+                    val w = watts(bat); val left = remaining(bat, charging0)
+                    if (w != null || left != null) {
+                        row("PWR")
+                        w?.let { sb.append((if (charging0) "+" else "") + "%.1f W".format(it)) }
+                        left?.let { colored((if (w != null) "  " else "") + it, MUTED) }
+                    }
+                }
                 hz()?.let { row("Hz"); sb.append("$it") }
                 thermal()?.let { if (sb.isNotEmpty()) sb.append("\n"); colored(it, HOT) }
             }

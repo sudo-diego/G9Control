@@ -231,16 +231,23 @@ internal class FreezeCover(private val svc: AccessibilityService) {
     private var title: android.widget.TextView? = null
     private var subtitle: android.widget.TextView? = null
     private var shot: Bitmap? = null
-    private var mode = ""
+    private var failTitle = ""
+    private var failHint = ""
 
-    fun show(image: Bitmap?, modeLabel: String) {
-        mode = modeLabel
+    /**
+     * [label]: el título ("Rendimiento: Bestia", "Grabando"…); [fail]/[hint]: lo que dice si sale mal. Sirve para
+     * todo lo que se hace como el dedo sobre otra app (rendimiento, grabación, Shadow Rec): así no se ve.
+     */
+    fun show(image: Bitmap?, label: String,
+             fail: String = tr("No se pudo cambiar el rendimiento", "Couldn't change performance"),
+             hint: String = tr("Prueba otra vez o usa Game Assistant", "Try again or use Game Assistant")) {
+        failTitle = fail; failHint = hint
         val dp = svc.resources.displayMetrics.density
         val px = { v: Int -> (v * dp).toInt() }
         val icon = PerfRing(svc)
         val t = android.widget.TextView(svc).apply {
             // El título no cambia en todo el proceso (si cambia al final no se alcanza a leer).
-            text = tr("Rendimiento: $modeLabel", "Performance: $modeLabel")
+            text = label
             setTextColor(if (light) 0xFF14203A.toInt() else android.graphics.Color.WHITE)
             textSize = 16f
             setTypeface(typeface, android.graphics.Typeface.BOLD)
@@ -307,7 +314,7 @@ internal class FreezeCover(private val svc: AccessibilityService) {
      * el anillo se cierra y se enciende (ver [PerfRing]) y la línea de abajo dice «Listo». Se ve 1,2 s y la imagen se
      * va con un fundido.
      */
-    fun done(ok: Boolean) {
+    fun done(ok: Boolean, quick: Boolean = false) {
         if (view == null) return
         // Que el cambio de texto no achique la tarjeta.
         (subtitle?.parent as? android.view.View)?.let { it.minimumWidth = it.width }
@@ -315,13 +322,13 @@ internal class FreezeCover(private val svc: AccessibilityService) {
         if (ok) {
             subtitle?.text = tr("Listo", "Done")
         } else {
-            title?.text = tr("No se pudo cambiar el rendimiento", "Couldn't change performance")
-            subtitle?.text = tr("Prueba otra vez o usa Game Assistant", "Try again or use Game Assistant")
+            title?.text = failTitle
+            subtitle?.text = failHint
         }
         main.postDelayed({
             val v = view ?: return@postDelayed
             v.animate().alpha(0f).setDuration(250).withEndAction { hide() }.start()
-        }, if (ok) 1200 else 2200)
+        }, if (!ok) 2200 else if (quick) 500 else 1200)
     }
 
     fun hide() {
@@ -585,7 +592,8 @@ internal class ShotFlash(private val svc: AccessibilityService) {
             c.drawRoundRect(body, 4 * dp, 4 * dp, p)
             p.style = android.graphics.Paint.Style.FILL
             c.drawRoundRect(android.graphics.RectF(41 * dp, 20 * dp, 44 * dp, 28 * dp), 1.5f * dp, 1.5f * dp, p)
-            p.color = if (charging) 0xFF3DDC84.toInt() else 0xFFFF5A5F.toInt()
+            // Cargando, con el color de acento del panel; baja, en rojo.
+            p.color = if (charging) ThemeState.panelAccent.color(light).let { android.graphics.Color.argb(it.alpha, it.red, it.green, it.blue) } else 0xFFFF5A5F.toInt()
             val inner = body.width() - 2 * (stroke + 1.5f * dp)
             c.drawRoundRect(android.graphics.RectF(body.left + stroke + 1.5f * dp, body.top + stroke + 1.5f * dp,
                 body.left + stroke + 1.5f * dp + inner * (level.coerceIn(3, 100) / 100f), body.bottom - stroke - 1.5f * dp), 2 * dp, 2 * dp, p)

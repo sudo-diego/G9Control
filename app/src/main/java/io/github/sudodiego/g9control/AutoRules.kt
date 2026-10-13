@@ -126,6 +126,9 @@ object AutoRules {
     /** Al enchufar: un aviso con lo que falta para el límite (el propio o el de ZUI) o para 100 %. */
     fun chargeNotice(ctx: Context) = sp(ctx).getBoolean("charge_notice", true)
     fun setChargeNotice(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("charge_notice", v).apply()
+    /** Jingle al enchufar (res/raw/charge.wav), apenas se conecta el cargador. */
+    fun chargeSound(ctx: Context) = sp(ctx).getBoolean("charge_sound", true)
+    fun setChargeSound(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("charge_sound", v).apply()
     fun lowBatterySound(ctx: Context) = sp(ctx).getBoolean("low_battery_sound", true)
     fun setLowBatterySound(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery_sound", v).apply()
 

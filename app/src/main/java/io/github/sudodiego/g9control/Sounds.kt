@@ -17,7 +17,8 @@ import androidx.compose.runtime.setValue
  * app si están encendidos; en el panel de juego solo si además se pidió ([AutoRules]-like prefs en [Prefs]).
  */
 object UiSounds {
-    enum class Kind { MOVE, SELECT, BACK, TAB }
+    /** MOVE: se movió la selección; SELECT: A; BACK: se cerró o volvió algo; TAB: otra pestaña o sección; OPEN: se abrió el panel; EXIT: se salió de la app. */
+    enum class Kind { MOVE, SELECT, BACK, TAB, OPEN, EXIT }
 
     private var pool: SoundPool? = null
     private val ids = mutableMapOf<Kind, Int>()
@@ -35,6 +36,8 @@ object UiSounds {
         ids[Kind.SELECT] = p.load(app, R.raw.nav_select, 1)
         ids[Kind.BACK] = p.load(app, R.raw.nav_back, 1)
         ids[Kind.TAB] = p.load(app, R.raw.nav_tab, 1)
+        ids[Kind.OPEN] = p.load(app, R.raw.nav_open, 1)
+        ids[Kind.EXIT] = p.load(app, R.raw.nav_exit, 1)
         pool = p
         return p
     }
