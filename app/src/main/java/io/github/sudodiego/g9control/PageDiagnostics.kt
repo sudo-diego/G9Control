@@ -310,8 +310,10 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                 ChoiceChips(listOf(false to tr("Barra", "Bar"), true to tr("Columna", "Column")), perfList) {
                     perfList = it; AutoRules.setPerfList(a, it)
                 }
-                SwitchRow(tr("Más datos", "More data"), perfFull, tr("RAM, watts, tiempo, Hz y calor", "RAM, watts, time, Hz and heat")) {
-                    perfFull = it; AutoRules.setPerfFull(a, it)
+                Text(tr("Qué muestra", "What it shows"), fontSize = 14.sp)
+                var items by remember { mutableStateOf(AutoRules.perfItems(a)) }
+                MultiChips(AutoRules.PerfItem.entries.map { it to it.label }, items) { it, sel ->
+                    items = if (sel) items + it else items - it; AutoRules.setPerfItems(a, items)
                 }
             }
         }

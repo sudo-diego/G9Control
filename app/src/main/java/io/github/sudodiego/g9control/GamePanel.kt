@@ -206,14 +206,16 @@ class GamePanel(private val svc: AutoModeService) {
         ui.chargeLeft = when {
             ui.charging -> ZuiBattery.chargeTimeLeft(svc)?.let {
                 val target = ZuiBattery.chargeTarget(svc)
-                ZuiBattery.formatTime(it) + if (target < 100) tr(" a $target %", " to $target %") else ""
+                val t = ZuiBattery.formatTime(it)
+                if (target < 100) tr("Llega a $target % en $t", "Reaches $target % in $t") else tr("Llena en $t", "Full in $t")
             }
             // A batería: cuánto dura al ritmo del último minuto (o al de ahora si todavía no hay promedio).
-            !ZuiBattery.plugged(svc) -> ZuiBattery.estimatedLeft(svc)?.let { ZuiBattery.formatTime(it) }
+            !ZuiBattery.plugged(svc) -> ZuiBattery.estimatedLeft(svc)?.let { tr("Quedan ${ZuiBattery.formatTime(it)}", "${ZuiBattery.formatTime(it)} left") }
             else -> null
         }
         val time = android.text.format.DateFormat.getTimeFormat(svc).format(Date())
         ui.status = listOfNotNull(ui.battery.takeIf { it >= 0 }?.let { "$it %" }, time).joinToString(" · ")
+        ui.clock = time
     }
 
     /** Shizuku no está listo: pedirle el permiso, o abrir su app para iniciarlo. */

@@ -148,7 +148,7 @@ private fun GameScene(modifier: Modifier) {
 /** Ítems de muestra, como en un juego: barras, juego, recientes, pantalla y Android. */
 private fun sampleUi() = PanelUi().apply {
     title = "Wind Waker"
-    battery = 72; status = "72 % · 21:30"; mode = "DS5"
+    battery = 72; status = "72 % · 21:30"; clock = "21:30"; mode = "DS5"; chargeLeft = tr("Quedan 3 h 10 min", "3 h 10 min left")
     items = listOf(
         PanelItem(tr("Brillo", "Brightness"), Icons.Outlined.BrightnessMedium, PanelRow.SLIDER, sub = "60 %", level = 0.6f, set = {}),
         PanelItem(tr("Brillo automático", "Auto brightness"), Icons.Outlined.BrightnessAuto, PanelRow.SLIDER),

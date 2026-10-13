@@ -740,6 +740,22 @@ fun GradientTrack(value: Float, brush: Brush, thumb: Color, keyStep: Float = 0.0
     }
 }
 
+/** Pastillas que se marcan y desmarcan cada una (varias a la vez). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun <T> MultiChips(options: List<Pair<T, String>>, selected: Set<T>, onToggle: (T, Boolean) -> Unit) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        options.forEach { (v, label) ->
+            val on = v in selected
+            FilterChip(
+                selected = on, onClick = { onToggle(v, !on) }, label = { Text(label) },
+                enabled = LocalEditable.current,
+                leadingIcon = if (on) { { Icon(Icons.Filled.Check, null, Modifier.size(16.dp)) } } else null
+            )
+        }
+    }
+}
+
 /** Fila de opciones tipo "pastilla". */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

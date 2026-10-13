@@ -59,6 +59,10 @@ class PerfHud(private val svc: AutoModeService) {
         }
         val list = AutoRules.perfList(svc)
         if (list) { v.typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD); v.gravity = Gravity.START; v.textSize = 12f }
+        // Las líneas no se parten (la caja no siempre se ensanchaba y "cargando" o "→ 80 %" caían a la línea de abajo).
+        // La columna con ancho fijo (25 caracteres): así no cambia de tamaño con cada dato.
+        v.setHorizontallyScrolling(true)
+        if (list) v.minWidth = v.paint.measureText("M".repeat(25)).toInt()
         val g = FrameGraph(svc, dp).apply { visibility = android.view.View.GONE }
         // El texto (barra o columna: los mismos datos, otra forma) y, debajo, el gráfico de tiempos de cuadro (con FPS).
         val box = android.widget.LinearLayout(svc).apply {
@@ -66,7 +70,7 @@ class PerfHud(private val svc: AutoModeService) {
             setPadding((12 * dp).toInt(), (6 * dp).toInt(), (12 * dp).toInt(), (6 * dp).toInt())
             background = GradientDrawable().apply { setColor(0xB80E1424.toInt()); cornerRadius = 12 * dp }
             addView(v)
-            addView(g, android.widget.LinearLayout.LayoutParams(if (list) (150 * dp).toInt() else android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+            addView(g, android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                 (30 * dp).toInt()).apply { topMargin = (4 * dp).toInt() })
         }
         val pos = AutoRules.perfPos(svc)
@@ -167,65 +171,70 @@ class PerfHud(private val svc: AutoModeService) {
         }
         val charging = bat?.getIntExtra(BatteryManager.EXTRA_STATUS, 0) == BatteryManager.BATTERY_STATUS_CHARGING
         val plugged = (bat?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
-        val full = AutoRules.perfFull(svc)
+        // Lo que se eligió mostrar (Juego → Monitor → Datos). Los dos estilos muestran lo mismo, solo cambia la forma.
+        val on = AutoRules.perfItems(svc)
+        fun has(it: AutoRules.PerfItem) = it in on
         // Enchufada sin cargar (bypass o límite): la batería casi no da ni recibe nada; W y tiempo saldrían absurdos.
         val held = plugged && !charging
-        val w = if (full && !held) watts(bat) else null
-        val left = if (full && !held) remaining(charging) else null
+        val w = if (has(AutoRules.PerfItem.PWR) && !held) watts(bat) else null
+        // Promedio del último minuto (el mismo del panel) y lo que dura la batería a ese ritmo.
+        val avg = PowerLog.recentAvg?.takeIf { has(AutoRules.PerfItem.PWR) && !held && !charging }
+        val left = if (has(AutoRules.PerfItem.LEFT) && !held) remaining(charging) else null
         val ms = fps?.takeIf { it > 0 }?.let { 1000.0 / it }
-        val hz = if (full) hz() else null
-        val cap = if (full) cpuCap() else null
-        val ram = if (full) ramFree() else null
+        val hz = if (has(AutoRules.PerfItem.HZ)) hz() else null
+        val cap = if (has(AutoRules.PerfItem.MAX)) cpuCap() else null
+        val ram = if (has(AutoRules.PerfItem.RAM)) ramFree() else null
 
         // Para medir consumo (por ejemplo 60 contra 120 Hz) desde el PC: una línea por segundo en el registro.
         val ua = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW)
         val mv = bat?.getIntExtra(BatteryManager.EXTRA_VOLTAGE, 0) ?: 0
         if (ua != Int.MIN_VALUE && mv > 0) Log.d("G9Power", "w=%.3f hz=%s plugged=%b".format(kotlin.math.abs(ua.toDouble()) / 1e6 * mv / 1e3, hz(), plugged))
 
+        val pwrText = w?.let { (if (charging) "+" else "") + "%.1f W".format(it) } ?: "—"
+        val avgText = avg?.let { tr(" · prom %.1f", " · avg %.1f").format(it) }
         if (listStyle) {
-            // Columna: una fila por dato, la etiqueta en una columna fija. Siempre las mismas filas (con "—" si falta el
-            // dato): si cambiaba la cantidad, la ventana no siempre crecía y la última (Hz) quedaba cortada.
+            // Columna: una fila por dato elegido, la etiqueta en una columna fija. Mientras estén elegidas, las filas
+            // están siempre (con "—" si falta el dato): si cambiaba la cantidad, la ventana no siempre crecía.
             fun row(name: String) { if (sb.isNotEmpty()) sb.append("\n"); label(name.padEnd(5)) }
-            row("FPS"); sb.append(fps?.let { "%3d".format(it) } ?: "  —"); ms?.let { colored("  %.1f ms".format(it), MUTED) }
-            row("CPU"); sb.append(cpuGhz?.let { "%.1f GHz".format(it) } ?: "—"); temp(maxTemp("cpu"), 75, 90)
-            row("GPU"); sb.append(gpu?.let { "%3d %%".format(it) } ?: "—"); temp(maxTemp("gpu"), 70, 85)
-            // Batería con el mismo ícono que la barra: rayo cargando, enchufe en bypass o con el límite de carga.
-            row("BAT"); batteryIcon(sb, level, charging, held); sb.append(level?.let { "%3d %%".format(it) } ?: "—"); temp(batTemp, 40, 45)
-            if (full) {
-                row("RAM"); sb.append(ram ?: "—")
-                row("PWR"); sb.append(w?.let { (if (charging) "+" else "") + "%.1f W".format(it) } ?: "—")
-                row(if (charging) "CHG" else "LEFT"); sb.append(left ?: "—")
-                row("Hz"); sb.append(hz?.toString() ?: "—")
-                // Tope de la CPU ahora contra el máximo del chip: el freno real (por calor o por el modo de rendimiento).
-                row("MAX"); capText(cap)
+            if (has(AutoRules.PerfItem.FPS)) { row("FPS"); sb.append(fps?.let { "%3d".format(it) } ?: "  —"); ms?.let { colored("  %.1f ms".format(it), MUTED) } }
+            if (has(AutoRules.PerfItem.CPU)) { row("CPU"); sb.append(cpuGhz?.let { "%.1f GHz".format(it) } ?: "—"); temp(maxTemp("cpu"), 75, 90) }
+            if (has(AutoRules.PerfItem.GPU)) { row("GPU"); sb.append(gpu?.let { "%3d %%".format(it) } ?: "—"); temp(maxTemp("gpu"), 70, 85) }
+            // Columna: solo texto (los íconos son de la barra). En pausa = enchufada sin cargar (bypass o límite).
+            if (has(AutoRules.PerfItem.BAT)) {
+                row("BAT"); sb.append(level?.let { "%3d %%".format(it) } ?: "—"); temp(batTemp, 40, 45)
+                if (charging) colored(tr("  cargando", "  charging"), MUTED) else if (held) colored(tr("  en pausa", "  on hold"), MUTED)
             }
+            if (has(AutoRules.PerfItem.RAM)) { row("RAM"); sb.append(ram ?: "—") }
+            if (has(AutoRules.PerfItem.PWR)) { row("PWR"); sb.append(pwrText); avgText?.let { colored(it, MUTED) } }
+            if (has(AutoRules.PerfItem.LEFT)) { row(if (charging) "CHG" else "LEFT"); sb.append(left ?: "—") }
+            if (has(AutoRules.PerfItem.HZ)) { row("Hz"); sb.append(hz?.toString() ?: "—") }
+            // Tope de la CPU ahora contra el máximo del chip: el freno real (por calor o por el modo de rendimiento).
+            if (has(AutoRules.PerfItem.MAX)) { row("MAX"); capText(cap) }
         } else {
-            // Barra: los mismos datos en una o dos líneas.
-            if (fps != null) { sb.append("$fps "); label("FPS"); ms?.let { colored(" %.1f ms".format(it), MUTED) }; sep() }
-            label("CPU "); sb.append(cpuGhz?.let { "%.1f GHz".format(it) } ?: "—"); temp(maxTemp("cpu"), 75, 90)
-            sep()
-            label("GPU "); sb.append(gpu?.let { "$it %" } ?: "—"); temp(maxTemp("gpu"), 70, 85)
-            sep()
+            // Barra: los mismos datos, en dos líneas (rendimiento arriba; batería y pantalla abajo).
+            val top = mutableListOf<() -> Unit>()
+            val bottom = mutableListOf<() -> Unit>()
+            if (has(AutoRules.PerfItem.FPS) && fps != null) top += { sb.append("$fps "); label("FPS"); ms?.let { colored(" %.1f ms".format(it), MUTED) } }
+            if (has(AutoRules.PerfItem.CPU)) top += { label("CPU "); sb.append(cpuGhz?.let { "%.1f GHz".format(it) } ?: "—"); temp(maxTemp("cpu"), 75, 90) }
+            if (has(AutoRules.PerfItem.GPU)) top += { label("GPU "); sb.append(gpu?.let { "$it %" } ?: "—"); temp(maxTemp("gpu"), 70, 85) }
+            if (has(AutoRules.PerfItem.MAX)) top += { label("MAX "); capText(cap) }
             // Batería como en el panel: el ícono con su nivel, con rayo cargando y con enchufe si está enchufada sin cargar.
-            batteryIcon(sb, level, charging, held)
-            sb.append(level?.let { "$it %" } ?: "—"); temp(batTemp, 40, 45)
-            if (full) {
-                sb.append("\n")
-                val parts = mutableListOf<() -> Unit>()
-                ram?.let { r -> parts += { label("RAM "); sb.append(r) } }
-                w?.let { v -> parts += { sb.append((if (charging) "+" else "") + "%.1f ".format(v)); label("W") } }
-                left?.let { l -> parts += { label(if (charging) "CHG " else "LEFT "); sb.append(l) } }
-                hz?.let { v -> parts += { sb.append("$v "); label("Hz") } }
-                cap?.let { parts += { label("MAX "); capText(it) } }
-                parts.forEachIndexed { k, p -> if (k > 0) sep(); p() }
-            }
+            if (has(AutoRules.PerfItem.BAT)) bottom += { batteryIcon(sb, level, charging, held); sb.append(level?.let { "$it %" } ?: "—"); temp(batTemp, 40, 45) }
+            if (has(AutoRules.PerfItem.RAM)) bottom += { label("RAM "); sb.append(ram ?: "—") }
+            if (has(AutoRules.PerfItem.PWR) && w != null) bottom += { sb.append(pwrText); avgText?.let { colored(it, MUTED) } }
+            if (has(AutoRules.PerfItem.LEFT) && left != null) bottom += { label(if (charging) "CHG " else "LEFT "); sb.append(left) }
+            if (has(AutoRules.PerfItem.HZ) && hz != null) bottom += { sb.append("$hz "); label("Hz") }
+            top.forEachIndexed { k, p -> if (k > 0) sep(); p() }
+            if (top.isNotEmpty() && bottom.isNotEmpty()) sb.append("\n")
+            bottom.forEachIndexed { k, p -> if (k > 0) sep(); p() }
         }
         val times = frameTimes
         main.post {
             view?.text = sb
-            graph?.let { g -> if (fps != null && times.size > 2) { g.visibility = android.view.View.VISIBLE; g.set(times) } else g.visibility = android.view.View.GONE }
+            graph?.let { g -> if (fps != null && times.size > 2 && AutoRules.PerfItem.GRAPH in AutoRules.perfItems(svc)) { g.visibility = android.view.View.VISIBLE; g.set(times) } else g.visibility = android.view.View.GONE }
         }
     }
+
     private val bm = svc.getSystemService(BatteryManager::class.java)
     /** Corriente suavizada (µA, positiva), para que los watts y el tiempo no salten de un segundo al otro. */
     private var currentAvg = 0.0
@@ -246,6 +255,8 @@ class PerfHud(private val svc: AutoModeService) {
             val target = ZuiBattery.chargeTarget(svc)
             return ZuiBattery.formatTime(ms) + if (target < 100) " → $target %" else ""
         }
+        // Al ritmo promedio del último minuto (el mismo cálculo que el panel), no al de este segundo.
+        ZuiBattery.estimatedLeft(svc)?.let { return ZuiBattery.formatTime(it) }
         val uah = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER).takeIf { it > 0 } ?: return null
         if (currentAvg < 50_000) return null   // casi sin consumo (enchufada en bypass): no tiene sentido
         return ZuiBattery.formatTime((uah / currentAvg * 3_600_000).toLong())
@@ -313,6 +324,11 @@ class PerfHud(private val svc: AutoModeService) {
         }
         private val guide = android.graphics.Paint().apply { color = 0x33FFFFFF; strokeWidth = 1f * dp }
         fun set(t: List<Float>) { times = t.takeLast(160); invalidate() }
+        /** No pide ancho propio: toma el del texto (la caja lo iguala al más ancho). Si pidiera todo, la caja ocupaba la pantalla. */
+        override fun onMeasure(w: Int, h: Int) {
+            val width = if (MeasureSpec.getMode(w) == MeasureSpec.EXACTLY) MeasureSpec.getSize(w) else (120 * dp).toInt()
+            setMeasuredDimension(width, MeasureSpec.getSize(h))
+        }
         override fun onDraw(c: android.graphics.Canvas) {
             if (times.size < 2) return
             val w = width.toFloat(); val h = height.toFloat()
@@ -340,7 +356,10 @@ class PerfHud(private val svc: AutoModeService) {
         if (Shell.state != Shell.State.READY) return null
         val app = svc.foregroundApp ?: return null
         val now = System.nanoTime()
-        if (app != layerApp || layer == null || now - layerAt > 5_000_000_000L) {
+        // Buscar la capa pide varias consultas a SurfaceFlinger (que es quien muestra los cuadros): solo al cambiar de app,
+        // si la de ahora dejó de dibujar o cada 30 s (antes cada 5 s; podía causar un pico en el gráfico).
+        val stale = presentedSeen.isNotEmpty() && (presentedSeen.peekLast() ?: now) < now - 1_500_000_000L
+        if (app != layerApp || layer == null || stale || now - layerAt > 30_000_000_000L) {
             if (app != layerApp) presentedSeen.clear()
             layerApp = app
             layerAt = now

@@ -184,6 +184,8 @@ internal class PanelUi {
     /** Cargando: lo que falta para la carga completa ("1 h 20 min"), a la izquierda de la batería. */
     var chargeLeft by mutableStateOf<String?>(null)
     var status by mutableStateOf("")
+    /** La hora, para la píldora del encabezado. */
+    var clock by mutableStateOf("")
     /** Modo del G9 ahora (Android, X-Input, DS5), como recordatorio; null si no está conectado. */
     var mode by mutableStateOf<String?>(null)
     /** Con la forma automática, el alto de la ventana queda fijo al entrar a un submenú (si se achicara, ZUI la desliza). */
@@ -375,45 +377,49 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
 }
 
 /**
- * Encabezado: la app al frente (o el submenú), el modo del G9, y tiempo (de carga o de batería), batería y hora. Al
- * centro en una línea; en el lateral (angosto) en dos: el nombre arriba y la batería abajo.
+ * Encabezado, igual al centro y en el lateral. Arriba: la app al frente (o el submenú), que se corta con "…" si es
+ * larga, y a la derecha una píldora con la batería y la hora (siempre a la vista). Abajo, más chico: el modo del G9 y
+ * lo que queda de batería o falta para cargar. En un submenú, solo el título.
  */
 @Composable
 private fun PanelHeader(ui: PanelUi) {
-    val side = ThemeState.panelSide
-    @Composable fun title() {
-        Text(ui.title, color = PANEL_FG, fontSize = 18.sp, style = LABEL_STYLE, fontWeight = FontWeight.SemiBold, maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = if (side) 260.dp else 340.dp))
-        // Modo del control, pequeño, como recordatorio.
-        if (!ui.sub) ui.mode?.let { m ->
-            Spacer(Modifier.width(10.dp))
-            Row(Modifier.clip(RoundedCornerShape(10.dp)).background(tileColor).padding(horizontal = 8.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.SportsEsports, null, Modifier.size(14.dp), tint = PANEL_MUTED)
-                Spacer(Modifier.width(5.dp))
-                Text(m, color = PANEL_MUTED, fontSize = 12.sp)
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(ui.title, color = PANEL_FG, fontSize = 19.sp, style = LABEL_STYLE, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (!ui.sub) {
+                Spacer(Modifier.width(10.dp))
+                Row(Modifier.clip(RoundedCornerShape(12.dp)).background(tileColor).padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(16.dp), tint = TILE_ON); Spacer(Modifier.width(3.dp)) }
+                    if (ui.battery >= 0) {
+                        BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held)
+                        Spacer(Modifier.width(6.dp))
+                        Text("${ui.battery} %", color = PANEL_FG, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                        Spacer(Modifier.width(10.dp))
+                    }
+                    Text(ui.clock, color = PANEL_FG, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                }
+            }
+        }
+        if (!ui.sub && (ui.mode != null || ui.chargeLeft != null)) {
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ui.mode?.let { m ->
+                    Row(Modifier.clip(RoundedCornerShape(8.dp)).background(tileColor).padding(horizontal = 7.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Outlined.SportsEsports, null, Modifier.size(13.dp), tint = PANEL_MUTED)
+                        Spacer(Modifier.width(4.dp))
+                        Text(m, color = PANEL_MUTED, fontSize = 12.sp, maxLines = 1)
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 13.sp, style = LABEL_STYLE, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) }
             }
         }
     }
-    @Composable fun battery() {
-        if (ui.bypass) { Icon(Icons.Outlined.Power, "Bypass", Modifier.size(18.dp), tint = TILE_ON); Spacer(Modifier.width(4.dp)) }
-        ui.chargeLeft?.let { Text(it, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE); Spacer(Modifier.width(6.dp)) }
-        if (ui.battery >= 0) { BatteryGlyph(ui.battery, ui.charging, ui.bypass, ui.held); Spacer(Modifier.width(8.dp)) }
-        Text(ui.status, color = PANEL_MUTED, fontSize = 14.sp, maxLines = 1, style = LABEL_STYLE)
-    }
-    if (side) {
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) { title() }
-            // En un submenú solo el título: lo demás ya se vio en el panel.
-            if (!ui.sub) { Spacer(Modifier.height(4.dp)); Row(verticalAlignment = Alignment.CenterVertically) { battery() } }
-        }
-    } else Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        title()
-        Spacer(Modifier.weight(1f))
-        if (!ui.sub) battery()
-    }
 }
-
 /**
  * Desplaza la grilla para que lo elegido quede a la vista, solo cuando cambia lo elegido (no con cada actualización:
  * si no, al deslizar con el dedo volvía a lo elegido). [rowTops]: dónde empieza y cuánto mide cada fila.

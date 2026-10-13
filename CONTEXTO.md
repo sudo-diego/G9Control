@@ -140,6 +140,15 @@ Este archivo junta lo que se sabe y cómo está hecha la app, por tema, para que
 - M dos veces en Android sin la captura del sistema (necesitaría un proceso shell con `EVIOCGRAB`, como Key Mapper).
 - Probar las listas por app de ZUI `highRefresh_<pkg>` / `extremeRefresh_<pkg>` como forma más limpia de que Ahorro no baje los Hz.
 
+## Pendiente al 13 oct 2026 (para seguir en otra sesión o PC)
+- **Avisos (toasts):** rediseñarlos todos (los de `GamePanel.toast()`, texto plano abajo al centro): tarjeta como los otros avisos (`ShotFlash.show`), con animación, más duración y textos claros y cortos (sin listas con puntos y comas). Ej.: brillo automático, mouse virtual, cerrar apps, Shizuku.
+- **Puntero del mouse:** investigar a fondo si se puede ocultar (framework/services de la tablet, `PointerIcon`, `InputManager`, `setPointerIconType`, ajustes ocultos). jadx necesita RAM: hacerlo en el PC gamer.
+- **Buscador de GIFs:** Tenor cerró su API (30 jun 2026) y Giphy ya no es gratis. Usar **Klipy** (gratis, clave del usuario en su Partner Panel, 100 llamadas/hora; acepta la forma de Tenor v2: `https://api.klipy.com/v2/search?q=…&key=…`). Solo buscar al confirmar (no por cada letra), caché en disco de resultados y archivos, para el fondo de la app y del panel.
+- **Textos "juegos" vs "apps":** decir una sola vez que lo de Game Assistant aplica a las apps que él trata como juegos, y después usar un término corto y siempre el mismo (revisar Juego → Frecuencia en juegos, Proporción, Shadow Rec, etc.).
+- **Monitor:** probar el estilo Barra en un juego; confirmar si el pico ocasional del gráfico desaparece (ahora busca la capa cada 30 s, antes cada 5).
+- **Shadow Rec:** confirmar si hay que activarlo en cada juego (el código de Game Assistant lo detiene con `EXIT_GAME`).
+- **Release 2.0.0** (versionName 1.2.0 → 2.0.0, versionCode 5 → 6) con lista de cambios; publicar solo si el usuario lo pide.
+
 ## Ideas futuras (pedidas por el usuario)
 - **Panel movible** (arrastrarlo como otras cosas de la app). El lateral estilo Steam ya está hecho.
 - Ideas de RAOfflineProxy: recordatorio "deja el proxy encendido para enviar tus logros" al volver internet; mostrar el tiempo jugado sin internet (TBF ya guarda sesiones).

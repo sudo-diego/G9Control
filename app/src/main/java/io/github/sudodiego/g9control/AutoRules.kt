@@ -245,6 +245,19 @@ object AutoRules {
     /** Estilo lista (como MangoHUD: una fila por dato, con el gráfico de tiempos de cuadro) en vez de la barra. */
     fun perfList(ctx: Context) = sp(ctx).getBoolean("perf_list", false)
     fun setPerfList(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("perf_list", v).apply()
+    /** Datos del monitor, a elección (los dos estilos muestran los mismos). */
+    enum class PerfItem(val es: String, val en: String) {
+        FPS("FPS", "FPS"), GRAPH("Gráfico", "Graph"), CPU("CPU", "CPU"), GPU("GPU", "GPU"), MAX("Tope de CPU", "CPU cap"),
+        BAT("Batería", "Battery"), RAM("RAM", "RAM"), PWR("Watts", "Watts"), LEFT("Tiempo", "Time"), HZ("Hz", "Hz");
+        val label get() = tr(es, en)
+    }
+    fun perfItems(ctx: Context): Set<PerfItem> {
+        val saved = sp(ctx).getStringSet("perf_items", null)
+        // Sin elegir todavía: todo, salvo lo que "Más datos" apagaba (RAM, W, tiempo, Hz y tope) si estaba apagado.
+        if (saved == null) return if (perfFull(ctx)) PerfItem.entries.toSet() else setOf(PerfItem.FPS, PerfItem.GRAPH, PerfItem.CPU, PerfItem.GPU, PerfItem.BAT)
+        return saved.mapNotNull { runCatching { PerfItem.valueOf(it) }.getOrNull() }.toSet()
+    }
+    fun setPerfItems(ctx: Context, v: Set<PerfItem>) = sp(ctx).edit().putStringSet("perf_items", v.map { it.name }.toSet()).apply()
     fun perfPos(ctx: Context) = runCatching { NoticePos.valueOf(sp(ctx).getString("perf_pos", null)!!) }
         .getOrDefault(NoticePos.TOP_START)
     fun setPerfPos(ctx: Context, v: NoticePos) = sp(ctx).edit().putString("perf_pos", v.name).apply()
