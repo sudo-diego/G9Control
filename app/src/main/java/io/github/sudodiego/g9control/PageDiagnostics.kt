@@ -286,13 +286,21 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
     var perfFull by remember { mutableStateOf(AutoRules.perfFull(a)) }
     var perfList by remember { mutableStateOf(AutoRules.perfList(a)) }
     CompositionLocalProvider(LocalEditable provides LocalGateOk.current) {
-        Panel(tr("Capturas", "Screenshots")) {
+        Panel(tr("Capturas y grabación", "Screenshots and recording")) {
             NoticeBox(tr("Aviso", "Notice"), tr("Miniatura en la esquina", "Thumbnail in the corner"),
                 if (s.autoServiceOn) { { AutoRules.preview(a, "shot") } } else null,
                 side = { PosGrid(shotPos) { shotPos = it; AutoRules.setShotPos(a, it) } }) {
                 Text(tr("Sonido", "Sound"), fontSize = 14.sp)
                 ChoiceChips(ShotSound.entries.map { it to it.label }, shotSound) { shotSound = it; AutoRules.setShotSound(a, it) }
             }
+            // Grabación: dos, que no van juntas (las maneja el panel; ver la grabación en GamePanel).
+            InfoRow(tr("Grabar", "Record"), tr("Guía + LT · Pictures/screenrecorder", "Guide + LT · Pictures/screenrecorder"))
+            InfoRow("Shadow Rec", tr("Guía + RT guarda los últimos segundos · Movies/Highlight", "Guide + RT saves the last seconds · Movies/Highlight"))
+            Hint(tr("Shadow Rec graba siempre en un juego y guarda lo último al pedirlo. Con él encendido, la grabadora de Legion no funciona. En X-Input LT y RT no sirven: usa los mosaicos del panel.",
+                "Shadow Rec always records in a game and saves the latest when asked. While it's on, Legion's recorder doesn't work. In X-Input LT and RT don't work: use the panel tiles."))
+            OutlinedButton(onClick = {
+                runCatching { a.startActivity(android.content.Intent().setClassName(ZuiGame.PACKAGE, "com.zui.ugame.gamesetting.ui.options.OptionActivity")) }
+            }) { Text(tr("Calidad y duración de Shadow Rec", "Shadow Rec quality and length")) }
         }
         Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }, enabled = LocalGateOk.current) }) {
             NoticeBox(tr("Datos", "Data"), tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery"), null,
@@ -451,7 +459,7 @@ internal fun PanelLookPanel(a: MainActivity) {
                 SliderRow(tr("Alto de la cabecera", "Header height"), ThemeState.panelHeaderH, 80..300) {
                     ThemeState.panelHeaderH = it; Prefs.setPanelHeaderH(a, it)
                 }
-                SliderRow(tr("Fundido de la cabecera", "Header fade"), ThemeState.panelFade, 0..100,
+                SliderRow(tr("Fundido de la cabecera", "Header fade"), ThemeState.panelFade, 0..200,
                     if (ThemeState.panelFade == 0) tr("Apagado", "Off") else "${ThemeState.panelFade}") {
                     ThemeState.panelFade = it; Prefs.setPanelFade(a, it)
                 }

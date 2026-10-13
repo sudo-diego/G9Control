@@ -188,10 +188,11 @@ private fun TabBar(s: AppState, a: MainActivity) {
             SectionSwitch(s, compact)
             Spacer(Modifier.width(6.dp))
             PadBadge("RT")
-            Spacer(Modifier.weight(1f))
-            // Con una sola página (Ajustes) no hay pestañas ni LB/RB.
+            Spacer(Modifier.width(12.dp))
+            // Con una sola página (Ajustes) no hay pestañas ni LB/RB. La píldora ocupa todo el ancho que queda y las
+            // pestañas se reparten parejo (antes iba centrada y sobraba espacio a los lados).
             if (s.section.pages.size > 1) Row(
-                Modifier.weight(30f, fill = false).clip(CircleShape).background(c.surfaceContainerHigh.copy(alpha = 0.85f))
+                Modifier.weight(1f).clip(CircleShape).background(c.surfaceContainerHigh.copy(alpha = 0.85f))
                     .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -208,10 +209,11 @@ private fun TabBar(s: AppState, a: MainActivity) {
             val tabFocus = remember { Page.entries.associateWith { FocusRequester() } }
             var tabFocused by remember { mutableStateOf(false) }
             LaunchedEffect(s.page) { if (tabFocused) runCatching { tabFocus.getValue(s.page).requestFocus() } }
+            // Angosta: desplazable (si no caben); ancha: repartidas en todo el ancho.
             Row(
-                Modifier.weight(1f, fill = false).horizontalScroll(tabScroll).padding(horizontal = 6.dp)
+                Modifier.weight(1f).then(if (compact) Modifier.horizontalScroll(tabScroll) else Modifier).padding(horizontal = 6.dp)
                     .onFocusChanged { tabFocused = it.hasFocus },
-                horizontalArrangement = Arrangement.spacedBy(2.dp)
+                horizontalArrangement = if (compact) Arrangement.spacedBy(2.dp) else Arrangement.SpaceEvenly
             ) {
                 NAV.filter { it.page in s.section.pages }.forEach { item ->
                     val sel = s.page == item.page
@@ -247,9 +249,9 @@ private fun TabBar(s: AppState, a: MainActivity) {
             }
             PadBadge("RB")
             }
-            Spacer(Modifier.weight(1f))
+            if (s.section.pages.size <= 1) Spacer(Modifier.weight(1f))
             // Conexión del G9: solo en su sección (tocarla vuelve a leer el control).
-            if (s.section == Section.G9) ConnectionPill(s) { if (!s.busy) a.readAll() }
+            if (s.section == Section.G9) { Spacer(Modifier.width(12.dp)); ConnectionPill(s) { if (!s.busy) a.readAll() } }
         }
     }
 }

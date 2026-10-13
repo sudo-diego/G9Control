@@ -341,9 +341,15 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
             if (banner && !ui.sub) Box(Modifier.fillMaxWidth().height(ThemeState.panelHeaderH.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
                 PanelBackdrop(opaque = !ThemeState.panelSeeImage)
                 // Fundido del borde de abajo (Panel → Fundido de la cabecera): desde qué altura la imagen pasa al panel.
-                val fade = ThemeState.panelFade.coerceIn(0, 100) / 100f
-                if (fade > 0f) Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                    (1f - fade) to Color.Transparent, 1f to body)))
+                // Hasta 100 el fundido empieza más arriba; de 100 a 200, además, el panel cubre la imagen antes (más
+                // fuerte). Con un paso intermedio para que la curva sea suave, sin línea marcada.
+                val f = ThemeState.panelFade.coerceIn(0, 200)
+                if (f > 0) {
+                    val start = if (f <= 100) 1f - f / 100f else 0f
+                    val end = if (f <= 100) 1f else 1f - (f - 100) / 100f * 0.55f
+                    Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                        start to Color.Transparent, (start + (end - start) * 0.55f) to body.copy(alpha = body.alpha * 0.5f), end to body)))
+                }
             }
             // Un poco de aire entre la cabecera y el nombre (antes quedaban pegados).
             Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (banner && !ui.sub) 14.dp else 24.dp)) {
