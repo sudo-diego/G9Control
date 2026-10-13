@@ -162,6 +162,8 @@ internal object SystemLevels {
         val a = audio(ctx)
         val max = a.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         val want = (f * max).roundToInt().coerceIn(0, max)
+        // Poner un nivel no quita el silencio (al dejarlo en 0 Android lo silencia): se quita antes.
+        if (want > 0 && a.isStreamMute(AudioManager.STREAM_MUSIC)) a.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0)
         a.setStreamVolume(AudioManager.STREAM_MUSIC, want, 0)
         return a.getStreamVolume(AudioManager.STREAM_MUSIC) >= want
     }
@@ -190,7 +192,10 @@ internal object SystemLevels {
         val a = audio(ctx)
         val s = AudioManager.STREAM_MUSIC
         if (a.isStreamMute(s)) {
-            if (dir > 0) a.adjustStreamVolume(s, AudioManager.ADJUST_UNMUTE, 0)
+            if (dir > 0) {
+                a.adjustStreamVolume(s, AudioManager.ADJUST_UNMUTE, 0)
+                if (a.getStreamVolume(s) == 0) a.setStreamVolume(s, 1, 0)
+            }
             return true
         }
         val max = a.getStreamMaxVolume(s)
