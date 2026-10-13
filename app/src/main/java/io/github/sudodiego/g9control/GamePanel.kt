@@ -490,6 +490,12 @@ class GamePanel(private val svc: AutoModeService) {
             return true
         }
         if (closeArmed != null && e.keyCode != KeyEvent.KEYCODE_BUTTON_Y) { closeArmed = null; main.removeCallbacks(disarm); refresh() }
+        // Sonidos de navegación del panel (si se pidieron también aquí).
+        when (e.keyCode) {
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> UiSounds.play(svc, UiSounds.Kind.MOVE, panel = true)
+            KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER -> if (e.repeatCount == 0) UiSounds.play(svc, UiSounds.Kind.SELECT, panel = true)
+            KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK -> if (e.repeatCount == 0) UiSounds.play(svc, UiSounds.Kind.BACK, panel = true)
+        }
         when (e.keyCode) {
             KeyEvent.KEYCODE_DPAD_LEFT -> moveGrid(-1, 0)
             KeyEvent.KEYCODE_DPAD_RIGHT -> moveGrid(1, 0)
@@ -542,6 +548,7 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     private fun stickStep() {
+        UiSounds.play(svc, UiSounds.Kind.MOVE, panel = true)
         poke()
         val (dx, dy) = stickDir
         val item = ui.items.getOrNull(ui.sel)

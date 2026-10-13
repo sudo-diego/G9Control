@@ -134,9 +134,11 @@ class MainActivity : ComponentActivity() {
         refreshDevice()
         autoConnect(ask = true)
         KeyBus.listener = { e -> if (state.testMode) addOtherKey(e, viaService = true) }
+        AmbientMusic.start(this)
     }
 
     override fun onPause() {
+        AmbientMusic.stop(this)
         resumed = false
         KeyBus.listener = null
         getSystemService(InputManager::class.java).unregisterInputDeviceListener(inputListener)
@@ -216,6 +218,15 @@ class MainActivity : ComponentActivity() {
         val s = state
         when (e.action) {
             KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
+                // Sonidos de navegación (no probando botones ni grabando una macro).
+                if (!s.capturing) when (e.keyCode) {
+                    KeyEvent.KEYCODE_BUTTON_A -> UiSounds.play(this, UiSounds.Kind.SELECT)
+                    KeyEvent.KEYCODE_BUTTON_B -> UiSounds.play(this, UiSounds.Kind.BACK)
+                    KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_L2, KeyEvent.KEYCODE_BUTTON_R2 ->
+                        UiSounds.play(this, UiSounds.Kind.TAB)
+                    KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT ->
+                        UiSounds.play(this, UiSounds.Kind.MOVE)
+                }
                 s.pressedKeys[e.keyCode] = Unit
                 if (padKeyOf(e.keyCode) == null && s.testMode) addOtherKey(e, viaService = false)
             }
@@ -893,6 +904,17 @@ class MainActivity : ComponentActivity() {
         Prefs.setPreviewUri(this, uri.toString()); ThemeState.previewUri = uri.toString()
     }
     fun pickPreviewImage() = previewLauncher.launch(arrayOf("image/*"))
+
+    /** Música ambiental: un archivo de audio propio. */
+    private val musicLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        Prefs.setMusicUri(this, uri.toString()); Prefs.setMusic(this, true)
+        AmbientMusic.restart(this)
+    }
+    fun pickMusic() = musicLauncher.launch(arrayOf("audio/*"))
 
     /**
      * Fondo de la ventana con el fondo de pantalla: el velo REEMPLAZA los píxeles (modo SRC) en vez de sumarse. Con un

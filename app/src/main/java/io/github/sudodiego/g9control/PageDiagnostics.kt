@@ -44,6 +44,7 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                 }
                 Text(tr("Color de la app", "App color"), fontSize = 14.sp)
                 AccentPicker(ThemeState.appAccent) { ThemeState.appAccent = it; Prefs.setAccent(a, "app", it) }
+                SoundSettings(a)
                 Text(tr("Fondo", "Background"), fontSize = 14.sp)
                 ChoiceChips(AppBackground.entries.map { it to it.label }, ThemeState.background) {
                     if (it == AppBackground.IMAGE && ThemeState.backgroundUri == null) a.pickBackground()
@@ -645,4 +646,39 @@ private fun PosGrid(sel: NoticePos, onPick: (NoticePos) -> Unit) {
             }
         }
     }
+}
+
+/**
+ * Sonidos de navegación y música ambiental (ver [UiSounds] y [AmbientMusic]). Los sonidos no cortan la música de
+ * Cocoon (no piden el audio); la música sí la pausa mientras la app está adelante, y vuelve al salir.
+ */
+@Composable
+private fun SoundSettings(a: MainActivity) {
+    var nav by remember { mutableStateOf(Prefs.navSounds(a)) }
+    var navPanel by remember { mutableStateOf(Prefs.navSoundsPanel(a)) }
+    var navVol by remember { mutableIntStateOf(Prefs.navVolume(a)) }
+    var music by remember { mutableStateOf(Prefs.music(a)) }
+    var musicVol by remember { mutableIntStateOf(Prefs.musicVolume(a)) }
+    val hasMusic = Prefs.musicUri(a) != null
+    SwitchRow(tr("Sonidos al navegar", "Navigation sounds"), nav, tr("Al moverte, elegir, volver y cambiar de pestaña", "When moving, selecting, going back and switching tabs")) {
+        nav = it; Prefs.setNavSounds(a, it); if (it) UiSounds.play(a, UiSounds.Kind.SELECT)
+    }
+    if (nav) {
+        SwitchRow(tr("También en el panel de juego", "Also in the game panel"), navPanel) { navPanel = it; Prefs.setNavSoundsPanel(a, it) }
+        SliderRow(tr("Volumen de los sonidos", "Sound volume"), navVol, 10..100, "$navVol %") {
+            navVol = it; Prefs.setNavVolume(a, it); UiSounds.play(a, UiSounds.Kind.MOVE)
+        }
+    }
+    SwitchRow(tr("Música ambiental", "Background music"), music && hasMusic,
+        if (hasMusic) tr("Suena mientras la app está abierta", "Plays while the app is open") else tr("Elige un archivo de audio tuyo", "Pick an audio file of yours")) {
+        if (!hasMusic) a.pickMusic() else { music = it; Prefs.setMusic(a, it); AmbientMusic.restart(a) }
+    }
+    if (music && hasMusic) {
+        SliderRow(tr("Volumen de la música", "Music volume"), musicVol, 5..100, "$musicVol %") {
+            musicVol = it; Prefs.setMusicVolume(a, it); AmbientMusic.setVolume(a)
+        }
+        OutlinedButton(onClick = { a.pickMusic() }) { Text(tr("Cambiar música", "Change music")) }
+    }
+    Hint(tr("Los sonidos no cortan la música de Cocoon. La música ambiental sí la pausa mientras TBF está abierta y la devuelve al salir.",
+        "The sounds don't stop Cocoon's music. The background music does pause it while TBF is open, and gives it back when you leave."))
 }
