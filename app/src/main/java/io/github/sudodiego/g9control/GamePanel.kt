@@ -489,8 +489,8 @@ class GamePanel(private val svc: AutoModeService) {
         val item = ui.items.getOrNull(ui.sel)
         if (ui.editing && item?.adjust != null) {
             when (e.keyCode) {
-                KeyEvent.KEYCODE_DPAD_LEFT -> { item.adjust.invoke(-1); refresh() }
-                KeyEvent.KEYCODE_DPAD_RIGHT -> { item.adjust.invoke(1); refresh() }
+                KeyEvent.KEYCODE_DPAD_LEFT -> adjustSel(-1)
+                KeyEvent.KEYCODE_DPAD_RIGHT -> adjustSel(1)
                 KeyEvent.KEYCODE_BUTTON_Y -> if (e.repeatCount == 0) { item.alt?.invoke(); refresh() }
                 KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK ->
                     if (e.repeatCount == 0) ui.editing = false
@@ -501,7 +501,7 @@ class GamePanel(private val svc: AutoModeService) {
         if (closeArmed != null && e.keyCode != KeyEvent.KEYCODE_BUTTON_Y) { closeArmed = null; main.removeCallbacks(disarm); refresh() }
         // Sonidos de navegación del panel (si se pidieron también aquí).
         when (e.keyCode) {
-            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN -> UiSounds.play(svc, UiSounds.Kind.MOVE, panel = true)
+            // La cruceta suena en moveGrid, solo si la selección cambió.
             KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_DPAD_CENTER -> if (e.repeatCount == 0) UiSounds.play(svc, UiSounds.Kind.SELECT, panel = true)
             KeyEvent.KEYCODE_BUTTON_B, KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_BUTTON_MODE -> if (e.repeatCount == 0) UiSounds.play(svc, UiSounds.Kind.BACK, panel = true)
         }
@@ -557,15 +557,22 @@ class GamePanel(private val svc: AutoModeService) {
     }
 
     private fun stickStep() {
-        UiSounds.play(svc, UiSounds.Kind.MOVE, panel = true)
         poke()
         val (dx, dy) = stickDir
         val item = ui.items.getOrNull(ui.sel)
         if (ui.editing && item?.adjust != null) {
-            if (dx != 0) { item.adjust.invoke(dx); refresh() }
+            if (dx != 0) adjustSel(dx)
             return
         }
         moveGrid(dx, dy)
+    }
+
+    /** Ajusta la barra elegida (brillo, volumen); suena solo si el valor cambió (no en 0 ni en el máximo). */
+    private fun adjustSel(dir: Int) {
+        val before = ui.items.getOrNull(ui.sel)?.level
+        ui.items.getOrNull(ui.sel)?.adjust?.invoke(dir)
+        refresh()
+        if (ui.items.getOrNull(ui.sel)?.level != before) UiSounds.play(svc, UiSounds.Kind.MOVE, panel = true)
     }
 
     /**
@@ -573,6 +580,13 @@ class GamePanel(private val svc: AutoModeService) {
      * ancho): de la barra de brillo se baja a los mosaicos de la izquierda.
      */
     private fun moveGrid(dx: Int, dy: Int) {
+        val before = ui.sel to recentStart
+        moveGridInner(dx, dy)
+        // Suena solo si se movió (en el borde, mantener la cruceta o el stick no repite el sonido).
+        if ((ui.sel to recentStart) != before) UiSounds.play(svc, UiSounds.Kind.MOVE, panel = true)
+    }
+
+    private fun moveGridInner(dx: Int, dy: Int) {
         val rows = panelRows(ui.items)
         val r = rows.indexOfFirst { ui.sel in it }.takeIf { it >= 0 } ?: return
         val c = rows[r].indexOf(ui.sel)

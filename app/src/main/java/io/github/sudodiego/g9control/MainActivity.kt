@@ -223,10 +223,8 @@ class MainActivity : ComponentActivity() {
         // La cruceta mantenida suena en cada paso que se mueve (las repeticiones), como en el panel.
         if (e.action == KeyEvent.ACTION_DOWN && !s.capturing) when (e.keyCode) {
             KeyEvent.KEYCODE_BUTTON_A -> if (e.repeatCount == 0) UiSounds.play(this, UiSounds.Kind.SELECT)
-            KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1, KeyEvent.KEYCODE_BUTTON_L2, KeyEvent.KEYCODE_BUTTON_R2 ->
-                if (e.repeatCount == 0) UiSounds.play(this, UiSounds.Kind.TAB)
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT ->
-                UiSounds.play(this, UiSounds.Kind.MOVE)
+            // LB/RB siempre cambian de pestaña (dan la vuelta); LT/RT suenan donde cambian de sección (en padNavigation).
+            KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1 -> if (e.repeatCount == 0) UiSounds.play(this, UiSounds.Kind.TAB)
         }
         when (e.action) {
             KeyEvent.ACTION_DOWN -> if (e.repeatCount == 0) {
@@ -261,8 +259,13 @@ class MainActivity : ComponentActivity() {
         }
         // Probando botones o grabando una macro: todos los botones son para eso.
         if (s.capturing) return true
-        return padNavigation(e) || super.dispatchKeyEvent(e)
+        if (padNavigation(e)) return true
+        val handled = super.dispatchKeyEvent(e)
+        // La cruceta suena solo si movió el foco (Compose dice false en el tope): mantenerla en el borde no repite el sonido.
+        if (handled && e.action == KeyEvent.ACTION_DOWN && e.keyCode in DPAD_KEYS && !s.capturing) UiSounds.play(this, UiSounds.Kind.MOVE)
+        return handled
     }
+    private val DPAD_KEYS = setOf(KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT)
 
     private val bHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private var bHoldFired = false
@@ -309,7 +312,7 @@ class MainActivity : ComponentActivity() {
                 if (e.action == KeyEvent.ACTION_DOWN && e.repeatCount == 0 && s.page != Page.VIBRATION && s.page != Page.STICKS) {
                     val all = Section.entries
                     val i = all.indexOf(s.section) + if (e.keyCode == KeyEvent.KEYCODE_BUTTON_L2) -1 else 1
-                    all.getOrNull(i)?.let { s.goTo(it) }
+                    all.getOrNull(i)?.let { s.goTo(it); UiSounds.play(this, UiSounds.Kind.TAB) }
                 }
                 return true
             }
