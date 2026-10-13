@@ -93,9 +93,15 @@ object Shell {
     fun pidof(pkg: String) = "pidof -s $pkg"
     private val PIDOF = Regex("pidof -s [A-Za-z0-9_.]+")
 
+    // Proporción por juego (ver GameAspect): el valor de cada app y la lista de apps (clave privada de System).
+    fun wideSet(key: String, value: String) = if (value.isEmpty()) "settings delete global $key" else "settings put global $key $value"
+    private val WIDE_SET = Regex("settings (put global zui_ultra_wide_[A-Za-z0-9_]+ 1:\\d\\.\\d{2}|delete global zui_ultra_wide_[A-Za-z0-9_]+)")
+    fun wideList(v: String) = if (v.isEmpty()) "settings delete system enable_wide_field_packages" else "settings put system enable_wide_field_packages $v"
+    private val WIDE_LIST = Regex("settings (put system enable_wide_field_packages [A-Za-z0-9_.:]+|delete system enable_wide_field_packages)")
+
     private fun allowed(cmd: String) =
         cmd in setOf(GA_GET, GA_SHOW, GA_HIDE, GA_LOG, BYPASS_GET, BYPASS_ON, BYPASS_OFF, LIMIT_GET, LIMIT_LEVEL, BACK_LONG, SF_LIST,
-            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP, RA_PROXY, RA_CFG, RA64_CFG, DOLPHIN_RA) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || PIDOF.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || cmd == INPUT_LIST ||
+            WIFI_ON, WIFI_OFF, BT_ON, BT_OFF, PROCESSES, TOP, RA_PROXY, RA_CFG, RA64_CFG, DOLPHIN_RA) || TOUCH.matches(cmd) || STOP_APP.matches(cmd) || PIDOF.matches(cmd) || WM_SIZE.matches(cmd) || SF_LATENCY.matches(cmd) || REFRESH.matches(cmd) || WIDE_SET.matches(cmd) || WIDE_LIST.matches(cmd) || cmd == INPUT_LIST ||
             (app != null && cmd.startsWith(screenCmd("")) && SCREEN.matches(cmd.removePrefix(screenCmd(""))))
 
     /** Para Ajustes (Compose lo vuelve a leer al cambiar). */

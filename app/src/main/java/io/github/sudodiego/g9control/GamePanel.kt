@@ -810,6 +810,19 @@ class GamePanel(private val svc: AutoModeService) {
                 scope.launch { if (!Aspect.toggle(svc)) toast(tr("No se pudo cambiar la pantalla.", "Couldn't change the screen.")) }
             })
         }
+        // Proporción de esta app (WideVision de ZUI): Completa → 16:9 → 4:3, sin tocar la resolución de la tablet. Se
+        // aplica al volver a abrir el juego (no se reinicia solo: se perdería la partida).
+        svc.foregroundApp?.takeIf { it != svc.packageName && ZuiGame.inGame(svc) }?.let { pkg ->
+            val r = GameAspect.get(svc, pkg)
+            add(PanelItem(tr("Proporción", "Aspect"), Icons.Outlined.AspectRatio, PanelRow.SCREEN,
+                sub = r.label + tr(" · este juego", " · this game"), active = r != GameAspect.Ratio.FULL) {
+                val next = r.next()
+                scope.launch {
+                    if (GameAspect.set(svc, pkg, next)) { refresh(); toast(tr("${next.label}: se ve al volver a abrir el juego", "${next.label}: shows when you reopen the game")) }
+                    else toast(tr("Necesita Shizuku", "Needs Shizuku"))
+                }
+            })
+        }
         // Con un monitor en espejo y la pantalla de la tablet oscurecida (o encendida a mano): verla un rato o volver.
         if (Monitor.screen(svc) != Monitor.Screen.NORMAL && Monitor.current(svc) != null && Monitor.mirror(svc)) {
             val dark = svc.tabletDark
