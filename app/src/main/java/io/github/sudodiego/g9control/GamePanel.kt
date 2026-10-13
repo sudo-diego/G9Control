@@ -374,6 +374,11 @@ class GamePanel(private val svc: AutoModeService) {
             if (AutoRules.lowBatteryOverToast(svc)) NoticePos.entries.first { it.h == 0 && it.v == 1 } else null)
     }
 
+    /** Al enchufar: hasta dónde carga y cuánto falta. */
+    fun chargeNotice(level: Int, target: Int, left: String?) =
+        flash.show(flash.batteryIcon(level, charging = true), tr("Cargando · $level %", "Charging · $level %"),
+            left?.let { tr("$target % en $it", "$target % in $it") } ?: tr("Hasta $target %", "Up to $target %"), 4500)
+
     /** Shizuku no está corriendo (no arrancó al encender) y algo elegido lo necesita. */
     fun shizukuHint() = flash.show(flash.appIcon(Shell.PACKAGE), tr("Shizuku no arrancó", "Shizuku didn't start"),
         tr("Ábrelo y aprieta Start", "Open it and press Start"), 6000)

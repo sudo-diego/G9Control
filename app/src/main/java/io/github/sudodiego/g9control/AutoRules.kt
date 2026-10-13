@@ -123,6 +123,9 @@ object AutoRules {
     /** El aviso de batería baja abajo al centro, encima del toast de ZUI (que no se puede quitar). */
     fun lowBatteryOverToast(ctx: Context) = sp(ctx).getBoolean("low_battery_over_toast", true)
     fun setLowBatteryOverToast(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery_over_toast", v).apply()
+    /** Al enchufar: un aviso con lo que falta para el límite (el propio o el de ZUI) o para 100 %. */
+    fun chargeNotice(ctx: Context) = sp(ctx).getBoolean("charge_notice", true)
+    fun setChargeNotice(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("charge_notice", v).apply()
     fun lowBatterySound(ctx: Context) = sp(ctx).getBoolean("low_battery_sound", true)
     fun setLowBatterySound(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("low_battery_sound", v).apply()
 

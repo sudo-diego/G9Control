@@ -573,7 +573,8 @@ internal class ShotFlash(private val svc: AccessibilityService) {
     }
 
     /** Ícono de batería baja (48 dp): contorno claro, relleno rojo con el nivel y la punta a la derecha. */
-    fun batteryIcon(level: Int): Bitmap {
+    /** Batería dibujada: roja (baja) o verde con rayo ([charging]). */
+    fun batteryIcon(level: Int, charging: Boolean = false): Bitmap {
         val s = (48 * dp).toInt()
         return Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888).also { b ->
             val c = android.graphics.Canvas(b)
@@ -584,10 +585,19 @@ internal class ShotFlash(private val svc: AccessibilityService) {
             c.drawRoundRect(body, 4 * dp, 4 * dp, p)
             p.style = android.graphics.Paint.Style.FILL
             c.drawRoundRect(android.graphics.RectF(41 * dp, 20 * dp, 44 * dp, 28 * dp), 1.5f * dp, 1.5f * dp, p)
-            p.color = 0xFFFF5A5F.toInt()
+            p.color = if (charging) 0xFF3DDC84.toInt() else 0xFFFF5A5F.toInt()
             val inner = body.width() - 2 * (stroke + 1.5f * dp)
             c.drawRoundRect(android.graphics.RectF(body.left + stroke + 1.5f * dp, body.top + stroke + 1.5f * dp,
                 body.left + stroke + 1.5f * dp + inner * (level.coerceIn(3, 100) / 100f), body.bottom - stroke - 1.5f * dp), 2 * dp, 2 * dp, p)
+            if (charging) {
+                // Rayo al centro, del color del contorno.
+                p.color = if (light) 0xFF14203A.toInt() else 0xFFE6EAF2.toInt()
+                val bolt = android.graphics.Path().apply {
+                    moveTo(24 * dp, 16 * dp); lineTo(17 * dp, 25 * dp); lineTo(22 * dp, 25 * dp)
+                    lineTo(20 * dp, 32 * dp); lineTo(27 * dp, 23 * dp); lineTo(22 * dp, 23 * dp); close()
+                }
+                c.drawPath(bolt, p)
+            }
         }
     }
 

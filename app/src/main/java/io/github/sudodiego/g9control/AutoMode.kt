@@ -74,7 +74,10 @@ class AutoModeService : AccessibilityService() {
             when (i.action) {
                 Intent.ACTION_SCREEN_OFF -> { main.removeCallbacks(waitUnlock); guide.suspendForLock() }
                 // Sin cargador el bypass no sirve, y si quedara activo la próxima vez que se enchufe no cargaría.
+                // Al enchufar, el aviso de cuánto falta (cuando la corriente ya se asentó y el bypass ya decidió).
+                Intent.ACTION_POWER_CONNECTED -> { main.removeCallbacks(chargeNotice); main.postDelayed(chargeNotice, 20_000) }
                 Intent.ACTION_POWER_DISCONNECTED -> {
+                    main.removeCallbacks(chargeNotice)
                     ZuiBattery.manualOverride = false
                     smartOn = false
                     scope.launch { if (ZuiBattery.readBypass() == true) ZuiBattery.setBypass(false, manual = false) }
@@ -83,6 +86,7 @@ class AutoModeService : AccessibilityService() {
                 AutoRules.ACTION_PREVIEW -> when (val kind = i.getStringExtra("kind") ?: "banner") {
                     "shot" -> panel.previewShot()
                     "battery" -> panel.lowBattery(15, ZuiBattery.dischargeTimeLeft(this@AutoModeService, PowerLog.recentAvg)?.let { ZuiBattery.formatTime(it) })
+                    "charge" -> panel.chargeNotice(42, ZuiBattery.chargeTarget(this@AutoModeService), "1 h 5 min")
                     else -> guide.preview(kind)
                 }
                 AutoRules.ACTION_DARKEN -> if (Monitor.woken) toggleTabletScreen()
@@ -415,6 +419,7 @@ class AutoModeService : AccessibilityService() {
             addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_SCREEN_ON)
             addAction(Intent.ACTION_POWER_DISCONNECTED)
+            addAction(Intent.ACTION_POWER_CONNECTED)
             addAction(Intent.ACTION_BATTERY_CHANGED)
             addAction(AutoRules.ACTION_PREVIEW)
             addAction(AutoRules.ACTION_SWITCH)
@@ -805,6 +810,21 @@ class AutoModeService : AccessibilityService() {
             panel.capture()
             main.postDelayed(this, 1100)
         }
+    }
+
+    /**
+     * Enchufada hace 20 s: cuánto falta para el límite (propio o de ZUI) o para 100 %. No en bypass (no carga), con
+     * la pantalla apagada ni si ya llegó.
+     */
+    private val chargeNotice = Runnable {
+        val i = lastBattery ?: return@Runnable
+        if (!AutoRules.chargeNotice(this) || smartOn || ZuiBattery.bypassNow == true) return@Runnable
+        if (i.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) == 0) return@Runnable
+        if (!getSystemService(android.os.PowerManager::class.java).isInteractive) return@Runnable
+        val level = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val target = ZuiBattery.chargeTarget(this)
+        if (level < 0 || level >= target) return@Runnable
+        panel.chargeNotice(level, target, ZuiBattery.chargeTimeLeft(this)?.let { ZuiBattery.formatTime(it) })
     }
 
     /** El último umbral avisado (15, 10, 5); se olvida al enchufar o al pasar de 20 %. */

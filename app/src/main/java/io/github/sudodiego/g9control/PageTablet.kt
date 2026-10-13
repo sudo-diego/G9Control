@@ -158,9 +158,13 @@ fun BatteryNowPanel(a: MainActivity) {
 /** Aviso de batería baja como la Switch (lo muestra el servicio): cuándo, con sonido, encima del toast de ZUI. */
 @Composable
 private fun LowBatteryPanel(a: MainActivity) {
-    Panel(tr("Aviso de batería baja", "Low battery notice")) {
+    Panel(tr("Avisos de batería", "Battery notices")) {
+        var charge by remember { mutableStateOf(AutoRules.chargeNotice(a)) }
+        SwitchRow(tr("Al enchufar", "When plugged in"), charge, tr("Cuánto falta para el límite o para 100 %", "Time left to the limit or to 100 %")) {
+            charge = it; AutoRules.setChargeNotice(a, it)
+        }
         var low by remember { mutableStateOf(AutoRules.lowBattery(a)) }
-        SwitchRow(tr("Mostrar el aviso", "Show the notice"), low, tr("Tarjeta a 15, 10 y 5 % sin cargador", "Card at 15, 10 and 5 % unplugged")) {
+        SwitchRow(tr("Batería baja", "Low battery"), low, tr("Tarjeta a 15, 10 y 5 % sin cargador", "Card at 15, 10 and 5 % unplugged")) {
             low = it; AutoRules.setLowBattery(a, it)
         }
         var lowSound by remember { mutableStateOf(AutoRules.lowBatterySound(a)) }
@@ -170,7 +174,8 @@ private fun LowBatteryPanel(a: MainActivity) {
             overToast = it; AutoRules.setLowBatteryOverToast(a, it)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { AutoRules.preview(a, "battery") }) { Text(tr("Ver el aviso", "Show the notice")) }
+            TextButton(onClick = { AutoRules.preview(a, "charge") }) { Text(tr("Ver al enchufar", "Show plugged in")) }
+            TextButton(onClick = { AutoRules.preview(a, "battery") }) { Text(tr("Ver batería baja", "Show low battery")) }
             // El aviso del sistema (notificación de SystemUI, canal BAT): una app no lo puede apagar, pero sí abrir su ajuste.
             TextButton(onClick = {
                 runCatching {
