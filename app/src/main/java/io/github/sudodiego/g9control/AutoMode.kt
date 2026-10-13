@@ -755,12 +755,15 @@ class AutoModeService : AccessibilityService() {
     /**
      * Legion + RB = captura (como Steam + R1 en el Steam Deck); mantener RB 1 s sigue sacando (ráfaga, una por
      * segundo, lo que deja Android) hasta soltarlo, aunque ya se haya soltado Legion (mantenerlo 5 s apaga el G9).
-     * Legion + LB = Atrás mantenido (salir del juego en Dolphin; necesita Shizuku). Con Legion apretado y antes de
+     * Legion + LB = Atrás mantenido (salir del juego en Dolphin; necesita Shizuku). Legion + LT = grabar o parar
+     * (grabadora de Legion); Legion + RT = Shadow Rec (guardar los últimos segundos, o encenderlo). LT y RT llegan
+     * como botón en DS5 y Android; en X-Input los gatillos son solo ejes y no sirven. Con Legion apretado y antes de
      * que se abra el panel; así Legion no hace Atrás al soltarlo.
      */
     private fun legionChord(e: KeyEvent): Boolean {
         val k = e.keyCode
-        if (k != KeyEvent.KEYCODE_BUTTON_R1 && k != KeyEvent.KEYCODE_BUTTON_L1) return false
+        val trigger = k == KeyEvent.KEYCODE_BUTTON_L2 || k == KeyEvent.KEYCODE_BUTTON_R2
+        if (k != KeyEvent.KEYCODE_BUTTON_R1 && k != KeyEvent.KEYCODE_BUTTON_L1 && !trigger) return false
         if (e.action == KeyEvent.ACTION_UP) {
             if (k == KeyEvent.KEYCODE_BUTTON_R1) main.removeCallbacks(burst)
             return chordSwallow.remove(k)
@@ -778,7 +781,7 @@ class AutoModeService : AccessibilityService() {
             return false
         }
         // Ese atajo apagado: RB o LB llegan normal.
-        if (!AutoRules.guide(this, if (k == KeyEvent.KEYCODE_BUTTON_R1) AutoRules.Guide.RB_SHOT else AutoRules.Guide.LB_BACK)) return false
+        if (!trigger && !AutoRules.guide(this, if (k == KeyEvent.KEYCODE_BUTTON_R1) AutoRules.Guide.RB_SHOT else AutoRules.Guide.LB_BACK)) return false
         legionPending = false
         legionChording = true
         main.removeCallbacks(legionHold)
@@ -786,7 +789,10 @@ class AutoModeService : AccessibilityService() {
         main.removeCallbacks(chordExpire)
         main.postDelayed(chordExpire, 2000)
         chordSwallow += k
-        if (k == KeyEvent.KEYCODE_BUTTON_R1) {
+        if (trigger) {
+            Log.d(TAG, "Legion + ${if (k == KeyEvent.KEYCODE_BUTTON_L2) "LT: grabar" else "RT: Shadow Rec"}")
+            if (k == KeyEvent.KEYCODE_BUTTON_L2) panel.toggleRecord() else panel.shadowAction()
+        } else if (k == KeyEvent.KEYCODE_BUTTON_R1) {
             Log.d(TAG, "Legion + RB: captura")
             panel.capture()
             main.removeCallbacks(burst)

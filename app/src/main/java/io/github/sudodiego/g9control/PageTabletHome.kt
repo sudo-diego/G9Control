@@ -205,6 +205,7 @@ private fun ShortcutsHelp(s: AppState, a: MainActivity) {
             if (panel.isNotEmpty()) HelpRow(tr("Panel de juego", "Game panel"), panel.joinToString(" · "))
             if (shot.isNotEmpty()) HelpRow(tr("Captura", "Screenshot"), shot.joinToString(" · "))
             if (back.isNotEmpty()) HelpRow(tr("Atrás", "Back"), back.joinToString(" · "))
+            HelpRow(tr("Grabar", "Record"), tr("Guía + LT: empezar o parar · Guía + RT: guardar los últimos segundos (Shadow Rec)", "Guide + LT: start or stop · Guide + RT: save the last seconds (Shadow Rec)"))
             if (lock) HelpRow(tr("Bloquear la tablet", "Lock the tablet"), tr("Mantener guía 5 s (el G9 se apaga)", "Hold guide 5 s (the G9 turns off)"))
             if (streamMenu) HelpRow(tr("Menú al transmitir", "Menu while streaming"), "Start + Select")
         }

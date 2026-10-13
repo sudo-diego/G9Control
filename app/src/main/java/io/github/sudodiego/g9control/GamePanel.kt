@@ -64,6 +64,8 @@ import androidx.compose.material.icons.outlined.EnergySavingsLeaf
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Power
 import androidx.compose.material.icons.outlined.Screenshot
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Speed
@@ -699,6 +701,17 @@ class GamePanel(private val svc: AutoModeService) {
                 Icons.Outlined.PowerSettingsNew, active = true, sub = tr("Bypass, rendimiento y más", "Bypass, performance and more"), run = ::fixShizuku))
         // El juego. La captura toma solo la ventana del juego: no hace falta esperar a que el panel desaparezca.
         add(PanelItem(tr("Captura", "Screenshot"), Icons.Outlined.Screenshot, sub = tr("Guía + RB", "Guide + RB")) { hide(); screenshot() })
+        // Grabar con la grabadora de Legion (ZUI): empezar o parar.
+        val rec = recState() == 1
+        add(PanelItem(if (rec) tr("Parar grabación", "Stop recording") else tr("Grabar", "Record"), Icons.Outlined.Videocam,
+            sub = if (rec) tr("Grabando · Guía + LT", "Recording · Guide + LT") else tr("Guía + LT", "Guide + LT"), active = rec, danger = rec) { toggleRecord() })
+        // Shadow Rec de Game Assistant (en un juego): encendido, A guarda los últimos segundos e Y lo apaga.
+        if (ZuiGame.inGame(svc)) {
+            val shadow = shadowOn()
+            add(PanelItem("Shadow Rec", Icons.Outlined.History, active = shadow,
+                sub = if (shadow) tr("Guardar clip · Y apagar", "Save clip · Y turn off") else tr("Apagado · Guía + RT", "Off · Guide + RT"),
+                alt = { if (shadowOn()) { hide(); shadowToggle() } }) { shadowAction() })
+        }
         // Logros sin internet (RAOfflineProxy): en un emulador, si está instalado. Encendido = en color; A lo abre.
         if (RaProxy.isEmulator(svc.foregroundApp) && RaProxy.installed(svc)) {
             val on = RaProxy.activeNow
@@ -981,6 +994,126 @@ class GamePanel(private val svc: AutoModeService) {
             cr.delete(uri, null, null)
             throw e
         }
+    }
+
+    // ——— Grabación ———
+    // Dos, que no pueden ir juntas (con Shadow Rec encendido la grabadora de Legion dice "Game recording in progress"):
+    // la grabadora de Legion (el primer mosaico de los ajustes rápidos; guarda en Pictures/screenrecorder) y Shadow
+    // Rec de Game Assistant (graba siempre y guarda los últimos segundos en Movies/Highlight). Ninguna se puede
+    // llamar desde otra app (servicios con permisos de sistema): se manejan como lo haría el dedo, buscando sus
+    // botones por nombre con la accesibilidad.
+
+    /** Estado de la grabadora de Legion (Settings.System, sin permisos): 0 o -1 nada, 2 su control a la vista, 1 grabando. */
+    private fun recState() = runCatching { android.provider.Settings.System.getInt(svc.contentResolver, "screenrecordstate") }.getOrDefault(-1)
+
+    /** Un botón de otra app en pantalla, por id o por texto (el primero que aparezca). */
+    private fun findNode(pkg: String, texts: List<String> = emptyList(), id: String? = null): android.view.accessibility.AccessibilityNodeInfo? {
+        for (w in runCatching { svc.windows }.getOrDefault(emptyList())) {
+            val root = w.root ?: continue
+            if (root.packageName?.toString() != pkg) continue
+            id?.let { root.findAccessibilityNodeInfosByViewId(it).firstOrNull()?.let { n -> return n } }
+            for (t in texts) root.findAccessibilityNodeInfosByText(t).firstOrNull()?.let { return it }
+        }
+        return null
+    }
+
+    private suspend fun tapNode(n: android.view.accessibility.AccessibilityNodeInfo): Boolean {
+        val r = android.graphics.Rect().also { n.getBoundsInScreen(it) }
+        return tap(r.exactCenterX(), r.exactCenterY())
+    }
+
+    /**
+     * Shadow Rec encendido: su botón "»" está en el borde. Con Game Assistant oculto no se ve (aunque sigue grabando):
+     * entonces vale lo último que se supo (al encenderlo o apagarlo desde aquí, o al verlo).
+     */
+    private var shadowKnown = false
+    private fun shadowOn(): Boolean {
+        if (findNode(ZuiGame.PACKAGE, id = SHADOW_FLOAT) != null) shadowKnown = true
+        else if (ZuiGame.hiddenNow == false || gaShownByUs) shadowKnown = false
+        return shadowKnown
+    }
+
+    /**
+     * Grabadora de Legion: grabando, la para (su botón de los ajustes rápidos); si no, la abre desde ahí y toca su
+     * botón rojo (su control no tiene nombres: el rojo es el centro). Hay que esperar su animación antes de tocarlo.
+     */
+    fun toggleRecord() {
+        hide()
+        scope.launch {
+            if (shadowOn()) return@launch toast(tr("Apaga Shadow Rec para grabar: no pueden ir juntos", "Turn off Shadow Rec to record: they can't run together"))
+            val was = recState()
+            svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_QUICK_SETTINGS)
+            var tile: android.view.accessibility.AccessibilityNodeInfo? = null
+            repeat(10) { if (tile == null) { delay(200); tile = findNode("com.android.systemui", REC_TILE) } }
+            val t = tile
+            if (t == null) {
+                svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK)
+                return@launch toast(tr("No encontré Grabar pantalla en los ajustes rápidos", "Couldn't find Screen record in Quick Settings"))
+            }
+            if (!t.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) tapNode(t)
+            delay(500)
+            if (Build.VERSION.SDK_INT >= 31) svc.performGlobalAction(AccessibilityService.GLOBAL_ACTION_DISMISS_NOTIFICATION_SHADE)
+            if (was == 1) { delay(800); return@launch toast(tr("Grabación guardada en Pictures/screenrecorder", "Recording saved in Pictures/screenrecorder")) }
+            var ctl: android.view.accessibility.AccessibilityNodeInfo? = null
+            repeat(15) { if (ctl == null) { delay(200); ctl = findNode("com.android.systemui", id = "com.android.systemui:id/lottie_float_view") } }
+            val c = ctl ?: return@launch toast(tr("La grabadora no se abrió", "The recorder didn't open"))
+            delay(1200)
+            tapNode(c)
+            delay(1500)
+            toast(if (recState() == 1) tr("Grabando · Guía + LT para parar", "Recording · Guide + LT to stop")
+                else tr("No empezó a grabar: prueba con su botón rojo", "It didn't start: try its red button"))
+        }
+    }
+
+    /** Shadow Rec: encendido, guarda el clip; apagado, lo enciende. */
+    fun shadowAction() {
+        hide()
+        if (!ZuiGame.inGame(svc)) return toast(tr("Shadow Rec funciona en los juegos de Game Assistant", "Shadow Rec works in Game Assistant's games"))
+        scope.launch {
+            withGa {
+                val f = findNode(ZuiGame.PACKAGE, id = SHADOW_FLOAT)
+                if (f == null) { shadowToggleShown(); return@withGa }
+                // Su "»" se despliega en "Back Rec.", que guarda los últimos segundos.
+                tapNode(f)
+                var b: android.view.accessibility.AccessibilityNodeInfo? = null
+                repeat(8) { if (b == null) { delay(150); b = findNode(ZuiGame.PACKAGE, SHADOW_SAVE) } }
+                val bb = b ?: return@withGa toast(tr("No encontré el botón de guardar de Shadow Rec", "Couldn't find Shadow Rec's save button"))
+                tapNode(bb)
+                toast(tr("Clip guardado en Movies/Highlight", "Clip saved in Movies/Highlight"))
+            }
+        }
+    }
+
+    /** Enciende o apaga Shadow Rec desde el panel de Game Assistant (su botón, por nombre). */
+    private fun shadowToggle() { scope.launch { withGa { shadowToggleShown() } } }
+
+    private suspend fun shadowToggleShown() {
+        val was = shadowOn()
+        val bar = ZuiGame.awaitSideBar(svc) ?: return toast(tr("No se pudo abrir Game Assistant.", "Couldn't open Game Assistant."))
+        if (!swipe(bar, open = true)) return
+        var item: android.view.accessibility.AccessibilityNodeInfo? = null
+        repeat(10) { if (item == null) { delay(150); item = findNode(ZuiGame.PACKAGE, listOf("Shadow Rec")) } }
+        val i = item
+        if (i == null) {
+            swipe(bar, open = false)
+            return toast(tr("Agrega Shadow Rec a su panel: Game Assistant → Shortcut sort", "Add Shadow Rec to its panel: Game Assistant → Shortcut sort"))
+        }
+        tapNode(i)
+        shadowKnown = !was
+        delay(900)
+        // Al tocarlo su panel se cierra solo; si quedó abierto, se cierra.
+        if (findNode(ZuiGame.PACKAGE, listOf("Clean RAM", "Screen shot")) != null) swipe(bar, open = false)
+        toast(if (was) tr("Shadow Rec apagado", "Shadow Rec off") else tr("Shadow Rec encendido · Guía + RT guarda los últimos segundos", "Shadow Rec on · Guide + RT saves the last seconds"))
+    }
+
+    /** Con Game Assistant a la vista (si está oculto, se muestra y se vuelve a ocultar al terminar). */
+    private suspend fun withGa(block: suspend () -> Unit) {
+        val hidden = keepGaHidden() && !gaShownByUs
+        if (hidden) {
+            if (!ZuiGame.setHidden(false)) return toast(tr("Game Assistant está oculto y Shizuku no responde.", "Game Assistant is hidden and Shizuku isn't responding."))
+            delay(600)
+        }
+        try { block() } finally { if (hidden) withContext(NonCancellable) { delay(1500); ZuiGame.setHidden(true) } }
     }
 
     /** G9 Control mostró Game Assistant (que el usuario tiene oculto) para abrir su panel: se oculta al cambiar de app. */
@@ -1301,3 +1434,8 @@ class GamePanel(private val svc: AutoModeService) {
     }
 }
 
+
+/** Botones de otras apps que se buscan por nombre o id (ver la grabación en [GamePanel]). */
+private const val SHADOW_FLOAT = "com.zui.game.service:id/float_container"
+private val SHADOW_SAVE = listOf("Back Rec")
+private val REC_TILE = listOf("Screen record", "Grabar pantalla", "Grabación de pantalla")
