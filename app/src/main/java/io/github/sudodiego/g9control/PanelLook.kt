@@ -84,6 +84,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
@@ -338,17 +339,25 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
         if (banner && ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().clip(shape).background(body))
         Column(Modifier.fillMaxSize().graphicsLayer { alpha = ui.fade }) {
             // Cabecera: la imagen o el GIF, fundida hacia abajo. De fondo, sin ese espacio arriba.
-            if (banner && !ui.sub) Box(Modifier.fillMaxWidth().height(ThemeState.panelHeaderH.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
-                PanelBackdrop(opaque = !ThemeState.panelSeeImage)
-                // Fundido del borde de abajo (Panel → Fundido de la cabecera): desde qué altura la imagen pasa al panel.
-                // Hasta 100 el fundido empieza más arriba; de 100 a 200, además, el panel cubre la imagen antes (más
-                // fuerte). Con un paso intermedio para que la curva sea suave, sin línea marcada.
+            // La imagen misma se vuelve transparente hacia abajo (máscara DstIn): así lo de abajo es exactamente el
+            // fondo del panel. Antes se le pintaba encima el color del panel y, con transparencia, la imagen se
+            // seguía viendo y quedaba un borde. Hasta 100 el fundido empieza más arriba; de 100 a 200 termina antes.
+            if (banner && !ui.sub) {
                 val f = ThemeState.panelFade.coerceIn(0, 200)
-                if (f > 0) {
-                    val start = if (f <= 100) 1f - f / 100f else 0f
-                    val end = if (f <= 100) 1f else 1f - (f - 100) / 100f * 0.55f
-                    Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                        start to Color.Transparent, (start + (end - start) * 0.55f) to body.copy(alpha = body.alpha * 0.5f), end to body)))
+                val start = if (f <= 100) 1f - f / 100f else 0f
+                val end = if (f <= 100) 1f else 1f - (f - 100) / 100f * 0.55f
+                Box(Modifier.fillMaxWidth().height(ThemeState.panelHeaderH.dp).clip(RoundedCornerShape(topStart = 28.dp))
+                    .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+                    .drawWithContent {
+                        drawContent()
+                        if (f > 0) drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(
+                            0f to Color.Black, start to Color.Black, (start + (end - start) * 0.5f) to Color.Black.copy(alpha = 0.45f), end to Color.Transparent),
+                            blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+                    }) {
+                    // Dibujada por Compose: la máscara del fundido no le llega a una vista nativa (ImageView).
+                    PanelImage(Modifier.fillMaxSize().graphicsLayer {
+                        alpha = if (ThemeState.panelSeeImage) 1f - ThemeState.panelSee / 100f * 0.85f else 1f
+                    })
                 }
             }
             // Un poco de aire entre la cabecera y el nombre (antes quedaban pegados).

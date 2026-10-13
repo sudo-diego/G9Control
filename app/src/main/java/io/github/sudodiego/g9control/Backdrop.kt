@@ -25,6 +25,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
@@ -169,5 +172,53 @@ private fun ImageBackdrop(uri: String, blur: Int, loop: Boolean, dark: Boolean, 
         )
         // Velo: el texto se lee aunque la imagen sea clara u oscura.
         Box(Modifier.fillMaxSize().background(if (dark) Color(0x8C0A0F1F) else Color(0x80EAF0FA)))
+    }
+}
+
+/**
+ * La imagen o el GIF del panel dibujados por Compose (no con un ImageView): así le llegan los efectos de Compose,
+ * como el fundido de la cabecera del lateral (una máscara; a una vista nativa no le llega). Mismo ajuste y encuadre
+ * que el fondo ([ImageFit], foco) y mismo desenfoque. El GIF se redibuja cada cuadro mientras se ve.
+ */
+@Composable
+fun PanelImage(modifier: Modifier = Modifier) {
+    val ctx = LocalContext.current
+    val uri = ThemeState.panelUri ?: return Box(modifier) { GradientBackdrop(true, ThemeState.panelAccent) }
+    var drawable by remember(uri) { mutableStateOf(ImageCache.get("banner", uri)) }
+    LaunchedEffect(uri) { if (drawable == null) drawable = withContext(Dispatchers.IO) { ImageCache.decode(ctx, "banner", uri) } }
+    val d = drawable ?: return Box(modifier) { GradientBackdrop(true, ThemeState.panelAccent) }
+    var frame by remember { mutableIntStateOf(0) }
+    LaunchedEffect(d, ThemeState.panelLoop) {
+        (d as? AnimatedImageDrawable)?.let { gif ->
+            gif.repeatCount = if (ThemeState.panelLoop) AnimatedImageDrawable.REPEAT_INFINITE else 0
+            gif.start()
+            while (true) { withFrameNanos { }; frame++ }
+        }
+    }
+    val blur = ThemeState.panelBlur
+    Canvas(modifier.then(if (Build.VERSION.SDK_INT >= 31 && blur > 0) Modifier.graphicsLayer {
+        renderEffect = RenderEffect.createBlurEffect(blur.toFloat(), blur.toFloat(), Shader.TileMode.CLAMP).asComposeRenderEffect()
+    } else Modifier)) {
+        frame   // se lee para redibujar cada cuadro del GIF
+        val w = size.width; val h = size.height
+        val dw = d.intrinsicWidth.toFloat().coerceAtLeast(1f); val dh = d.intrinsicHeight.toFloat().coerceAtLeast(1f)
+        val (sx, sy) = when (ThemeState.panelFit) {
+            ImageFit.FILL -> maxOf(w / dw, h / dh).let { it to it }
+            ImageFit.FIT -> minOf(w / dw, h / dh).let { it to it }
+            ImageFit.STRETCH -> (w / dw) to (h / dh)
+            ImageFit.CENTER -> 1f to 1f
+        }
+        val left = (w - dw * sx) / 2f
+        val top = if (ThemeState.panelFit == ImageFit.FILL) (h - dh * sy) * ThemeState.panelFocus.coerceIn(0f, 1f) else (h - dh * sy) / 2f
+        drawIntoCanvas { c ->
+            val nc = c.nativeCanvas
+            nc.save()
+            nc.clipRect(0f, 0f, w, h)
+            nc.translate(left, top)
+            nc.scale(sx, sy)
+            d.setBounds(0, 0, dw.toInt(), dh.toInt())
+            d.draw(nc)
+            nc.restore()
+        }
     }
 }

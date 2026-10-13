@@ -7,6 +7,8 @@ import android.media.AudioManager
 import android.media.MediaPlayer
 import android.media.SoundPool
 import android.net.Uri
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 
 /**
  * Sonidos de navegación (moverse, elegir, volver, cambiar de pestaña): WAV de res/raw (nav_*.wav), hechos una vez en
@@ -24,7 +26,8 @@ object UiSounds {
     private fun ensure(ctx: Context): SoundPool {
         pool?.let { return it }
         val p = SoundPool.Builder().setMaxStreams(4).setAudioAttributes(
-            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            // Por el volumen de juegos/multimedia: el de "sonidos del sistema" suele estar en 0 en la tablet (no se oía).
+            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_GAME)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
         ).build()
         val app = ctx.applicationContext
@@ -35,6 +38,9 @@ object UiSounds {
         pool = p
         return p
     }
+
+    /** Cargar los sonidos de antemano (SoundPool carga en segundo plano: el primero se perdía). */
+    fun preload(ctx: Context) { if (Prefs.navSounds(ctx)) runCatching { ensure(ctx) } }
 
     /** [panel]: viene del panel de juego (suena solo con "También en el panel"). */
     fun play(ctx: Context, kind: Kind, panel: Boolean = false) {
@@ -56,6 +62,11 @@ object UiSounds {
  * lo suelta al salir, para que la de Cocoon vuelva. Si otra app pide el audio, se pausa.
  */
 object AmbientMusic {
+    /** Para Ajustes: encendida y con archivo (cambia al elegir uno, sin volver a abrir la página). */
+    var on by androidx.compose.runtime.mutableStateOf(false)
+    var hasFile by androidx.compose.runtime.mutableStateOf(false)
+    fun load(ctx: Context) { on = Prefs.music(ctx); hasFile = Prefs.musicUri(ctx) != null }
+
     private var player: MediaPlayer? = null
     private var focus: AudioFocusRequest? = null
 

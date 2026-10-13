@@ -437,15 +437,18 @@ fun ConnectionPill(s: AppState, onConnect: () -> Unit) {
         s.padMode == PadMode.DS5 -> tr("En DS5", "In DS5") to MaterialTheme.colorScheme.tertiary
         else -> tr("Sin conexión", "Not connected") to MaterialTheme.colorScheme.error
     }
+    // Se tiene que leer sobre cualquier fondo (imagen o fondo de pantalla): fondo de la barra, borde del color del
+    // estado y texto claro (antes, texto de color sobre un tinte de 14 % casi no se veía).
     Surface(
         shape = CircleShape,
-        color = color.copy(alpha = 0.14f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
+        border = BorderStroke(1.5.dp, color.copy(alpha = 0.7f)),
         modifier = Modifier.clip(CircleShape).clickable(onClick = onConnect)
     ) {
-        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).background(color, CircleShape))
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).background(color, CircleShape))
             Spacer(Modifier.width(8.dp))
-            Text(text, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = color)
+            Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }

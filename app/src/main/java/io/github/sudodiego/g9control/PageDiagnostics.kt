@@ -657,11 +657,11 @@ private fun SoundSettings(a: MainActivity) {
     var nav by remember { mutableStateOf(Prefs.navSounds(a)) }
     var navPanel by remember { mutableStateOf(Prefs.navSoundsPanel(a)) }
     var navVol by remember { mutableIntStateOf(Prefs.navVolume(a)) }
-    var music by remember { mutableStateOf(Prefs.music(a)) }
+    val music = AmbientMusic.on
     var musicVol by remember { mutableIntStateOf(Prefs.musicVolume(a)) }
-    val hasMusic = Prefs.musicUri(a) != null
+    val hasMusic = AmbientMusic.hasFile
     SwitchRow(tr("Sonidos al navegar", "Navigation sounds"), nav, tr("Al moverte, elegir, volver y cambiar de pestaña", "When moving, selecting, going back and switching tabs")) {
-        nav = it; Prefs.setNavSounds(a, it); if (it) UiSounds.play(a, UiSounds.Kind.SELECT)
+        nav = it; Prefs.setNavSounds(a, it); if (it) { UiSounds.preload(a); UiSounds.play(a, UiSounds.Kind.SELECT) }
     }
     if (nav) {
         SwitchRow(tr("También en el panel de juego", "Also in the game panel"), navPanel) { navPanel = it; Prefs.setNavSoundsPanel(a, it) }
@@ -671,7 +671,7 @@ private fun SoundSettings(a: MainActivity) {
     }
     SwitchRow(tr("Música ambiental", "Background music"), music && hasMusic,
         if (hasMusic) tr("Suena mientras la app está abierta", "Plays while the app is open") else tr("Elige un archivo de audio tuyo", "Pick an audio file of yours")) {
-        if (!hasMusic) a.pickMusic() else { music = it; Prefs.setMusic(a, it); AmbientMusic.restart(a) }
+        if (!hasMusic) a.pickMusic() else { AmbientMusic.on = it; Prefs.setMusic(a, it); AmbientMusic.restart(a) }
     }
     if (music && hasMusic) {
         SliderRow(tr("Volumen de la música", "Music volume"), musicVol, 5..100, "$musicVol %") {

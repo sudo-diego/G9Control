@@ -134,7 +134,9 @@ class MainActivity : ComponentActivity() {
         refreshDevice()
         autoConnect(ask = true)
         KeyBus.listener = { e -> if (state.testMode) addOtherKey(e, viaService = true) }
+        AmbientMusic.load(this)
         AmbientMusic.start(this)
+        UiSounds.preload(this)
     }
 
     override fun onPause() {
@@ -912,6 +914,7 @@ class MainActivity : ComponentActivity() {
         if (uri == null) return@registerForActivityResult
         runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
         Prefs.setMusicUri(this, uri.toString()); Prefs.setMusic(this, true)
+        AmbientMusic.load(this)
         AmbientMusic.restart(this)
     }
     fun pickMusic() = musicLauncher.launch(arrayOf("audio/*"))
