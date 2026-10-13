@@ -221,6 +221,7 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
     var level by remember { mutableIntStateOf(AutoRules.smartBypassLevel(a)) }
     var temp by remember { mutableIntStateOf(AutoRules.smartBypassTemp(a)) }
     var games by remember { mutableStateOf(AutoRules.smartBypassGames(a)) }
+    var any by remember { mutableStateOf(AutoRules.smartBypassAny(a)) }
     var limit by remember { mutableStateOf<Int?>(null) }
     var own by remember { mutableIntStateOf(ZuiBattery.ownLimit(a) ?: 0) }
     val ready = Shell.state == Shell.State.READY
@@ -274,11 +275,12 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
             }
             Gate(ready && s.autoServiceOn) {
                 // Automático: un resumen de cuándo se activa, que cambia con lo que se elija.
+                val conds = tr("desde $level %", "from $level %") +
+                    if (temp > 0) (if (any) tr(" o ", " or ") else tr(" y ", " and ")) + tr("desde $temp °C", "from $temp °C") else ""
                 val summary = listOfNotNull(
                     tr("Enchufada", "Plugged in"),
                     if (games) tr("en un juego", "in a game") else null,
-                    tr("desde $level %", "from $level %"),
-                    if (temp > 0) tr("desde $temp °C", "from $temp °C") else null
+                    conds
                 ).joinToString(" · ")
                 SwitchRow(tr("Bypass automático", "Automatic bypass"), smart, if (smart) summary else tr("Se activa solo cuando conviene.", "Turns on by itself when it makes sense.")) {
                     smart = it; AutoRules.setSmartBypass(a, it)
@@ -299,6 +301,13 @@ private fun BatteryPanel(s: AppState, a: MainActivity) {
                     SliderRow(tr("Temperatura de la batería desde", "Battery temperature from"), if (temp == 0) 30 else temp, 30..45,
                         if (temp == 0) tr("Cualquiera", "Any") else "$temp °C", snaps = listOf(35, 38, 41), snapPull = 1) {
                         temp = if (it <= 30) 0 else it; AutoRules.setSmartBypassTemp(a, temp)
+                    }
+                    if (temp > 0) {
+                        Text(tr("Se activa con", "Turns on with"), fontSize = 14.sp)
+                        ChoiceChips(listOf(false to tr("Las dos", "Both"), true to tr("Cualquiera", "Either")), any) { any = it; AutoRules.setSmartBypassAny(a, it) }
+                        Hint(if (any) tr("Con calor entra aunque tenga poca batería (se queda en ese nivel mientras dure el calor).",
+                                "When hot it turns on even with low battery (it stays at that level while it lasts).")
+                            else tr("Solo cuando tiene esa batería y además está así de caliente.", "Only when it has that battery and is that hot too."))
                     }
                     Hint(tr("Cargar con calor es lo que más gasta la batería. Bajo 35 °C cargar no la daña; desde 38 °C conviene no cargar mientras juegas; sobre 41 °C envejece bastante más rápido (y cerca de 45 °C Android corta la carga).",
                         "Charging while hot wears the battery the most. Below 35 °C charging is fine; from 38 °C it's better not to charge while playing; above 41 °C it ages much faster (and near 45 °C Android stops charging)."))

@@ -141,7 +141,11 @@ class AutoModeService : AccessibilityService() {
         val minLevel = AutoRules.smartBypassLevel(this)
         val minTemp = AutoRules.smartBypassTemp(this)
         val margin = if (smartOn) 2 else 0
-        val smartWant = AutoRules.smartBypass(this) && game && level >= minLevel - margin && (minTemp == 0 || temp >= minTemp - margin / 2f)
+        val byLevel = level >= minLevel - margin
+        val byTemp = minTemp > 0 && temp >= minTemp - margin / 2f
+        // Las dos condiciones, o cualquiera (sin temperatura elegida, solo la batería).
+        val conds = if (minTemp == 0) byLevel else if (AutoRules.smartBypassAny(this)) byLevel || byTemp else byLevel && byTemp
+        val smartWant = AutoRules.smartBypass(this) && game && conds
         val limitWant = limit != null && level >= limit - (if (smartOn) 3 else 0)
         val want = plugged && (smartWant || limitWant)
         if (want == smartOn) return

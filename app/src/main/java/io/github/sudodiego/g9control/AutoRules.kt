@@ -161,8 +161,9 @@ object AutoRules {
 
     /**
      * Bypass automático propio (como el inteligente de Game Assistant, pero con los rangos que se elijan): enchufada,
-     * con batería ≥ [smartBypassLevel] y temperatura ≥ [smartBypassTemp] (0 = sin mínimo), y si [smartBypassGames],
-     * solo en juegos. Necesita Shizuku.
+     * con batería ≥ [smartBypassLevel] y temperatura ≥ [smartBypassTemp] (0 = sin mínimo) — las dos, o con
+     * [smartBypassAny] cualquiera de las dos (con calor aunque tenga poca batería) — y si [smartBypassGames], solo en
+     * juegos. Necesita Shizuku.
      */
     fun smartBypass(ctx: Context) = sp(ctx).getBoolean("smart_bypass", false)
     fun setSmartBypass(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("smart_bypass", v).apply()
@@ -170,6 +171,8 @@ object AutoRules {
     fun setSmartBypassLevel(ctx: Context, v: Int) = sp(ctx).edit().putInt("smart_bypass_level", v).apply()
     fun smartBypassTemp(ctx: Context) = sp(ctx).getInt("smart_bypass_temp", 0)
     fun setSmartBypassTemp(ctx: Context, v: Int) = sp(ctx).edit().putInt("smart_bypass_temp", v).apply()
+    fun smartBypassAny(ctx: Context) = sp(ctx).getBoolean("smart_bypass_any", false)
+    fun setSmartBypassAny(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("smart_bypass_any", v).apply()
     fun smartBypassGames(ctx: Context) = sp(ctx).getBoolean("smart_bypass_games", true)
     fun setSmartBypassGames(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("smart_bypass_games", v).apply()
 
