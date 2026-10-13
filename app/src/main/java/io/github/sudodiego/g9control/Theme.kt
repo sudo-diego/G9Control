@@ -140,11 +140,10 @@ object ThemeState {
     var panelTone by androidx.compose.runtime.mutableStateOf(PanelTone.DARK)
     var panelStyle by androidx.compose.runtime.mutableStateOf(PanelStyle.CENTER)
     var panelFit by androidx.compose.runtime.mutableStateOf(ImageFit.FILL)
-    /** Lateral: la imagen o el degradado como cabecera (true) o de fondo de todo el panel. */
+    /** Lateral: la imagen como cabecera (true) o de fondo de todo el panel. */
     var panelHeader by androidx.compose.runtime.mutableStateOf(true)
-    /** Lateral con cabecera: hay imagen o degradado arriba y el resto es liso. */
-    val sideBanner get() = panelSide && panelHeader &&
-        (panelBackground == PanelBackground.IMAGE || panelBackground == PanelBackground.GRADIENT)
+    /** Lateral con cabecera: la imagen arriba y el resto liso (con su transparencia). El degradado va siempre de fondo. */
+    val sideBanner get() = panelSide && panelHeader && panelBackground == PanelBackground.IMAGE
     /** Rellenar: qué parte de la imagen queda a la vista (0 = arriba, 0,5 = centro, 1 = abajo). */
     var panelFocus by androidx.compose.runtime.mutableFloatStateOf(0.5f)
     /** El panel va pegado a la derecha (estilo Steam). */

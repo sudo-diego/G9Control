@@ -434,15 +434,15 @@ private fun PanelLookPanel(a: MainActivity) {
         if (ThemeState.panelBackground == PanelBackground.CLEAR) {
             SliderRow(tr("Relleno", "Fill"), ThemeState.panelFill, 0..100) { ThemeState.panelFill = it; Prefs.setPanelFill(a, it) }
         }
-        // Lateral: la imagen (o el degradado) de cabecera o de fondo.
-        if (ThemeState.panelSide && (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)) {
+        // Lateral: la imagen de cabecera o de fondo (el degradado, siempre de fondo).
+        if (ThemeState.panelSide && ThemeState.panelBackground == PanelBackground.IMAGE) {
             Text(tr("Imagen en", "Image as"), fontSize = 14.sp)
             ChoiceChips(listOf(true to tr("Cabecera", "Header"), false to tr("Fondo", "Background")), ThemeState.panelHeader) {
                 ThemeState.panelHeader = it; Prefs.setPanelHeader(a, it)
             }
         }
-        // Transparencia: no con cabecera (el resto del lateral es liso).
-        if (!ThemeState.sideBanner && (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE)) {
+        // Con cabecera, la transparencia es la de lo de abajo (la imagen queda opaca).
+        if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE) {
             // Liquid glass: el fondo elegido, pero dejando ver el juego detrás.
             SliderRow(tr("Transparencia", "Transparency"), ThemeState.panelSee, 0..100) { ThemeState.panelSee = it; Prefs.setPanelSee(a, it) }
         }
