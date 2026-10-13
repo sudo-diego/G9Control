@@ -1,5 +1,8 @@
 package io.github.sudodiego.g9control
 
+import androidx.compose.foundation.border
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
@@ -864,4 +867,65 @@ fun ModeStrip(s: AppState) {
             }
         }
     }
+}
+
+/**
+ * Color de acento: atajos en círculos y un círculo "personalizado" que abre el selector (tono, saturación, brillo y
+ * código hex, con la muestra en vivo). Lo elegido lleva un anillo.
+ */
+@Composable
+fun AccentPicker(current: Accent, onPick: (Accent) -> Unit) {
+    val dark = isDarkTheme()
+    var custom by remember { mutableStateOf(false) }
+    val isPreset = current in Accent.PRESETS
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        @Composable fun dot(sel: Boolean, fill: Modifier, desc: String, onClick: () -> Unit) = Box(
+            Modifier.size(36.dp).clip(CircleShape)
+                .then(Modifier.border(if (sel) 3.dp else 1.dp, if (sel) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline, CircleShape))
+                .padding(if (sel) 5.dp else 3.dp).clip(CircleShape).then(fill)
+                .clickable(onClick = onClick).semantics { contentDescription = desc }
+        )
+        Accent.PRESETS.forEach { acc -> dot(acc == current, Modifier.background(acc.color(!dark)), acc.hex) { onPick(acc) } }
+        // Personalizado: arcoíris (o el color elegido si no es un atajo).
+        dot(!isPreset, if (isPreset) Modifier.background(androidx.compose.ui.graphics.Brush.sweepGradient(
+            listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red))) else Modifier.background(current.color(!dark)),
+            tr("Personalizado", "Custom")) { custom = true }
+        Spacer(Modifier.width(6.dp))
+        Text(if (current.base == null) tr("Celeste", "Sky") else current.hex, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (custom) CustomColorDialog(current, onDismiss = { custom = false }) { onPick(it); custom = false }
+}
+
+@Composable
+private fun CustomColorDialog(start: Accent, onDismiss: () -> Unit, onDone: (Accent) -> Unit) {
+    val hsv = remember { FloatArray(3).also { android.graphics.Color.colorToHSV((start.base ?: 0xFF6EC9FF).toInt(), it) } }
+    var h by remember { mutableFloatStateOf(hsv[0]) }
+    var s by remember { mutableFloatStateOf(hsv[1]) }
+    var v by remember { mutableFloatStateOf(hsv[2]) }
+    val argb = android.graphics.Color.HSVToColor(floatArrayOf(h, s, v)).toLong() and 0xFFFFFFFF
+    var hexText by remember { mutableStateOf("#%06X".format(argb and 0xFFFFFF)) }
+    // Al mover las barras el código se actualiza; al escribir un código válido, las barras.
+    fun fromHex(t: String) { hexText = t; Accent.parse(t)?.base?.let { b -> FloatArray(3).also { android.graphics.Color.colorToHSV(b.toInt(), it); h = it[0]; s = it[1]; v = it[2] } } }
+    fun sync() { hexText = "#%06X".format(android.graphics.Color.HSVToColor(floatArrayOf(h, s, v)) and 0xFFFFFF) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Color personalizado", "Custom color")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(14.dp)).background(Color(argb)))
+                Text(tr("Tono", "Hue"), fontSize = 13.sp)
+                Box(Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp)).background(androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    (0..6).map { Color(android.graphics.Color.HSVToColor(floatArrayOf(it * 60f, 1f, 1f))) })))
+                Slider(h, { h = it; sync() }, valueRange = 0f..360f)
+                Text(tr("Saturación", "Saturation"), fontSize = 13.sp)
+                Slider(s, { s = it; sync() })
+                Text(tr("Brillo", "Brightness"), fontSize = 13.sp)
+                Slider(v, { v = it; sync() })
+                OutlinedTextField(hexText, { fromHex(it) }, label = { Text(tr("Código hex", "Hex code")) }, singleLine = true,
+                    isError = Accent.parse(hexText) == null)
+            }
+        },
+        confirmButton = { TextButton(onClick = { onDone(Accent(argb or 0xFF000000)) }) { Text(tr("Usar", "Use")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancelar", "Cancel")) } }
+    )
 }

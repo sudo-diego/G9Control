@@ -46,6 +46,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.material3.Text
 
 /** Desplazamiento de la página abierta: la vista previa del panel lo usa para quedarse a la vista. */
@@ -98,12 +99,8 @@ fun PanelPreview() {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         val f = maxWidth.value / conf.screenWidthDp
         val h = (conf.screenHeightDp * f).dp
-        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(14.dp)).background(
-            Brush.linearGradient(listOf(Color(0xFF2B5876), Color(0xFF4E4376), Color(0xFF1D976C)))
-        )) {
-            // "Juego" de muestra: unas formas para que se note lo que deja ver la transparencia.
-            Text("GAME", color = Color.White.copy(alpha = 0.25f), fontSize = (h.value / 4).sp,
-                modifier = Modifier.align(Alignment.CenterStart).graphicsLayer { translationX = 20f })
+        Box(Modifier.fillMaxWidth().height(h).clip(RoundedCornerShape(14.dp))) {
+            GameScene(Modifier.fillMaxSize())
             val base = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(base.density * panelScale * f, base.fontScale)) {
                 val side = ThemeState.panelSide
@@ -115,6 +112,35 @@ fun PanelPreview() {
     }
 }
 
+/**
+ * Detrás del panel, el mismo fondo de la app (así combina y se ve sobre algo real): la imagen elegida como cuadro
+ * fijo (un GIF animado solo puede dibujarse en un lugar, y ya está detrás de la app), el degradado o, con el fondo de\n * pantalla, nada (se ve el de verdad).
+ */
+@Composable
+private fun GameScene(modifier: Modifier) {
+    val ctx = LocalContext.current
+    val uri = ThemeState.backgroundUri.takeIf { ThemeState.background == AppBackground.IMAGE }
+    var bmp by remember(uri) { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    androidx.compose.runtime.LaunchedEffect(uri) {
+        bmp = uri?.let { u ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                runCatching {
+                    android.graphics.ImageDecoder.decodeBitmap(android.graphics.ImageDecoder.createSource(ctx.contentResolver, android.net.Uri.parse(u))) { d, info, _ ->
+                        // Más chica: es una miniatura.
+                        val s = (720f / maxOf(info.size.width, info.size.height)).coerceAtMost(1f)
+                        d.setTargetSize((info.size.width * s).toInt().coerceAtLeast(1), (info.size.height * s).toInt().coerceAtLeast(1))
+                    }.asImageBitmap()
+                }.getOrNull()
+            }
+        }
+    }
+    Box(modifier) {
+        val b = bmp
+        if (b != null) androidx.compose.foundation.Image(b, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+        // Con el fondo de pantalla de Android (que una app no puede leer): transparente, se ve el de verdad detrás.
+        else if (ThemeState.background != AppBackground.WALLPAPER) GradientBackdrop(isDarkTheme())
+    }
+}
 /** Ítems de muestra, como en un juego: barras, juego, recientes, pantalla y Android. */
 private fun sampleUi() = PanelUi().apply {
     title = "Wind Waker"

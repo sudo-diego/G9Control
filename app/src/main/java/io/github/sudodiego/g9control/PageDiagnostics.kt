@@ -42,6 +42,8 @@ fun DiagnosticsPage(s: AppState, a: MainActivity) {
                 ChoiceChips(AppTheme.entries.map { it to it.label }, ThemeState.theme) {
                     ThemeState.theme = it; Prefs.setTheme(a, it)
                 }
+                Text(tr("Color de la app", "App color"), fontSize = 14.sp)
+                AccentPicker(ThemeState.appAccent) { ThemeState.appAccent = it; Prefs.setAccent(a, "app", it) }
                 Text(tr("Fondo", "Background"), fontSize = 14.sp)
                 ChoiceChips(AppBackground.entries.map { it to it.label }, ThemeState.background) {
                     if (it == AppBackground.IMAGE && ThemeState.backgroundUri == null) a.pickBackground()
@@ -475,6 +477,8 @@ internal fun PanelLookPanel(a: MainActivity) {
         }
         Text(tr("Tema (panel, avisos y guías)", "Theme (panel, notices and guides)"), fontSize = 14.sp)
         ChoiceChips(PanelTone.entries.map { it to it.label }, ThemeState.panelTone) { ThemeState.panelTone = it; Prefs.setPanelTone(a, it) }
+        Text(tr("Color (panel, avisos y guías)", "Color (panel, notices and guides)"), fontSize = 14.sp)
+        AccentPicker(ThemeState.panelAccent) { ThemeState.panelAccent = it; Prefs.setAccent(a, "panel", it) }
         // Las columnas son de la tarjeta al centro (la lateral tiene 2); el tamaño vale para las dos.
         if (!ThemeState.panelSide) {
             Text(tr("Columnas", "Columns"), fontSize = 14.sp)

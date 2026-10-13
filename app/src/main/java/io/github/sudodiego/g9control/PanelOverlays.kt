@@ -435,7 +435,7 @@ internal class RaAlert(private val svc: AccessibilityService, private val title:
  * al centro y un halo se expande y se desvanece (como una luz que se prende). Si falla, el anillo queda gris.
  */
 internal class PerfRing(ctx: Context) : android.view.View(ctx) {
-    private val accent = if (ThemeState.panelLight) 0xFF1E7FC8.toInt() else 0xFF5CC8FF.toInt()
+    private val accent = ThemeState.panelAccent.color(ThemeState.panelLight).let { android.graphics.Color.argb(it.alpha, it.red, it.green, it.blue) }
     private val stroke = 3f * ctx.resources.displayMetrics.density
     private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         style = android.graphics.Paint.Style.STROKE; strokeWidth = stroke; strokeCap = android.graphics.Paint.Cap.ROUND; color = accent
@@ -624,7 +624,7 @@ internal class ShotFlash(private val svc: AccessibilityService) {
         return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also {
             android.graphics.Canvas(it).drawPaint(android.graphics.Paint().apply {
                 shader = android.graphics.LinearGradient(0f, 0f, w.toFloat(), h.toFloat(),
-                    0xFF1F2A42.toInt(), 0xFF5CC8FF.toInt(), android.graphics.Shader.TileMode.CLAMP)
+                    0xFF1F2A42.toInt(), ThemeState.panelAccent.color(false).let { android.graphics.Color.argb(it.alpha, it.red, it.green, it.blue) }, android.graphics.Shader.TileMode.CLAMP)
             })
         }
     }

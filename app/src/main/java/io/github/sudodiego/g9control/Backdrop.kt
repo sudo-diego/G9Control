@@ -71,22 +71,23 @@ private fun PanelBackdropLayer() {
         // Transparente: el juego se ve detrás, con el relleno elegido (un velo oscuro, de nada a casi opaco).
         PanelBackground.CLEAR -> Box(Modifier.fillMaxSize().background((if (ThemeState.panelLight) Color(0xFFF2F5FA) else Color(0xFF0A0F1F))
             .copy(alpha = ThemeState.panelFill / 100f * 0.9f)))
-        PanelBackground.GRADIENT -> GradientBackdrop(true)
+        PanelBackground.GRADIENT -> GradientBackdrop(true, ThemeState.panelAccent)
         PanelBackground.IMAGE -> {
             val uri = ThemeState.panelUri
-            if (uri == null) GradientBackdrop(true) else ImageBackdrop(uri, ThemeState.panelBlur, ThemeState.panelLoop, true, "panel",
+            if (uri == null) GradientBackdrop(true, ThemeState.panelAccent) else ImageBackdrop(uri, ThemeState.panelBlur, ThemeState.panelLoop, true, "panel",
                 ThemeState.panelFit, ThemeState.panelFocus)
         }
     }
 }
 
 @Composable
-private fun GradientBackdrop(dark: Boolean) {
+internal fun GradientBackdrop(dark: Boolean, accent: Accent = ThemeState.appAccent) {
     val t = rememberInfiniteTransition(label = "fondo")
     val drift by t.animateFloat(0f, 1f, infiniteRepeatable(tween(24_000, easing = LinearEasing), RepeatMode.Reverse), label = "brillo")
     val top = if (dark) Color(0xFF0A0F1F) else Color(0xFFEAF0FA)
     val bottom = if (dark) Color(0xFF172552) else Color(0xFFD6DFF6)
-    val cyan = if (dark) Color(0x445CC8FF) else Color(0x335CC8FF)
+    // El brillo que se mueve, del color de acento (celeste, el de siempre).
+    val cyan = (if (accent.base == null) Color(0xFF5CC8FF) else accent.color(false)).copy(alpha = if (dark) 0.27f else 0.2f)
     val lilac = if (dark) Color(0x338F7CFF) else Color(0x267A6CE0)
     Canvas(Modifier.fillMaxSize()) {
         drawRect(Brush.linearGradient(listOf(top, bottom), Offset.Zero, Offset(size.width * 0.4f, size.height)))

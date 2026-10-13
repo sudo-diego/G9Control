@@ -320,7 +320,7 @@ internal class OverlayOwner : LifecycleOwner, SavedStateRegistryOwner {
 private val lightUi get() = ThemeState.panelLight
 private val CARD get() = if (lightUi) Color(0xFFF3F6FB) else Color(0xFF111A2C)
 private val CARD_DONE get() = if (lightUi) Color(0xFFD7F3E3) else Color(0xFF145A35)
-private val ACCENT get() = if (lightUi) Color(0xFF1E7FC8) else Color(0xFF5CC8FF)
+private val ACCENT get() = ThemeState.panelAccent.color(lightUi)
 private val OK get() = if (lightUi) Color(0xFF1FA463) else Color(0xFF3DDC84)
 private val MUTED get() = if (lightUi) Color(0xFF56607A) else Color(0xFF9AA6BF)
 private val LINE get() = if (lightUi) Color(0xFFD5DCE8) else Color(0xFF2A3550)

@@ -205,9 +205,10 @@ internal class PanelUi {
 internal val light get() = ThemeState.panelLight
 internal val PANEL_BG get() = if (light) Color(0xF2F3F6FB) else Color(0xF00E1424)
 internal val TILE get() = if (light) Color(0xFFE1E7F1) else Color(0xFF1F2A42)
-internal val TILE_ON get() = if (light) Color(0xFF2F8FD8) else Color(0xFF6EC9FF)
-internal val ON_TILE_ON get() = if (light) Color.White else Color(0xFF052238)
-internal val PANEL_ACCENT get() = if (light) Color(0xFF1E7FC8) else Color(0xFF5CC8FF)
+// Encendido y acento: el color elegido para el panel (Celeste, el de siempre).
+internal val TILE_ON get() = ThemeState.panelAccent.color(light)
+internal val ON_TILE_ON get() = if (light) Color.White else if (ThemeState.panelAccent.base == null) Color(0xFF052238) else ThemeState.panelAccent.box(false)
+internal val PANEL_ACCENT get() = ThemeState.panelAccent.color(light)
 internal val PANEL_MUTED get() = if (light) Color(0xFF56607A) else Color(0xFF9AA6BF)
 /** Texto e íconos sobre los mosaicos apagados y el fondo. */
 internal val PANEL_FG get() = if (light) Color(0xFF14203A) else Color.White

@@ -402,7 +402,8 @@ class PerfHud(private val svc: AutoModeService) {
     }
 
     private companion object {
-        val ACCENT = 0xFF7DD8F5.toInt()
+        /** El acento del panel (en celeste, el de siempre). */
+        val ACCENT get() = ThemeState.panelAccent.let { a -> if (a.base == null) 0xFF7DD8F5.toInt() else a.color(false).let { android.graphics.Color.argb(it.alpha, it.red, it.green, it.blue) } }
         val MUTED = 0xFF6B7480.toInt()
         val WHITE = 0xFFFFFFFF.toInt()
         val WARM = 0xFFFFC857.toInt()
