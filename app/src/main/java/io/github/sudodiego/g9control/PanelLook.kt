@@ -613,7 +613,9 @@ internal fun PanelSlider(item: PanelItem, selected: Boolean, editing: Boolean, m
             .pointerInput(Unit) { detectTapGestures { onSet(it.x / size.width) } }
             .pointerInput(Unit) { detectHorizontalDragGestures { change, _ -> onSet(change.position.x / size.width) } }
     ) {
-        Box(Modifier.fillMaxHeight().fillMaxWidth((item.level ?: 0f).coerceIn(0.08f, 1f)).clip(shape)
+        // En 0 la barra queda vacía (antes quedaba un trozo pintado, como si no hubiera bajado del todo).
+        val lv = (item.level ?: 0f).coerceIn(0f, 1f)
+        if (lv > 0f) Box(Modifier.fillMaxHeight().fillMaxWidth(lv.coerceAtLeast(0.08f)).clip(shape)
             .background(if (editing) PANEL_ACCENT else TILE_ON.copy(alpha = 0.55f)))
         Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(item.icon, null, Modifier.size(22.dp), tint = PANEL_FG)

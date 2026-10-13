@@ -181,13 +181,24 @@ internal object SystemLevels {
         return a.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / a.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
     }
 
-    /** False si al subir no cambió sin estar al máximo: lo frenó el aviso de volumen alto de Android. */
+    /**
+     * Un paso más o menos. False si al subir no cambió sin estar al máximo: lo frenó el aviso de volumen alto de Android.
+     * Con setStreamVolume y no adjustStreamVolume(ADJUST_LOWER): en ZUI, bajar así hasta 0 mostraba el volumen del
+     * sistema y hacía vibrar la tablet (como al pasar a modo vibración). Silenciado, subir quita el silencio.
+     */
     fun stepVolume(ctx: Context, dir: Int): Boolean {
         val a = audio(ctx)
-        val before = a.getStreamVolume(AudioManager.STREAM_MUSIC)
-        a.adjustStreamVolume(AudioManager.STREAM_MUSIC, if (dir > 0) AudioManager.ADJUST_RAISE else AudioManager.ADJUST_LOWER, 0)
-        return dir < 0 || a.isStreamMute(AudioManager.STREAM_MUSIC) || before >= a.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ||
-            a.getStreamVolume(AudioManager.STREAM_MUSIC) > before
+        val s = AudioManager.STREAM_MUSIC
+        if (a.isStreamMute(s)) {
+            if (dir > 0) a.adjustStreamVolume(s, AudioManager.ADJUST_UNMUTE, 0)
+            return true
+        }
+        val max = a.getStreamMaxVolume(s)
+        val before = a.getStreamVolume(s)
+        val want = (before + dir).coerceIn(0, max)
+        if (want == before) return true
+        a.setStreamVolume(s, want, 0)
+        return dir < 0 || a.getStreamVolume(s) > before
     }
 
     /** Subir con la interfaz de Android: así muestra su aviso de volumen alto para confirmarlo. */
