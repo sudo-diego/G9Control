@@ -158,6 +158,13 @@ class PerfHud(private val svc: AutoModeService) {
         fun sep() = colored("  │  ", MUTED)
         /** Temperatura en color: blanca, amarilla desde [warm], roja desde [hot]. */
         fun temp(t: Int?, warm: Int, hot: Int) { t?.let { colored("  $it°", if (it >= hot) HOT else if (it >= warm) WARM else WHITE) } }
+        /** "2.6/3.3 GHz": blanco si va al máximo, amarillo o rojo si está topada. */
+        fun capText(c: Pair<Double, Double>?) {
+            if (c == null) { sb.append("—"); return }
+            val (now, hw) = c
+            colored("%.1f".format(now), if (now >= hw * 0.97) WHITE else if (now >= hw * 0.7) WARM else HOT)
+            colored("/%.1f GHz".format(hw), MUTED)
+        }
         val charging = bat?.getIntExtra(BatteryManager.EXTRA_STATUS, 0) == BatteryManager.BATTERY_STATUS_CHARGING
         val plugged = (bat?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) ?: 0) != 0
         val full = AutoRules.perfFull(svc)
@@ -167,7 +174,7 @@ class PerfHud(private val svc: AutoModeService) {
         val left = if (full && !held) remaining(charging) else null
         val ms = fps?.takeIf { it > 0 }?.let { 1000.0 / it }
         val hz = if (full) hz() else null
-        val heat = if (full) thermal() else null
+        val cap = if (full) cpuCap() else null
         val ram = if (full) ramFree() else null
 
         // Para medir consumo (por ejemplo 60 contra 120 Hz) desde el PC: una línea por segundo en el registro.
@@ -189,8 +196,8 @@ class PerfHud(private val svc: AutoModeService) {
                 row("PWR"); sb.append(w?.let { (if (charging) "+" else "") + "%.1f W".format(it) } ?: "—")
                 row(if (charging) "CHG" else "LEFT"); sb.append(left ?: "—")
                 row("Hz"); sb.append(hz?.toString() ?: "—")
-                // El calor en su fila fija: vacía si todo está bien.
-                row("HEAT"); if (heat != null) colored(heat, HOT) else colored(tr("normal", "normal"), MUTED)
+                // Tope de la CPU ahora contra el máximo del chip: el freno real (por calor o por el modo de rendimiento).
+                row("MAX"); capText(cap)
             }
         } else {
             // Barra: los mismos datos en una o dos líneas.
@@ -209,7 +216,7 @@ class PerfHud(private val svc: AutoModeService) {
                 w?.let { v -> parts += { sb.append((if (charging) "+" else "") + "%.1f ".format(v)); label("W") } }
                 left?.let { l -> parts += { label(if (charging) "CHG " else "LEFT "); sb.append(l) } }
                 hz?.let { v -> parts += { sb.append("$v "); label("Hz") } }
-                heat?.let { v -> parts += { colored(v, HOT) } }
+                cap?.let { parts += { label("MAX "); capText(it) } }
                 parts.forEachIndexed { k, p -> if (k > 0) sep(); p() }
             }
         }
@@ -250,6 +257,19 @@ class PerfHud(private val svc: AutoModeService) {
         val st = sb.length
         sb.append("  ")
         sb.setSpan(android.text.style.ImageSpan(icon, android.text.style.DynamicDrawableSpan.ALIGN_CENTER), st, st + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    }
+
+    /**
+     * Tope de la CPU ahora y máximo del chip (GHz), del grupo de núcleos más rápido. Lo baja el thermal-engine del
+     * fabricante (/vendor/etc/thermal-engine_cpu_*.conf: por el sensor quiet-therm, desde 40 °C en el perfil normal y
+     * 60 °C en Bestia) y también el modo de rendimiento (Ahorro). Mostrarlo dice si hay freno, venga de donde venga.
+     */
+    private val policies = File("/sys/devices/system/cpu/cpufreq").listFiles()?.filter { it.name.startsWith("policy") }.orEmpty()
+    private fun cpuCap(): Pair<Double, Double>? {
+        val fastest = policies.maxByOrNull { readLong(File(it, "cpuinfo_max_freq")) ?: 0L } ?: return null
+        val hw = readLong(File(fastest, "cpuinfo_max_freq")) ?: return null
+        val now = readLong(File(fastest, "scaling_max_freq")) ?: return null
+        return now / 1e6 to hw / 1e6
     }
 
     /** Hz de la pantalla ahora. */
