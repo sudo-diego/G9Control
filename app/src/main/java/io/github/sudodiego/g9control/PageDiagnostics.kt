@@ -440,6 +440,14 @@ private fun PanelLookPanel(a: MainActivity) {
             ChoiceChips(listOf(true to tr("Cabecera", "Header"), false to tr("Fondo", "Background")), ThemeState.panelHeader) {
                 ThemeState.panelHeader = it; Prefs.setPanelHeader(a, it)
             }
+            if (ThemeState.panelHeader) {
+                SliderRow(tr("Alto de la cabecera", "Header height"), ThemeState.panelHeaderH, 80..300) {
+                    ThemeState.panelHeaderH = it; Prefs.setPanelHeaderH(a, it)
+                }
+                SwitchRow(tr("Transparencia también en la imagen", "Transparency on the image too"), ThemeState.panelSeeImage) {
+                    ThemeState.panelSeeImage = it; Prefs.setPanelSeeImage(a, it)
+                }
+            }
         }
         // Con cabecera, la transparencia es la de lo de abajo (la imagen queda opaca).
         if (ThemeState.panelBackground == PanelBackground.GRADIENT || ThemeState.panelBackground == PanelBackground.IMAGE) {

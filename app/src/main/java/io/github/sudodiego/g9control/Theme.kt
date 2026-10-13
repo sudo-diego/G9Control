@@ -142,6 +142,9 @@ object ThemeState {
     var panelFit by androidx.compose.runtime.mutableStateOf(ImageFit.FILL)
     /** Lateral: la imagen como cabecera (true) o de fondo de todo el panel. */
     var panelHeader by androidx.compose.runtime.mutableStateOf(true)
+    /** Lateral con cabecera: alto de la cabecera (dp) y si la transparencia también aclara la imagen. */
+    var panelHeaderH by androidx.compose.runtime.mutableIntStateOf(150)
+    var panelSeeImage by androidx.compose.runtime.mutableStateOf(false)
     /** Lateral con cabecera: la imagen arriba y el resto liso (con su transparencia). El degradado va siempre de fondo. */
     val sideBanner get() = panelSide && panelHeader && panelBackground == PanelBackground.IMAGE
     /** Rellenar: qué parte de la imagen queda a la vista (0 = arriba, 0,5 = centro, 1 = abajo). */
@@ -161,7 +164,7 @@ object ThemeState {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
         panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
-        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx); panelFit = Prefs.panelFit(ctx); panelHeader = Prefs.panelHeader(ctx); panelFocus = Prefs.panelFocus(ctx)
+        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx); panelFit = Prefs.panelFit(ctx); panelHeader = Prefs.panelHeader(ctx); panelHeaderH = Prefs.panelHeaderH(ctx); panelSeeImage = Prefs.panelSeeImage(ctx); panelFocus = Prefs.panelFocus(ctx)
         // La imagen del panel ya decodificada: al abrirlo no aparece primero el fondo liso.
         panelUri?.takeIf { panelBackground == PanelBackground.IMAGE }?.let { ImageCache.preload(ctx, "panel", it) }
     }

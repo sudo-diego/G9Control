@@ -334,12 +334,13 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
         if (banner && ThemeState.panelSeeThrough) Box(Modifier.matchParentSize().clip(shape).background(body))
         Column(Modifier.fillMaxSize().graphicsLayer { alpha = ui.fade }) {
             // Cabecera: la imagen o el GIF, fundida hacia abajo. De fondo, sin ese espacio arriba.
-            if (banner && !ui.sub) Box(Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
-                PanelBackdrop(opaque = true)
+            if (banner && !ui.sub) Box(Modifier.fillMaxWidth().height(ThemeState.panelHeaderH.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
+                PanelBackdrop(opaque = !ThemeState.panelSeeImage)
                 Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
                     0.45f to Color.Transparent, 1f to body)))
             }
-            Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (banner && !ui.sub) 0.dp else 24.dp)) {
+            // Un poco de aire entre la cabecera y el nombre (antes quedaban pegados).
+            Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (banner && !ui.sub) 14.dp else 24.dp)) {
                 PanelHeader(ui)
                 if (!ui.sub && ui.stats) { Spacer(Modifier.height(12.dp)); PanelStats() }
                 Spacer(Modifier.height(14.dp))
