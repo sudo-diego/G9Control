@@ -68,6 +68,8 @@ object Prefs {
     fun setPanelFit(ctx: Context, v: ImageFit) = sp(ctx).edit().putString("panel_fit", v.name).apply()
     fun panelHeaderH(ctx: Context) = sp(ctx).getInt("panel_header_h", 150)
     fun setPanelHeaderH(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_header_h", v).apply()
+    fun panelFade(ctx: Context) = sp(ctx).getInt("panel_fade", 55)
+    fun setPanelFade(ctx: Context, v: Int) = sp(ctx).edit().putInt("panel_fade", v).apply()
     fun panelSeeImage(ctx: Context) = sp(ctx).getBoolean("panel_see_image", false)
     fun setPanelSeeImage(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("panel_see_image", v).apply()
     fun panelHeader(ctx: Context) = sp(ctx).getBoolean("panel_header", true)

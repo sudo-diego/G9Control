@@ -451,6 +451,10 @@ internal fun PanelLookPanel(a: MainActivity) {
                 SliderRow(tr("Alto de la cabecera", "Header height"), ThemeState.panelHeaderH, 80..300) {
                     ThemeState.panelHeaderH = it; Prefs.setPanelHeaderH(a, it)
                 }
+                SliderRow(tr("Fundido de la cabecera", "Header fade"), ThemeState.panelFade, 0..100,
+                    if (ThemeState.panelFade == 0) tr("Apagado", "Off") else "${ThemeState.panelFade}") {
+                    ThemeState.panelFade = it; Prefs.setPanelFade(a, it)
+                }
                 SwitchRow(tr("Transparencia también en la imagen", "Transparency on the image too"), ThemeState.panelSeeImage) {
                     ThemeState.panelSeeImage = it; Prefs.setPanelSeeImage(a, it)
                 }

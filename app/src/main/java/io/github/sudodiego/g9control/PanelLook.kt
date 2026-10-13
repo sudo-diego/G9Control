@@ -340,8 +340,10 @@ private fun SidePanelCard(ui: PanelUi, modifier: Modifier, onPick: (Int) -> Unit
             // Cabecera: la imagen o el GIF, fundida hacia abajo. De fondo, sin ese espacio arriba.
             if (banner && !ui.sub) Box(Modifier.fillMaxWidth().height(ThemeState.panelHeaderH.dp).clip(RoundedCornerShape(topStart = 28.dp))) {
                 PanelBackdrop(opaque = !ThemeState.panelSeeImage)
-                Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
-                    0.45f to Color.Transparent, 1f to body)))
+                // Fundido del borde de abajo (Panel → Fundido de la cabecera): desde qué altura la imagen pasa al panel.
+                val fade = ThemeState.panelFade.coerceIn(0, 100) / 100f
+                if (fade > 0f) Box(Modifier.matchParentSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+                    (1f - fade) to Color.Transparent, 1f to body)))
             }
             // Un poco de aire entre la cabecera y el nombre (antes quedaban pegados).
             Column(Modifier.padding(horizontal = CARD_PAD).padding(top = if (banner && !ui.sub) 14.dp else 24.dp)) {
