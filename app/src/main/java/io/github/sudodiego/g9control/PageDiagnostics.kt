@@ -307,11 +307,10 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
             NoticeBox(tr("Datos", "Data"), tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery"), null,
                 side = { PosGrid(perfPos) { perfPos = it; AutoRules.setPerfPos(a, it) } }) {
                 Text(tr("Estilo", "Style"), fontSize = 14.sp)
-                ChoiceChips(listOf(false to tr("Barra", "Bar"), true to tr("Lista (MangoHUD)", "List (MangoHUD)")), perfList) {
+                ChoiceChips(listOf(false to tr("Barra", "Bar"), true to tr("Columna", "Column")), perfList) {
                     perfList = it; AutoRules.setPerfList(a, it)
                 }
-                SwitchRow(tr("Más datos", "More data"), perfFull, if (perfList) tr("RAM, watts, tiempo, Hz y calor", "RAM, watts, time, Hz and heat")
-                    else tr("Watts, tiempo, Hz y calor", "Watts, time, Hz and heat")) {
+                SwitchRow(tr("Más datos", "More data"), perfFull, tr("RAM, watts, tiempo, Hz y calor", "RAM, watts, time, Hz and heat")) {
                     perfFull = it; AutoRules.setPerfFull(a, it)
                 }
             }
