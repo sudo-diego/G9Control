@@ -292,7 +292,6 @@ private fun GamePanelSettings(s: AppState, a: MainActivity) {
                 ChoiceChips(ShotSound.entries.map { it to it.label }, shotSound) { shotSound = it; AutoRules.setShotSound(a, it) }
             }
         }
-        PanelLookPanel(a)
         Panel(tr("Monitor de rendimiento", "Performance monitor"), trailing = { Switch(perfHud, { perfHud = it; AutoRules.setPerfHud(a, it) }, enabled = LocalGateOk.current) }) {
             NoticeBox(tr("Datos", "Data"), tr("FPS, CPU, GPU y batería", "FPS, CPU, GPU and battery"), null,
                 side = { PosGrid(perfPos) { perfPos = it; AutoRules.setPerfPos(a, it) } }) {
@@ -418,7 +417,7 @@ private fun ExpandHeader(title: String, open: Boolean, onClick: () -> Unit) {
 
 /** Cómo se ve el panel de juego: su fondo (aparte del de la app) y el mini monitor. */
 @Composable
-private fun PanelLookPanel(a: MainActivity) {
+internal fun PanelLookPanel(a: MainActivity) {
     var stats by remember { mutableStateOf(Prefs.panelStats(a)) }
     var loop by remember { mutableStateOf(ThemeState.panelLoop) }
     Panel(tr("Panel de juego", "Game panel")) {
