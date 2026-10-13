@@ -58,6 +58,10 @@ object Prefs {
     fun panelTone(ctx: Context) = runCatching { PanelTone.valueOf(sp(ctx).getString("panel_tone", null)!!) }.getOrDefault(PanelTone.DARK)
     fun setPanelTone(ctx: Context, v: PanelTone) = sp(ctx).edit().putString("panel_tone", v.name).apply()
     /** Acento guardado como "#RRGGBB" (vacío = el celeste de siempre). */
+    fun previewUri(ctx: Context) = sp(ctx).getString("preview_uri", null)
+    fun setPreviewUri(ctx: Context, v: String?) = sp(ctx).edit().putString("preview_uri", v).apply()
+    fun panelClassic(ctx: Context) = sp(ctx).getBoolean("panel_classic", false)
+    fun setPanelClassic(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("panel_classic", v).apply()
     fun accent(ctx: Context, which: String) = sp(ctx).getString("accent_$which", null)?.let { Accent.parse(it) } ?: Accent.SKY
     fun setAccent(ctx: Context, which: String, v: Accent) = sp(ctx).edit().putString("accent_$which", if (v.base == null) "" else v.hex).apply()
     fun panelFit(ctx: Context) = runCatching { ImageFit.valueOf(sp(ctx).getString("panel_fit", null)!!) }.getOrDefault(ImageFit.FILL)

@@ -436,7 +436,9 @@ private fun PanelGrid(ui: PanelUi, fixed: Boolean, modifier: Modifier, onPick: (
                     PanelRow.RECENT -> tr("Recientes", "Recent") + (ui.recentInfo?.let { "   ‹ $it ›" } ?: "")
                     PanelRow.SCREEN -> tr("Pantalla y conexión", "Screen and connection")
                     else -> "Android"
-                }, color = PANEL_MUTED, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, style = LABEL_STYLE, modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
+                }.let { if (ThemeState.panelClassic) it else it.uppercase() }, color = PANEL_MUTED, fontSize = if (ThemeState.panelClassic) 12.sp else 11.sp,
+                    fontWeight = FontWeight.SemiBold, letterSpacing = if (ThemeState.panelClassic) 0.sp else 1.2.sp, style = LABEL_STYLE,
+                    modifier = Modifier.padding(start = 6.dp, bottom = 6.dp))
             }
             // Cada fila llena el ancho: los mosaicos se reparten el espacio (sin huecos al final). Con forma fija,
             // las filas de mosaicos se reparten también el alto.
@@ -588,6 +590,7 @@ internal fun PanelToggle(item: PanelItem, selected: Boolean, onClick: () -> Unit
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 internal fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    if (!ThemeState.panelClassic) return BadgeTile(item, selected, modifier, onClick)
     val fg = if (item.danger) Color.White else if (item.active) ON_TILE_ON else PANEL_FG
     Surface(
         color = if (item.danger) Color(0xFFE5484D) else if (item.active) TILE_ON else tileColor, shape = RoundedCornerShape(22.dp),
@@ -605,6 +608,43 @@ internal fun PanelTile(item: PanelItem, selected: Boolean, modifier: Modifier, o
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 item.sub?.let {
                     Text(it, color = fg.copy(alpha = 0.72f), fontSize = 12.sp, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Mosaico nuevo, más de consola (como el centro de control de la PS5 o el acceso rápido del Steam Deck): el
+ * mosaico queda sobrio y el ícono va en una insignia; encendido, solo la insignia toma el color de acento (y el
+ * estado se tiñe); en rojo lo que espera confirmación. Texto en peso medio.
+ */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun BadgeTile(item: PanelItem, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    val danger = item.danger
+    Surface(
+        color = if (danger) Color(0xFFE5484D).copy(alpha = 0.9f) else tileColor, shape = shape,
+        border = if (selected) BorderStroke(2.dp, SELECTED) else if (glassPanel) BorderStroke(1.dp, GLASS_EDGE) else null,
+        modifier = modifier.clip(shape)
+            .combinedClickable(onClick = onClick, onLongClick = item.alt)
+            .graphicsLayer { alpha = if (item.enabled) 1f else 0.45f }
+    ) {
+        Row(Modifier.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (item.appIcon != null) androidx.compose.foundation.Image(item.appIcon, null, Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)))
+            else Box(
+                Modifier.size(36.dp).clip(RoundedCornerShape(11.dp))
+                    .background(when { danger -> Color.White.copy(alpha = 0.2f); item.active -> TILE_ON; else -> PANEL_FG.copy(alpha = 0.13f) }),
+                contentAlignment = Alignment.Center
+            ) { Icon(item.icon, null, Modifier.size(20.dp), tint = when { danger -> Color.White; item.active -> ON_TILE_ON; else -> PANEL_FG.copy(alpha = 0.85f) }) }
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text(item.label, color = if (danger) Color.White else PANEL_FG, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                item.sub?.let {
+                    Text(it, color = if (danger) Color.White.copy(alpha = 0.85f) else if (item.active) TILE_ON else PANEL_MUTED, fontSize = 12.sp, maxLines = 1,
                         overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 }
             }

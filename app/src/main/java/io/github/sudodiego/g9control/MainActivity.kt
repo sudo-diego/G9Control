@@ -884,6 +884,16 @@ class MainActivity : ComponentActivity() {
     }
     fun pickPanelBackground() = panelBackgroundLauncher.launch(arrayOf("image/*"))
 
+    /** Fondo de la vista previa del panel: una imagen propia (por ejemplo una captura de un juego). */
+    private val previewLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        runCatching { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        Prefs.setPreviewUri(this, uri.toString()); ThemeState.previewUri = uri.toString()
+    }
+    fun pickPreviewImage() = previewLauncher.launch(arrayOf("image/*"))
+
     /**
      * Fondo de la ventana con el fondo de pantalla: el velo REEMPLAZA los píxeles (modo SRC) en vez de sumarse. Con un
      * ColorDrawable translúcido la ventana no se limpiaba entre cuadros: el velo se apilaba hasta tapar el fondo y

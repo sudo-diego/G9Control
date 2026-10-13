@@ -169,6 +169,10 @@ object ThemeState {
     var panelStyle by androidx.compose.runtime.mutableStateOf(PanelStyle.CENTER)
     var panelFit by androidx.compose.runtime.mutableStateOf(ImageFit.FILL)
     /** Colores de acento: el de la app y el del panel (avisos y guías incluidos). */
+    /** Mosaicos del panel: nuevos (ícono en una insignia, más sobrios) o los clásicos (píldoras llenas de color). */
+    var panelClassic by androidx.compose.runtime.mutableStateOf(false)
+    /** Imagen propia para el fondo de la vista previa del panel (null = el degradado). Queda solo en la tablet. */
+    var previewUri by androidx.compose.runtime.mutableStateOf<String?>(null)
     var appAccent by androidx.compose.runtime.mutableStateOf(Accent.SKY)
     var panelAccent by androidx.compose.runtime.mutableStateOf(Accent.SKY)
     /** Lateral: la imagen como cabecera (true) o de fondo de todo el panel. */
@@ -195,7 +199,7 @@ object ThemeState {
         theme = Prefs.theme(ctx); background = Prefs.background(ctx); backgroundUri = Prefs.backgroundUri(ctx)
         backgroundBlur = Prefs.backgroundBlur(ctx); backgroundLoop = Prefs.backgroundLoop(ctx); backgroundDim = Prefs.backgroundDim(ctx)
         panelBackground = Prefs.panelBackground(ctx); panelUri = Prefs.panelUri(ctx); panelBlur = Prefs.panelBlur(ctx); panelLoop = Prefs.panelLoop(ctx); panelFill = Prefs.panelFill(ctx); panelSee = Prefs.panelSee(ctx)
-        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx); panelFit = Prefs.panelFit(ctx); appAccent = Prefs.accent(ctx, "app"); panelAccent = Prefs.accent(ctx, "panel"); panelHeader = Prefs.panelHeader(ctx); panelHeaderH = Prefs.panelHeaderH(ctx); panelSeeImage = Prefs.panelSeeImage(ctx); panelFocus = Prefs.panelFocus(ctx)
+        panelShape = Prefs.panelShape(ctx); panelScale = Prefs.panelScale(ctx); panelTone = Prefs.panelTone(ctx); panelStyle = Prefs.panelStyle(ctx); panelFit = Prefs.panelFit(ctx); appAccent = Prefs.accent(ctx, "app"); panelClassic = Prefs.panelClassic(ctx); previewUri = Prefs.previewUri(ctx); panelAccent = Prefs.accent(ctx, "panel"); panelHeader = Prefs.panelHeader(ctx); panelHeaderH = Prefs.panelHeaderH(ctx); panelSeeImage = Prefs.panelSeeImage(ctx); panelFocus = Prefs.panelFocus(ctx)
         // La imagen del panel ya decodificada: al abrirlo no aparece primero el fondo liso.
         panelUri?.takeIf { panelBackground == PanelBackground.IMAGE }?.let { ImageCache.preload(ctx, "panel", it) }
     }

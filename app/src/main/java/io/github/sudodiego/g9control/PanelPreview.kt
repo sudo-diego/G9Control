@@ -67,20 +67,25 @@ fun PanelPage(s: AppState, a: MainActivity) {
             Column(Modifier.weight(1f)) {
                 Box(Modifier.onGloballyPositioned { previewH = it.size.height }
                     .graphicsLayer { translationY = (scroll?.value ?: 0).coerceAtMost((rowH - previewH).coerceAtLeast(0)).toFloat() }) {
-                    PanelPreviewCard()
+                    PanelPreviewCard(a)
                 }
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp)) { Gate(s.autoServiceOn) { PanelLookPanel(a) } }
         }
     } else Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        PanelPreviewCard()
+        PanelPreviewCard(a)
         Gate(s.autoServiceOn) { PanelLookPanel(a) }
     }
 }
 
 @Composable
-private fun PanelPreviewCard() {
-    Panel(tr("Vista previa", "Preview")) {
+private fun PanelPreviewCard(a: MainActivity) {
+    Panel(tr("Vista previa", "Preview"), trailing = {
+        // De fondo, el degradado o una imagen propia (una captura de un juego, por ejemplo).
+        androidx.compose.material3.TextButton(onClick = {
+            if (ThemeState.previewUri == null) a.pickPreviewImage() else { ThemeState.previewUri = null; Prefs.setPreviewUri(a, null) }
+        }) { Text(if (ThemeState.previewUri == null) tr("Usar una imagen", "Use an image") else tr("Quitar imagen", "Remove image")) }
+    }) {
         PanelPreview()
         Hint(tr("Así se ve sobre un juego. Los cambios se ven al instante.", "This is how it looks over a game. Changes show right away."))
     }
@@ -113,13 +118,13 @@ fun PanelPreview() {
 }
 
 /**
- * Detrás del panel, el mismo fondo de la app (así combina y se ve sobre algo real): la imagen elegida como cuadro
- * fijo (un GIF animado solo puede dibujarse en un lugar, y ya está detrás de la app), el degradado o, con el fondo de\n * pantalla, nada (se ve el de verdad).
+ * Detrás del panel: el degradado de la app, o la imagen propia elegida para la vista previa (por ejemplo una captura
+ * de un juego; queda solo en la tablet). Como cuadro fijo y más chica: es una miniatura.
  */
 @Composable
 private fun GameScene(modifier: Modifier) {
     val ctx = LocalContext.current
-    val uri = ThemeState.backgroundUri.takeIf { ThemeState.background == AppBackground.IMAGE }
+    val uri = ThemeState.previewUri
     var bmp by remember(uri) { androidx.compose.runtime.mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
     androidx.compose.runtime.LaunchedEffect(uri) {
         bmp = uri?.let { u ->
@@ -137,8 +142,7 @@ private fun GameScene(modifier: Modifier) {
     Box(modifier) {
         val b = bmp
         if (b != null) androidx.compose.foundation.Image(b, null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
-        // Con el fondo de pantalla de Android (que una app no puede leer): transparente, se ve el de verdad detrás.
-        else if (ThemeState.background != AppBackground.WALLPAPER) GradientBackdrop(isDarkTheme())
+        else GradientBackdrop(true)
     }
 }
 /** Ítems de muestra, como en un juego: barras, juego, recientes, pantalla y Android. */

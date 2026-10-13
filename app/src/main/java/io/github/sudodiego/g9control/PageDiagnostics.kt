@@ -477,6 +477,10 @@ internal fun PanelLookPanel(a: MainActivity) {
         }
         Text(tr("Tema (panel, avisos y guías)", "Theme (panel, notices and guides)"), fontSize = 14.sp)
         ChoiceChips(PanelTone.entries.map { it to it.label }, ThemeState.panelTone) { ThemeState.panelTone = it; Prefs.setPanelTone(a, it) }
+        Text(tr("Mosaicos", "Tiles"), fontSize = 14.sp)
+        ChoiceChips(listOf(false to tr("Nuevos", "New"), true to tr("Clásicos", "Classic")), ThemeState.panelClassic) {
+            ThemeState.panelClassic = it; Prefs.setPanelClassic(a, it)
+        }
         Text(tr("Color (panel, avisos y guías)", "Color (panel, notices and guides)"), fontSize = 14.sp)
         AccentPicker(ThemeState.panelAccent) { ThemeState.panelAccent = it; Prefs.setAccent(a, "panel", it) }
         // Las columnas son de la tarjeta al centro (la lateral tiene 2); el tamaño vale para las dos.
